@@ -44,11 +44,11 @@ g_token_limits = {
     "gemini-1.5-pro": 2097152
 }
 g_rate_limits = {
-    "gpt-4o": (10, 60),
-    "gpt-4o-mini": (10, 60),
-    "gpt-3.5-turbo": (10, 60),
-    "o1": (10, 60),
-    "o1-mini": (10, 60),
+    "gpt-4o": (100, 60),
+    "gpt-4o-mini": (100, 60),
+    "gpt-3.5-turbo": (100, 60),
+    "o1": (100, 60),
+    "o1-mini": (100, 60),
     "gemini-2.0-flash": (15, 60),
     "gemini-1.5-flash": (15, 60),
     "gemini-1.5-flash-8b": (15, 60),
@@ -216,39 +216,38 @@ def call_deepseek(full_prompt, model, api_key, timeout=90):
 
 
 def call_chatgpt(full_prompt, model, openai_key, timeout=90):
-    # Prepare the request payload
+    is_gpt = model.startswith("gpt")
+    messages = [{"role": "user", "content": full_prompt}]
+
     payload = {
         "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a PostgreSQL optimization expert."},
-            {"role": "user", "content": full_prompt}
-        ],
-        "temperature": g_model_temperature  # Add the temperature parameter here
+        "messages": messages
     }
 
-    # Headers for the API request
+    if is_gpt:
+        messages.insert(0, {"role": "system", "content": "You are a PostgreSQL optimization expert."})
+        payload["temperature"] = g_model_temperature
+
     headers = {
         "Authorization": f"Bearer {openai_key}",
         "Content-Type": "application/json"
     }
 
-    # Send the POST request to OpenAI API
     try:
-        response = requests.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers,
-                                 verify=False, timeout=timeout)
-        response.raise_for_status()  # Raise an error for bad status codes
+        response = requests.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers, timeout=timeout)
+        response.raise_for_status()
         response_json = response.json()
 
         if 'choices' in response_json and len(response_json['choices']) > 0:
-            response_text = response_json['choices'][0]['message']['content']
+            return response_json['choices'][0]['message']['content']
         else:
-            logger.warning("No analysis content found in ChatGPT response.")
-            response_text = "No analysis content found in ChatGPT response."
+            logger.warning("No analysis content found in OpenAI response.")
+            return "No analysis content found in OpenAI response."
 
-        return response_text
     except requests.exceptions.Timeout:
         logger.error(f"Timeout error: The request to OpenAI API timed out after {timeout} seconds.")
         return None
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Error communicating with OpenAI API: {e}")
         if hasattr(e, 'response') and e.response is not None:
