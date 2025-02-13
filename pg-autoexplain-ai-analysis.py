@@ -38,6 +38,7 @@ g_token_limits = {
     "gpt-3.5-turbo": 16385,
     "o1": 200000,
     "o1-mini": 128000,
+    "o3-mini": 200000,
     "gemini-2.0-flash": 1048576,
     "gemini-1.5-flash": 1048576,
     "gemini-1.5-flash-8b": 1048576,
@@ -49,6 +50,7 @@ g_rate_limits = {
     "gpt-3.5-turbo": (100, 60),
     "o1": (100, 60),
     "o1-mini": (100, 60),
+    "o3-mini": (100, 60),
     "gemini-2.0-flash": (15, 60),
     "gemini-1.5-flash": (15, 60),
     "gemini-1.5-flash-8b": (15, 60),
@@ -164,7 +166,7 @@ def call_ai_provider(prompt, model, timeout):
         if estimated_tokens > g_model_token_limit:
             return f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
 
-        if model.startswith("gpt") or model.startswith("o1"):
+        if model.startswith("gpt") or model.startswith("o"):
             return call_chatgpt(prompt, model, g_openai_key, timeout)
         elif model.startswith("gemini"):
             return asyncio.run(call_gemini(prompt, model, g_gemini_key, timeout))
