@@ -17,17 +17,6 @@ from ratelimiter import RateLimiter
 __QUERY_NAME_LIMIT = 140
 __DEFAULT_TOKEN_LIMIT = 8192
 __DEFAULT_MODEL_TEMPERATURE = 0.5
-RATE_LIMITS = {
-    "gpt-4o": (10, 60),
-    "gpt-4o-mini": (10, 60),
-    "gpt-3.5-turbo": (10, 60),
-    "o1": (10, 60),
-    "o1-mini": (10, 60),
-    "gemini-2.0-flash-exp": (15, 60),
-    "gemini-1.5-flash": (15, 60),
-    "gemini-1.5-flash-8b": (15, 60),
-    "gemini-1.5-pro": (15, 60)
-}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -54,10 +43,21 @@ g_token_limits = {
     "gemini-1.5-flash-8b": 1048576,
     "gemini-1.5-pro": 2097152
 }
+g_rate_limits = {
+    "gpt-4o": (10, 60),
+    "gpt-4o-mini": (10, 60),
+    "gpt-3.5-turbo": (10, 60),
+    "o1": (10, 60),
+    "o1-mini": (10, 60),
+    "gemini-2.0-flash": (15, 60),
+    "gemini-1.5-flash": (15, 60),
+    "gemini-1.5-flash-8b": (15, 60),
+    "gemini-1.5-pro": (15, 60)
+}
 
 
 def load_prompts(lang):
-    prompts = {}
+    global g_prompts
     current_prompt = None
     current_content = []
     base_path = Path(__file__).parent / 'prompts'
@@ -70,16 +70,18 @@ def load_prompts(lang):
                 line = line.strip()
                 if line.startswith('[') and line.endswith(']'):
                     if current_prompt:
-                        prompts[current_prompt] = '\n'.join(current_content).strip()
+                        g_prompts[current_prompt] = '\n'.join(current_content).strip()
                     current_prompt = line[1:-1]
                     current_content = []
                 else:
                     current_content.append(line)
 
         if current_prompt:
-            prompts[current_prompt] = '\n'.join(current_content).strip()
+            g_prompts[current_prompt] = '\n'.join(current_content).strip()
 
-        return prompts
+        if not g_prompts:
+            logger.error(f"Failed to load prompts for language: {lang}. Exiting.")
+            exit(1)
     except FileNotFoundError:
         logger.error(f"Prompts file not found: {lang_file_path}")
     except Exception as e:
@@ -90,12 +92,21 @@ def load_prompts(lang):
 
 def load_api_keys(file_path='api_keys.txt'):
     keys = {}
+    global g_deepseek_key, g_gemini_key, g_openai_key
+
     try:
         with open(file_path, 'r') as file:
             for line in file:
                 key, value = line.strip().split('=')
                 keys[key] = value
-        return keys
+
+        if keys:
+            g_openai_key = keys.get('openai_key')
+            g_gemini_key = keys.get('gemini_key')
+            g_deepseek_key = keys.get('deepseek_key')
+        else:
+            logger.error("Failed to load API keys. Exiting.")
+            exit(1)
     except FileNotFoundError:
         logger.error(f"API keys file not found: {file_path}")
         return None
@@ -104,10 +115,9 @@ def load_api_keys(file_path='api_keys.txt'):
         return None
 
 
-# Add this function to estimate token count
 def estimate_token_count(text, model="gpt-4"):
     global g_total_input_tokens
-    encoding = tiktoken.encoding_for_model("gpt-4")
+    encoding = tiktoken.encoding_for_model(model)
     token_count = len(encoding.encode(text))
     g_total_input_tokens += token_count
     return token_count
@@ -149,11 +159,10 @@ def call_ai_for_plan_analysis(plan, model, timeout):
 
 def call_ai_provider(prompt, model, timeout):
     with g_limiter :
-        estimated_tokens = estimate_token_count(prompt, model)
+        estimated_tokens = estimate_token_count(prompt)
 
         if estimated_tokens > g_model_token_limit:
-            ai_hints = f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
-            return None
+            return f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
 
         if model.startswith("gpt") or model.startswith("o1"):
             return call_chatgpt(prompt, model, g_openai_key, timeout)
@@ -228,15 +237,15 @@ def call_chatgpt(full_prompt, model, openai_key, timeout=90):
         response = requests.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers,
                                  verify=False, timeout=timeout)
         response.raise_for_status()  # Raise an error for bad status codes
-        responseJson = response.json()
+        response_json = response.json()
 
-        if 'choices' in responseJson and len(responseJson['choices']) > 0:
-            responseText = responseJson['choices'][0]['message']['content']
+        if 'choices' in response_json and len(response_json['choices']) > 0:
+            response_text = response_json['choices'][0]['message']['content']
         else:
             logger.warning("No analysis content found in ChatGPT response.")
-            responseText = "No analysis content found in ChatGPT response."
+            response_text = "No analysis content found in ChatGPT response."
 
-        return responseText
+        return response_text
     except requests.exceptions.Timeout:
         logger.error(f"Timeout error: The request to OpenAI API timed out after {timeout} seconds.")
         return None
@@ -393,8 +402,8 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_occu
     content += "</tbody> </table> </div></div>"
     content += f"{frequent_hints_analysis}"
 
-    html = html_template.format(content=content, model=model)
-    Path(output_path).write_text(html, encoding="utf-8")
+    actual_html = html_template.format(content=content, model=model)
+    Path(output_path).write_text(actual_html, encoding="utf-8")
 
 
 def hash_five_characters(value):
@@ -452,7 +461,7 @@ def parse_cli_arguments():
     return parser.parse_args()
 
 
-def process_log_file(log_file_path, model, max_ai_calls, timeout):
+def process_log_file(log_file_path, model, max_ai_calls, timeout, output_report):
     reports, days, query_occurrences, query_codes = [], defaultdict(list), {}, {}
     ai_call_count = 1
 
@@ -480,7 +489,11 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                 if max_ai_calls != -1 and ai_call_count > max_ai_calls:
                     break
 
-    return reports, days, query_occurrences, query_codes
+    analysis = call_ai_for_final_analysis(reports, model, timeout)
+
+    generate_html_report(output_report, analysis, model, query_occurrences, days, query_codes)
+
+    logger.info(f"Total input tokens processed: {g_total_input_tokens}")
 
 
 def extract_plan_lines(file, first_line):
@@ -520,49 +533,34 @@ def process_parsed_result(parsed_result, model, timeout):
 
 def main():
     args = parse_cli_arguments()
+    global g_model_token_limit, g_model_temperature, g_limiter
 
-    logger.info(f"Processing PostgreSQL log file {args.log_filename}")
-    logger.info(f"Using model: {args.model}")
-    logger.info(f"Maximum AI calls: {args.max_ai_calls if args.max_ai_calls != -1 else 'Unlimited'}")
-    logger.info(f"AI API call timeout: {args.timeout} seconds")
-    logger.info(f"Language: {args.lang}")
-    logger.info(f"Output report: {args.log_filename}_report.html")
-    logger.info(f"Model temperature : {args.temperature}")
+    log_filename = args.log_filename
+    model = args.model
+    max_ai_calls = args.max_ai_calls
+    timeout = args.timeout
+    lang = args.lang
+    temperature = args.temperature
+    output_report = f"{log_filename}_report.html"
+    calls, period = g_rate_limits.get(model, (10, 60))  # Default to 10 calls per minute if model not found
 
-    global g_prompts,  g_model_token_limit, g_model_temperature,  g_openai_key, g_gemini_key, g_deepseek_key, g_calls, g_period, g_limiter
+    logger.info(f"Processing PostgreSQL log file {log_filename}")
+    logger.info(f"Using model: {model}")
+    logger.info(f"Maximum AI calls: {max_ai_calls if max_ai_calls != -1 else 'Unlimited'}")
+    logger.info(f"AI API call timeout: {timeout} seconds")
+    logger.info(f"Language: {lang}")
+    logger.info(f"Output report: {output_report}")
+    logger.info(f"Model temperature: {temperature}")
+    logger.info(f"Limit AI calls to {calls} per minute (TPM)")
 
-    g_prompts = load_prompts(args.lang)
+    load_prompts(lang)
+    load_api_keys()
 
-    if not g_prompts:
-        logger.error(f"Failed to load prompts for language: {args.lang}. Exiting.")
-        exit(1)
+    g_model_token_limit = g_token_limits.get(model, __DEFAULT_TOKEN_LIMIT)
+    g_model_temperature = temperature
+    g_limiter = RateLimiter(max_calls=calls, period=period)
 
-    api_keys = load_api_keys()
-
-    if api_keys:
-        g_openai_key = api_keys.get('openai_key')
-        g_gemini_key = api_keys.get('gemini_key')
-        g_deepseek_key = api_keys.get('deepseek_key')
-    else:
-        logger.error("Failed to load API keys. Exiting.")
-        exit(1)
-
-    g_model_token_limit = g_token_limits.get(args.model, __DEFAULT_TOKEN_LIMIT)
-    g_model_temperature = args.temperature
-    g_calls, g_period = RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
-    logger.info(f"Limit AI calls to {g_calls} per {g_period} seconds")
-    g_limiter = RateLimiter(max_calls=g_calls, period=g_period)
-
-    reports, days, query_occurrences, query_codes = process_log_file(
-        args.log_filename, args.model, args.max_ai_calls, args.timeout
-    )
-
-    analysis = call_ai_for_final_analysis(reports, args.model, args.timeout)
-
-    generate_html_report(f"{args.log_filename}_report.html", analysis, args.model, query_occurrences, days,
-                         query_codes)
-
-    logger.info(f"Total input tokens processed: {g_total_input_tokens}")
+    process_log_file(log_filename, model, max_ai_calls, timeout, output_report)
 
 
 if __name__ == "__main__":
