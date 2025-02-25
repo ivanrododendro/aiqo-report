@@ -21,10 +21,12 @@ __DEFAULT_MODEL_TEMPERATURE = 0.5
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+g_skip_ai_analysis = False
 g_model_temperature = __DEFAULT_MODEL_TEMPERATURE
 g_model_token_limit = __DEFAULT_TOKEN_LIMIT
 g_openai_key = None
 g_gemini_key = None
+g_deepseek_key = None
 g_prompts = {}
 g_total_input_tokens = 0
 g_token_limits = {
@@ -132,6 +134,7 @@ def call_ai_for_plan_analysis(plan, model, timeout):
 
 
 def call_ai_provider(prompt, model, timeout):
+    logger.info("Calling AI Model for plan analysis...")
     estimated_tokens = estimate_token_count(prompt, model)
 
     if estimated_tokens > g_model_token_limit:
@@ -142,6 +145,8 @@ def call_ai_provider(prompt, model, timeout):
         return call_chatgpt(prompt, model, g_openai_key, timeout)
     elif model.startswith("gemini"):
         return asyncio.run(call_gemini(prompt, model, g_gemini_key, timeout))
+    elif model.startswith("deepseek"):
+        return call_deepseek(prompt, model, g_deepseek_key, timeout, g_model_temperature)
     else:
         logger.error(f"Unsupported model: {model}")
         return None
@@ -185,6 +190,45 @@ def call_chatgpt(full_prompt, model, openai_key, timeout=90):
         logger.error(f"Error communicating with OpenAI API: {e}")
         if hasattr(e, 'response') and e.response is not None:
             logger.error(f"Response content: {e.response.text}")
+        return None
+
+
+def call_deepseek(full_prompt, model, api_key, timeout=90, temperature=0.5):
+    # Prepare the request payload
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "You are a PostgreSQL optimization expert."},
+            {"role": "user", "content": full_prompt}
+        ],
+        "temperature": temperature
+    }
+
+    # Headers for the API request
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    # Send the POST request to Deepseek AI API
+    try:
+        response = requests.post("https://api.deepseek.com/v1/chat/completions", json=payload, headers=headers,
+                                 verify=False, timeout=timeout)
+        response.raise_for_status()  # Raise an error for bad status codes
+        response_json = response.json()
+
+        if 'choices' in response_json and len(response_json['choices']) > 0:
+            return response_json['choices'][0]['message']['content']
+        else:
+            logging.warning("No analysis content found in Deepseek response.")
+            return "No analysis content found in Deepseek response."
+    except requests.exceptions.Timeout:
+        logging.error(f"Timeout error: The request to Deepseek API timed out after {timeout} seconds.")
+        return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error communicating with Deepseek API: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logging.error(f"Response content: {e.response.text}")
         return None
 
 
@@ -390,6 +434,8 @@ def parse_cli_arguments():
                         help="Language for prompts and output (default: fr)")
     parser.add_argument("-p", "--temperature", type=float, default=__DEFAULT_MODEL_TEMPERATURE,
                         help="Temperature for the AI model (default: 0.5)")
+    parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
+                        help="Skips the AI analysis and only generates the HTML report (default: false)")
     return parser.parse_args()
 
 
@@ -403,8 +449,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                 plan_lines = extract_plan_lines(f, line)
                 parsed_result = parse_log_entry("".join(plan_lines))
 
-                logger.info(
-                    f"Sending plan to AI ({model}) for analysis for query at line {line_number} (call #{ai_call_count})")
+                logger.info(f"Analyzing query at line {line_number}")
 
                 report = process_parsed_result(parsed_result, model, timeout)
 
@@ -418,7 +463,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                     query_occurrences[query_name] = query_occurrences.get(query_name, 0) + 1
                     query_codes[query_name] = report["code"]
 
-                if max_ai_calls != -1 and ai_call_count > max_ai_calls:
+                if not g_skip_ai_analysis and (max_ai_calls != -1 and ai_call_count > max_ai_calls):
                     break
 
     return reports, days, query_occurrences, query_codes
@@ -441,8 +486,10 @@ def process_parsed_result(parsed_result, model, timeout):
     day = timestamp[:10]
     query_code = hash_five_characters(query_name)
     query = html.escape(parsed_result["query_text"])
+    ai_hints = ""
 
-    ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
+    if not g_skip_ai_analysis:
+        ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
 
     report = {
         "title": title,
@@ -462,15 +509,20 @@ def process_parsed_result(parsed_result, model, timeout):
 def main():
     args = parse_cli_arguments()
 
-    logger.info(f"Processing PostgreSQL log file {args.log_filename}")
-    logger.info(f"Using model: {args.model}")
-    logger.info(f"Maximum AI calls: {args.max_ai_calls if args.max_ai_calls != -1 else 'Unlimited'}")
-    logger.info(f"AI API call timeout: {args.timeout} seconds")
-    logger.info(f"Language: {args.lang}")
-    logger.info(f"Output report: {args.log_filename}_report.html")
-    logger.info(f"Model temperature : {args.temperature}")
+    global g_prompts, g_model_token_limit, g_model_temperature, g_openai_key, g_gemini_key, g_deepseek_key, g_skip_ai_analysis
 
-    global g_prompts,  g_model_token_limit, g_model_temperature,  g_openai_key, g_gemini_key
+    logger.info(f"Processing PostgreSQL log file {args.log_filename}")
+    logger.info(f"Output report: {args.log_filename}_report.html")
+
+    if args.skip_ai_analysis:
+        logger.info("Skipping AI Analysis")
+        g_skip_ai_analysis = True
+    else:
+        logger.info(f"Using model: {args.model}")
+        logger.info(f"Maximum AI calls: {args.max_ai_calls if args.max_ai_calls != -1 else 'Unlimited'}")
+        logger.info(f"AI API call timeout: {args.timeout} seconds")
+        logger.info(f"Language: {args.lang}")
+        logger.info(f"Model temperature : {args.temperature}")
 
     g_prompts = load_prompts(args.lang)
 
@@ -483,6 +535,7 @@ def main():
     if api_keys:
         g_openai_key = api_keys.get('openai_key')
         g_gemini_key = api_keys.get('gemini_key')
+        g_deepseek_key = api_keys.get('deepseek_key')
     else:
         logger.error("Failed to load API keys. Exiting.")
         exit(1)
@@ -494,7 +547,10 @@ def main():
         args.log_filename, args.model, args.max_ai_calls, args.timeout
     )
 
-    analysis = call_ai_for_final_analysis(reports, args.model, args.timeout)
+    if not g_skip_ai_analysis:
+        analysis = call_ai_for_final_analysis(reports, args.model, args.timeout)
+    else:
+        analysis = ""
 
     generate_html_report(f"{args.log_filename}_report.html", analysis, args.model, query_occurrences, days,
                          query_codes)
