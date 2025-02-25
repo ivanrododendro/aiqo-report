@@ -5,13 +5,14 @@ from pathlib import Path
 import html
 import requests
 import tiktoken
-import re
 import logging
 import google.generativeai as genai
 import asyncio
 import hashlib
 from collections import defaultdict
 import argparse
+import sqlparse
+import re
 
 __QUERY_NAME_LIMIT = 140
 __DEFAULT_TOKEN_LIMIT = 8192
@@ -41,6 +42,15 @@ g_token_limits = {
     "gemini-1.5-pro": 2097152
 }
 
+def normalize_sql(sql):
+    # Formater le SQL avec sqlparse
+    formatted_sql = sqlparse.format(sql, strip_comments=True, reindent=True, strip_whitespace=True)
+
+    # Remplacer les constantes numériques et les chaînes de caractères par '?'
+    formatted_sql = re.sub(r'\b\d+\b', '?', formatted_sql)  # Nombres
+    formatted_sql = re.sub(r"'[^']*'", '?', formatted_sql)  # Chaînes de caractères
+
+    return formatted_sql
 
 def load_prompts(lang):
     prompts = {}
@@ -281,9 +291,8 @@ def parse_log_entry(log_entry):
         "execution_plan": "\n".join(plan_lines).strip()
     }
 
-
 # Function to generate an HTML report
-def generate_html_report(output_path, frequent_hints_analysis, model, query_occurrences, days, query_codes):
+def generate_html_report(output_path, frequent_hints_analysis, model, query_count_by_code, reports_by_day, query_names_by_code):
     logger.info(f"Generating HTML report in {output_path}")
     """
     Generates an HTML report based on the provided analysis reports.
@@ -318,7 +327,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_occu
     </html>
     """
     content = ""
-    sorted_days = sorted(days.keys())
+    sorted_days = sorted(reports_by_day.keys())
 
     for day in sorted_days:
         content += f"""
@@ -329,12 +338,12 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_occu
             <div class="card card-body">
         """
 
-        for i, report in enumerate(days[day]):
+        for i, report in enumerate(reports_by_day[day]):
             # Generate unique IDs for each Vue app instance
             app_id = f"app-{day}-{i}"
             content += f"""
             <a data-toggle="collapse" href="#collapseExample-{app_id}" role="button" aria-expanded="false" aria-controls="collapseExample-{app_id}">
-            <h5>{report['query_timestamp']} : {report['title']} ({report['code']})</h5>
+            <h5>{report['query_timestamp']} : {report['title']} ({report['code'][:6]})</h5>
             </a>
             <div class="collapse" id="collapseExample-{app_id}">
             <div class="card card-body">
@@ -372,8 +381,9 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_occu
                 </thead>
                 <tbody>
                 """
-    for (query_name, count) in query_occurrences.items():
-        content += f"<tr scope='row'><td>{query_name[:__QUERY_NAME_LIMIT]} ({query_codes[query_name]})</td><td>{count}</td></tr>"
+
+    for (query_code, count) in query_count_by_code.items():
+        content += f"<tr scope='row'><td>{query_names_by_code[query_code][:__QUERY_NAME_LIMIT]} ({query_code[:6]})</td><td>{count}</td></tr>"
 
     content += "</tbody> </table> </div></div>"
     content += f"{frequent_hints_analysis}"
@@ -382,29 +392,10 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_occu
     Path(output_path).write_text(html, encoding="utf-8")
 
 
-def hash_five_characters(value):
-    """
-    Generates a unique and consistent 5-character hash for a given value.
-
-    :param value: The value to hash (string or number).
-    :return: A 5-character hash string.
-    """
-    # Convert the value to a string and encode it
-    value_str = str(value).encode('utf-8')
-
-    # Generate a stable hash using SHA-256
-    hash_object = hashlib.sha256(value_str)
-
-    # Convert the hash to base36 (numbers and uppercase letters)
-    base36 = ""
-    alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    hash_value = int(hash_object.hexdigest(), 16)  # Convert hex to int
-    while hash_value > 0:
-        hash_value, remainder = divmod(hash_value, 36)
-        base36 = alphabet[remainder] + base36
-
-    # Ensure the hash is exactly 5 characters long
-    return base36[:5].zfill(5)  # Pad with leading zeros if necessary
+def get_query_code(query):
+    normalized_query = normalize_sql(query)
+    value_str = str(normalized_query).encode('utf-8')
+    return hashlib.sha256(value_str).hexdigest().upper()
 
 
 def call_ai_for_final_analysis(reports, model, timeout):
@@ -440,7 +431,7 @@ def parse_cli_arguments():
 
 
 def process_log_file(log_file_path, model, max_ai_calls, timeout):
-    reports, days, query_occurrences, query_codes = [], defaultdict(list), {}, {}
+    reports, reports_by_day, query_count_by_code, query_names_by_code = [], defaultdict(list), {}, {}
     ai_call_count = 1
 
     with open(log_file_path, 'r', encoding='utf-8') as f:
@@ -457,16 +448,17 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                     ai_call_count += 1
 
                 if report:
-                    query_name = report["query_name"]
                     reports.append(report)
-                    days[report["day"]].append(report)
-                    query_occurrences[query_name] = query_occurrences.get(query_name, 0) + 1
-                    query_codes[query_name] = report["code"]
+
+                    query_code = report["code"]
+                    reports_by_day[report["day"]].append(report)
+                    query_count_by_code[query_code] = query_count_by_code.get(query_code, 0) + 1
+                    query_names_by_code[query_code] = report["query_name"]
 
                 if not g_skip_ai_analysis and (max_ai_calls != -1 and ai_call_count > max_ai_calls):
                     break
 
-    return reports, days, query_occurrences, query_codes
+    return reports, reports_by_day, query_count_by_code, query_names_by_code
 
 
 def extract_plan_lines(file, first_line):
@@ -484,7 +476,7 @@ def process_parsed_result(parsed_result, model, timeout):
     execution_plan = parsed_result["execution_plan"]
     timestamp = parsed_result["timestamp"]
     day = timestamp[:10]
-    query_code = hash_five_characters(query_name)
+    query_code = get_query_code(parsed_result["query_text"])
     query = html.escape(parsed_result["query_text"])
     ai_hints = ""
 
