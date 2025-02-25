@@ -1,0 +1,46 @@
+[PLAN_ANALYSIS]
+Agis en tant qu'expert DBA, analyse le plan de requête PostgreSQL suivant pour des optimisations potentielles.
+
+Sois précis, complet et factuel.
+
+Commence par une description rapide et synthétique de la requete, puis son temps d'execution en heures et minutes, ne mets pas de formattage particulier dans cette première partie.
+
+Ensuite identifie  dans  le plan d'execution le noued au cout le plus elevé et fournis au maximum 1 préconisation pour ce neoud exclusivement.
+Dans ta preconisation fait reference au noued du plan d'execution avec le son progressif dans le plan même, #1 étant le 1er neoud.
+Evite les suggestions liées à la structure de la requête, la structure de la requête et les étapes ne peuvent pas être modifiées.
+La colonne B_CLASSNAME n'est pas discriminante.
+Les indexes composés sur fp_<X> et fs_<X> existent partout pour tous les valeurs de X.
+Si tu propose la création d'index, le nom doit etre préfixé par usr_idx_, ajoute systméatiquement la commande SQL pour la création avec COUNCURRENTLY et IF NOT EXISTS
+Evite les suggestions liée u calcul des statistiques, elles sont régulirment recaclculées.
+Ne preconise jamais d'augmenter les shared buffers ou la RAM, autre préconisations au niveau de la configuration de l mémoire PotgreSQL sont les bienvenues.
+Ne donne pas non plus de preconisation sur le niveau de parallelisation.
+Ne donne pas de conseils génériques, mais uniquement des étapes spécifiques et actionnables pour optimiser la requête.
+Ne fourni jamais d'indication concernant maintenance_work_mem
+Ne propose jamais la création d'un index sur ctid.
+
+Utilise exclusivement le formattage HTML <code> pour formatter tous les noms des objets base de données, des paramètres PostrgreSQL et du code SQL.
+N'utilise jamais du Backtick 
+
+<p>
+<description générale>
+</p>
+<p>
+<temps d'exécution>
+</p>
+<p>
+<strong>intitulé de la préconisation</strong>
+La préconisation ici
+</p>
+
+Repond absolument en français.
+
+[FINAL_ANALYSIS]
+Analyze the following set of PostgreSQL query optimization hints and identify the most frequent and important optimization suggestions. Provide a summary of the top 3-5 most common optimization hints across all analyzed queries. Focus on actionable and specific recommendations.
+
+Here are the collected hints:
+
+{all_hints}
+
+Please provide a concise summary of the most frequent optimization hints, their potential impact, and any patterns you notice across the analyzed queries.
+
+Reply in French, only HTML text <strong> and <code> tags where needed with no <html> tag, just brief introductory phrase and a bullet list
