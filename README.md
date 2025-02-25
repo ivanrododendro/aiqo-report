@@ -22,7 +22,7 @@ This tool analyzes PostgreSQL auto_explain log files using AI (OpenAI GPT or Goo
 ### Python Dependencies
 
 ```bash
-pip install requests tiktoken google-generativeai asyncio logging hashlib collections argparse
+pip install requests tiktoken google-generativeai asyncio logging hashlib collections argparse ratelimit 
 ```
 
 ### API Keys
