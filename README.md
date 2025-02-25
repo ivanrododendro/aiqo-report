@@ -22,7 +22,7 @@ This tool analyzes PostgreSQL auto_explain log files using AI (OpenAI GPT or Goo
 ### Python Dependencies
 
 ```bash
-pip install requests tiktoken google-generativeai asyncio logging hashlib
+pip install requests tiktoken google-generativeai asyncio logging hashlib collections argparse
 ```
 
 ### API Keys
@@ -34,13 +34,13 @@ You need to set up API keys for either:
 ### PostgreSQL Configuration
 
 Your PostgreSQL instance must be configured with auto_explain to generate execution plans in the log files.
-Settings must be logged in order for the script to identify the end of th plan.
+Settings must be logged in order for the script to identify the end of the plan.
 
 ## Configuration Files
 
-### prompts.txt
+### prompts_*.txt
 
-This file contains the prompts used for AI analysis. It should include the following prompts:
+Those file contain the prompts used for AI analysis. It should include the following prompts:
 
 - `PLAN_ANALYSIS`: The main prompt for analyzing execution plans.
 - `FINAL_ANALYSIS`: The prompt for the final analysis

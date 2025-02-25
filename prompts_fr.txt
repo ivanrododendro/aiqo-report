@@ -1,46 +1,54 @@
 [PLAN_ANALYSIS]
-Agis en tant qu'expert DBA, analyse le plan de requête PostgreSQL suivant pour des optimisations potentielles.
+Agis en tant qu’expert DBA. Analyse le plan de requête PostgreSQL suivant pour des optimisations potentielles.
 
-Sois précis, complet et factuel.
+Structure de ta réponse :
+	1.	Description de la requête : Fournis une description synthétique des principales caractéristiques de la requête (tables impliquées, types de jointures, colonnes importantes, etc.).
+	2.	Temps d’exécution : Indique son temps d’exécution estimé en heures et minutes, sans formatage particulier.
+	3.	Analyse et recommandation :
+        •	Identifie le nœud du plan d’exécution avec le coût le plus élevé (fais-y reference avec le nom que cela porte dans le plan)
+        •	Propose une seule préconisation ciblée pour ce nœud, qui respecte les contraintes suivantes :
+        •   Explique les pas qui t'amènent à proposer la préconisation
+        •	Pas de modification de la structure de la requête (types de jointures, etc.).
+        •	La colonne B_CLASSNAME n’est pas discriminante, elle contient la même valeur toujours.
+        •	N’utilise pas des préconisations génériques liées à la mémoire, à la parallélisation ou aux statistiques, car elles sont déjà optimisées.
+        •	Si tu proposes un index, son nom doit être préfixé par usr_.
+        •   Les indexes sur les colonnes fp_<X> et fs_<X> existent déjà pour toutes les valeurs de X
+        •Les indexes sur b_loadid existent déjà
 
-Commence par une description rapide et synthétique de la requete, puis son temps d'execution en heures et minutes, ne mets pas de formattage particulier dans cette première partie.
-
-Ensuite identifie  dans  le plan d'execution le noued au cout le plus elevé et fournis au maximum 1 préconisation pour ce neoud exclusivement.
-Dans ta preconisation fait reference au noued du plan d'execution avec le son progressif dans le plan même, #1 étant le 1er neoud.
-Evite les suggestions liées à la structure de la requête, la structure de la requête et les étapes ne peuvent pas être modifiées.
-La colonne B_CLASSNAME n'est pas discriminante.
-Les indexes composés sur fp_<X> et fs_<X> existent partout pour tous les valeurs de X.
-Si tu propose la création d'index, le nom doit etre préfixé par usr_idx_, ajoute systméatiquement la commande SQL pour la création avec COUNCURRENTLY et IF NOT EXISTS
-Evite les suggestions liée u calcul des statistiques, elles sont régulirment recaclculées.
-Ne preconise jamais d'augmenter les shared buffers ou la RAM, autre préconisations au niveau de la configuration de l mémoire PotgreSQL sont les bienvenues.
-Ne donne pas non plus de preconisation sur le niveau de parallelisation.
-Ne donne pas de conseils génériques, mais uniquement des étapes spécifiques et actionnables pour optimiser la requête.
-Ne fourni jamais d'indication concernant maintenance_work_mem
-Ne propose jamais la création d'un index sur ctid.
-
-Utilise exclusivement le formattage HTML <code> pour formatter tous les noms des objets base de données, des paramètres PostrgreSQL et du code SQL.
-N'utilise jamais du Backtick 
+Format attendu :
+	•	Utilise des balises <code> pour tous les noms d’objets de base de données, paramètres PostgreSQL et extraits de code SQL.
+	•	Eglobe les paramètres PostgreSQL cités dans une balise <a href="https://postgresqlco.nf/doc/fr/param/work_mem/"> avec un lien vers la documentation PostgreSQLco.nf, par exemple <a>work_mem</a>
 
 <p>
-<description générale>
+<strong>Description : </strong> Description rapide et synthétique de la requête.
 </p>
 <p>
-<temps d'exécution>
+<strong>Temps d'exécution : </strong>[X heures Y minutes].
 </p>
 <p>
-<strong>intitulé de la préconisation</strong>
-La préconisation ici
+<strong>Mets l'intitulé de la préconisation ici</strong>
+preconisation détaillée et actionnable, avec une justification concise.
 </p>
-
-Repond absolument en français.
 
 [FINAL_ANALYSIS]
-Analyze the following set of PostgreSQL query optimization hints and identify the most frequent and important optimization suggestions. Provide a summary of the top 3-5 most common optimization hints across all analyzed queries. Focus on actionable and specific recommendations.
+Analyse les optimisations suivantes pour les requêtes PostgreSQL et identifie les suggestions les plus fréquentes et importantes. Fournis un résumé des 3 à 5 optimisations les plus courantes parmi toutes les requêtes analysées. Concentre-toi sur des recommandations spécifiques et actionnables.
 
-Here are the collected hints:
+Voici les optimisations collectées :
 
 {all_hints}
 
-Please provide a concise summary of the most frequent optimization hints, their potential impact, and any patterns you notice across the analyzed queries.
+Structure attendue :
+	1.	Fournir un résumé concis des optimisations les plus fréquentes.
+	2.	Détailler leur impact potentiel sur les performances.
+	3.	Identifier tout modèle ou tendance visible à travers les requêtes analysées.
 
-Reply in French, only HTML text <strong> and <code> tags where needed with no <html> tag, just brief introductory phrase and a bullet list
+Format attendu en réponse :
+	•	Une brève phrase introductive.
+	•	Une liste à puces en HTML, avec des éléments de résumé concis.
+
+Exemple de réponse au format HTML :
+
+<p>
+Voici un résumé des optimisations les plus fréquentes identifiées :
+Synthèse des optimisations rencontrées, entre 3 et 5
+</p>
