@@ -326,35 +326,36 @@ def parse_log_entry(log_entry):
 def generate_html_report(output_path, frequent_hints_analysis, model, query_count_by_code, reports_by_day,
                          query_names_by_code):
     logger.info(f"Generating HTML report in {output_path}")
-    """
-    Generates an HTML report based on the provided analysis reports.
 
-    Parameters:
-    - reports (list): A list of dictionaries containing title, ChatGPT hints, and execution plans.
-    - output_path (str): The path to save the generated HTML file.
-    """
-    html_template = """
+    if g_skip_ai_analysis:
+        title = "PostgreSQL Auto Explain Report"
+    else:
+        title = f"PostgreSQL Auto Explain AI ({model}) Report"
+
+    html_template = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PostgreSQL Auto Explain AI ({model}) Report</title>
+    <title>{title}</title>
     <script src="https://unpkg.com/vue@3.2.45/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/pev2/dist/pev2.umd.js"></script>
     <link href="https://unpkg.com/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://unpkg.com/pev2/dist/style.css" />
+    <style>.icon {{{{color: red !important;}}}}</style>
     </head>
     <body class="container-fluid">
         <script>
-            const {{ createApp }} = Vue;
+            const {{{{ createApp }}}} = Vue;
         </script>
-        <h1 class="mb-4">PostgreSQL Auto Explain AI ({model}) Report</h1>
+        <h1 class="mb-4">{title}</h1>
         <h2>Requêtes</h2>
-        {content}
+        {{content}}
     </body>
     </html>
     """
@@ -374,8 +375,15 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
             # Generate unique IDs for each Vue app instance
             app_id = f"app-{day}-{i}"
             content += f"""
-            <a data-toggle="collapse" href="#collapseExample-{app_id}" role="button" aria-expanded="false" aria-controls="collapseExample-{app_id}">
-            <h5>{report['query_timestamp']} : {report['title']} ({report['code'][:6]})</h5>
+                <a data-toggle="collapse" href="#collapseExample-{app_id}" role="button" aria-expanded="false" aria-controls="collapseExample-{app_id}">
+                <h5>{report['query_timestamp']} : {report['title']} ({report['code'][:6]})
+            """
+
+            if (report['seq_scan_indicator']):
+                content += """ <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>"""
+
+            content += f"""
+            </h5>
             </a>
             <div class="collapse" id="collapseExample-{app_id}">
             <div class="card card-body">
@@ -512,6 +520,7 @@ def process_parsed_result(parsed_result, model, timeout):
     query_code = get_query_code(parsed_result["query_text"])
     query = html.escape(parsed_result["query_text"])
     ai_hints = ""
+    seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
 
     if not g_skip_ai_analysis:
         ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
@@ -525,7 +534,8 @@ def process_parsed_result(parsed_result, model, timeout):
         "query_name": query_name,
         "job_name": parsed_result["job_name"],
         "code": query_code,
-        "day": day
+        "day": day,
+        "seq_scan_indicator": seq_scan_indicator
     }
 
     return report
