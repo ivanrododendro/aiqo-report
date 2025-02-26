@@ -326,20 +326,19 @@ def parse_log_entry(log_entry):
 def generate_html_report(output_path, frequent_hints_analysis, model, query_count_by_code, reports_by_day,
                          query_names_by_code):
     logger.info(f"Generating HTML report in {output_path}")
-    """
-    Generates an HTML report based on the provided analysis reports.
 
-    Parameters:
-    - reports (list): A list of dictionaries containing title, ChatGPT hints, and execution plans.
-    - output_path (str): The path to save the generated HTML file.
-    """
-    html_template = """
+    if g_skip_ai_analysis:
+        title = "PostgreSQL Auto Explain Report"
+    else:
+        title = f"PostgreSQL Auto Explain AI ({model}) Report"
+
+    html_template = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PostgreSQL Auto Explain AI ({model}) Report</title>
+    <title>{title}</title>
     <script src="https://unpkg.com/vue@3.2.45/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/pev2/dist/pev2.umd.js"></script>
     <link href="https://unpkg.com/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
@@ -348,15 +347,15 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://unpkg.com/pev2/dist/style.css" />
-    <style>.icon {{color: red !important;}}</style>
+    <style>.icon {{{{color: red !important;}}}}</style>
     </head>
     <body class="container-fluid">
         <script>
-            const {{ createApp }} = Vue;
+            const {{{{ createApp }}}} = Vue;
         </script>
-        <h1 class="mb-4">PostgreSQL Auto Explain AI ({model}) Report</h1>
+        <h1 class="mb-4">{title}</h1>
         <h2>Requêtes</h2>
-        {content}
+        {{content}}
     </body>
     </html>
     """
