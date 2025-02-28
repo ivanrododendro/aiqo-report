@@ -55,6 +55,8 @@ g_token_limits = {
     "gemini-1.5-flash-8b": 1048576,
     "gemini-1.5-pro": 2097152
 }
+g_ai_count = 0
+g_ai_only_for_seq_scan = False
 
 
 def normalize_sql(sql):
@@ -467,13 +469,14 @@ def parse_cli_arguments():
                         help="Temperature for the AI model (default: 0.5)")
     parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
                         help="Skips the AI analysis and only generates the HTML report (default: false)")
+    parser.add_argument("-o", "--ai_only_for_seq_scan", action="store_true",
+                        help="Enables AI Analysis only for queries with Seq Scan (default: false)")
 
     return parser.parse_args()
 
 
 def process_log_file(log_file_path, model, max_ai_calls, timeout):
     reports, reports_by_day, query_count_by_code, query_names_by_code = [], defaultdict(list), {}, {}
-    ai_call_count = 1
 
     with open(log_file_path, 'r', encoding='utf-8') as f:
         for line_number, line in enumerate(f, 1):
@@ -483,10 +486,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
 
                 logger.info(f"Analyzing query at line {line_number}")
 
-                report = process_parsed_result(parsed_result, model, timeout)
-
-                if report is not None:
-                    ai_call_count += 1
+                report = process_parsed_result(parsed_result, model, timeout, max_ai_calls)
 
                 if report:
                     reports.append(report)
@@ -495,9 +495,6 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                     reports_by_day[report["day"]].append(report)
                     query_count_by_code[query_code] = query_count_by_code.get(query_code, 0) + 1
                     query_names_by_code[query_code] = report["query_name"]
-
-                if not g_skip_ai_analysis and (max_ai_calls != -1 and ai_call_count > max_ai_calls):
-                    break
 
     return reports, reports_by_day, query_count_by_code, query_names_by_code
 
@@ -511,7 +508,9 @@ def extract_plan_lines(file, first_line):
     return plan_lines
 
 
-def process_parsed_result(parsed_result, model, timeout):
+def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
+    global g_ai_count
+
     query_name = parsed_result["query_name"]
     title = parsed_result["job_name"] + query_name
     execution_plan = parsed_result["execution_plan"]
@@ -523,7 +522,16 @@ def process_parsed_result(parsed_result, model, timeout):
     seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
 
     if not g_skip_ai_analysis:
-        ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
+        if g_ai_count <= max_ai_calls:
+            if (g_ai_only_for_seq_scan and seq_scan_indicator) or not g_ai_only_for_seq_scan:
+                ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
+                g_ai_count += 1
+            else:
+                logger.info("Skipping AI analysis for query without Seq Scan")
+        else:
+            logger.warning(f"AI call limit reached. Skipping AI analysis for query")
+    else:
+        logger.debug("Skipping AI analysis")
 
     report = {
         "title": title,
@@ -544,7 +552,7 @@ def process_parsed_result(parsed_result, model, timeout):
 def main():
     args = parse_cli_arguments()
 
-    global g_prompts, g_model_token_limit, g_model_temperature, g_openai_key, g_gemini_key, g_deepseek_key, g_skip_ai_analysis, g_calls, g_period
+    global g_prompts, g_model_token_limit, g_model_temperature, g_openai_key, g_gemini_key, g_deepseek_key, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
 
     logger.info(f"Processing PostgreSQL log file {args.log_filename}")
     logger.info(f"Output report: {args.log_filename}_report.html")
@@ -558,6 +566,7 @@ def main():
         logger.info(f"AI API call timeout: {args.timeout} seconds")
         logger.info(f"Language: {args.lang}")
         logger.info(f"Model temperature : {args.temperature}")
+        logger.info(f"AI Analysis only for Seq Scan queries : {args.ai_only_for_seq_scan}")
 
     g_calls, g_period = RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
@@ -569,12 +578,13 @@ def main():
 
     load_api_keys()
 
+    g_model_token_limit = g_token_limits.get(args.model, __DEFAULT_TOKEN_LIMIT)
+    g_model_temperature = args.temperature
+    g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
+
     reports, days, query_occurrences, query_codes = process_log_file(
         args.log_filename, args.model, args.max_ai_calls, args.timeout
     )
-
-    g_model_token_limit = g_token_limits.get(args.model, __DEFAULT_TOKEN_LIMIT)
-    g_model_temperature = args.temperature
 
     if not g_skip_ai_analysis:
         analysis = call_ai_for_final_analysis(reports, args.model, args.timeout)
