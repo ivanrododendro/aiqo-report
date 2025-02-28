@@ -15,9 +15,9 @@ import sqlparse
 import tiktoken
 from ratelimit import limits, sleep_and_retry
 
-__QUERY_NAME_LIMIT = 140
-__DEFAULT_TOKEN_LIMIT = 8192
-__DEFAULT_MODEL_TEMPERATURE = 0.5
+QUERY_NAME_LIMIT = 140
+DEFAULT_TOKEN_LIMIT = 8192
+DEFAULT_MODEL_TEMPERATURE = 0.5
 RATE_LIMITS = {
     "gpt-4o": (10, 60),
     "gpt-4o-mini": (10, 60),
@@ -29,22 +29,7 @@ RATE_LIMITS = {
     "gemini-1.5-flash-8b": (15, 60),
     "gemini-1.5-pro": (15, 60)
 }
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-g_calls = 10
-g_period = 60
-g_skip_ai_analysis = False
-g_model_temperature = __DEFAULT_MODEL_TEMPERATURE
-g_model_token_limit = __DEFAULT_TOKEN_LIMIT
-g_openai_key = None
-g_gemini_key = None
-g_deepseek_key = None
-g_prompts = {}
-g_total_input_tokens = 0
-g_token_limits = {
+__TOKEN_LIMITS = {
     "gpt-4o": 128000,
     "gpt-4o-mini": 128000,
     "gpt-3.5-turbo": 16385,
@@ -55,7 +40,22 @@ g_token_limits = {
     "gemini-1.5-flash-8b": 1048576,
     "gemini-1.5-pro": 2097152
 }
-g_ai_count = 0
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+g_calls = 10
+g_period = 60
+g_skip_ai_analysis = False
+g_model_temperature = DEFAULT_MODEL_TEMPERATURE
+g_model_token_limit = DEFAULT_TOKEN_LIMIT
+g_openai_key = None
+g_gemini_key = None
+g_deepseek_key = None
+g_prompts = {}
+g_total_input_tokens = 0
+g_ai_call_count = 0
 g_ai_only_for_seq_scan = False
 
 
@@ -425,7 +425,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
                 """
 
     for (query_code, count) in query_count_by_code.items():
-        content += f"<tr scope='row'><td>{query_names_by_code[query_code][:__QUERY_NAME_LIMIT]} ({query_code[:6]})</td><td>{count}</td></tr>"
+        content += f"<tr scope='row'><td>{query_names_by_code[query_code][:QUERY_NAME_LIMIT]} ({query_code[:6]})</td><td>{count}</td></tr>"
 
     content += "</tbody> </table> </div></div>"
     content += f"{frequent_hints_analysis}"
@@ -465,7 +465,7 @@ def parse_cli_arguments():
                         help="Timeout for AI API calls in seconds (default: 90)")
     parser.add_argument("-l", "--lang", default="fr",
                         help="Language for prompts and output (default: fr)")
-    parser.add_argument("-p", "--temperature", type=float, default=__DEFAULT_MODEL_TEMPERATURE,
+    parser.add_argument("-p", "--temperature", type=float, default=DEFAULT_MODEL_TEMPERATURE,
                         help="Temperature for the AI model (default: 0.5)")
     parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
                         help="Skips the AI analysis and only generates the HTML report (default: false)")
@@ -509,7 +509,7 @@ def extract_plan_lines(file, first_line):
 
 
 def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
-    global g_ai_count
+    global g_ai_call_count
 
     query_name = parsed_result["query_name"]
     title = parsed_result["job_name"] + query_name
@@ -522,10 +522,10 @@ def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
     seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
 
     if not g_skip_ai_analysis:
-        if g_ai_count <= max_ai_calls:
+        if g_ai_call_count <= max_ai_calls:
             if (g_ai_only_for_seq_scan and seq_scan_indicator) or not g_ai_only_for_seq_scan:
                 ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
-                g_ai_count += 1
+                g_ai_call_count += 1
             else:
                 logger.info("Skipping AI analysis for query without Seq Scan")
         else:
@@ -578,7 +578,7 @@ def main():
 
     load_api_keys()
 
-    g_model_token_limit = g_token_limits.get(args.model, __DEFAULT_TOKEN_LIMIT)
+    g_model_token_limit = __TOKEN_LIMITS.get(args.model, DEFAULT_TOKEN_LIMIT)
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
