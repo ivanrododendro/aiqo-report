@@ -542,7 +542,7 @@ def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
     seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
 
     if not g_skip_ai_analysis:
-        if g_ai_call_count <= max_ai_calls:
+        if max_ai_calls == -1 or (g_ai_call_count <= max_ai_calls):
             if (g_ai_only_for_seq_scan and seq_scan_indicator) or not g_ai_only_for_seq_scan:
                 ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
                 g_ai_call_count += 1
