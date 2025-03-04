@@ -39,6 +39,7 @@ __TOKEN_LIMITS = {
     "o1": 200000,
     "o1-mini": 128000,
     "gemini-2.0-flash": 1048576,
+    "gemini-2.0-flash-exp": 1048576,
     "gemini-1.5-flash": 1048576,
     "gemini-1.5-flash-8b": 1048576,
     "gemini-1.5-pro": 2097152
