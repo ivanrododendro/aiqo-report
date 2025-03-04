@@ -335,7 +335,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
     if g_skip_ai_analysis:
         title = "PostgreSQL Auto Explain Report"
     else:
-        title = f"PostgreSQL Auto Explain AI ({model}) Report"
+        title = f"PostgreSQL Auto Explain AI Report ({model}) "
 
     html_template = f"""
     <!DOCTYPE html>
