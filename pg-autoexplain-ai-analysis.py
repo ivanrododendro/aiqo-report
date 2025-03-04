@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import hashlib
 import html
+import io
 import logging
 import re
 from collections import defaultdict
@@ -14,6 +15,8 @@ import requests
 import sqlparse
 import tiktoken
 from ratelimit import limits, sleep_and_retry
+import gzip
+import zipfile
 
 QUERY_NAME_LIMIT = 140
 DEFAULT_TOKEN_LIMIT = 8192
@@ -478,10 +481,10 @@ def parse_cli_arguments():
 def process_log_file(log_file_path, model, max_ai_calls, timeout):
     reports, reports_by_day, query_count_by_code, query_names_by_code = [], defaultdict(list), {}, {}
 
-    with open(log_file_path, 'r', encoding='utf-8') as f:
-        for line_number, line in enumerate(f, 1):
+    def process_plain_text_file(file):
+        for line_number, line in enumerate(file, 1):
             if 'plan:' in line:
-                plan_lines = extract_plan_lines(f, line)
+                plan_lines = extract_plan_lines(file, line)
                 parsed_result = parse_log_entry("".join(plan_lines))
 
                 logger.info(f"Analyzing query at line {line_number}")
@@ -495,6 +498,23 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                     reports_by_day[report["day"]].append(report)
                     query_count_by_code[query_code] = query_count_by_code.get(query_code, 0) + 1
                     query_names_by_code[query_code] = report["query_name"]
+
+    if log_file_path.endswith('.gz'):
+        logger.info('Uncompressing file...')
+        with gzip.open(log_file_path, 'rt', encoding='utf-8') as f:
+            process_plain_text_file(f)
+    elif log_file_path.endswith('.zip'):
+        logger.info('Uncompressing file...')
+        with zipfile.ZipFile(log_file_path, 'r') as zip_ref:
+            for file_name in zip_ref.namelist():
+                with zip_ref.open(file_name) as raw_f:
+                    # Wrap the raw bytes file with TextIOWrapper for UTF-8 decoding
+                    f = io.TextIOWrapper(raw_f, encoding='utf-8', errors='replace')
+                    process_plain_text_file(f)
+
+    else:
+        with open(log_file_path, 'r', encoding='utf-8') as f:
+            process_plain_text_file(f)
 
     return reports, reports_by_day, query_count_by_code, query_names_by_code
 
