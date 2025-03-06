@@ -18,9 +18,16 @@ from ratelimit import limits, sleep_and_retry
 import gzip
 import zipfile
 
+DEFAULT_FREE_TPM = 10
 QUERY_NAME_LIMIT = 140
+
+DEFAULT_LANG = "fr"
+DEFAULT_AI_CALL_TIMEOUT = 90
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_MODEL_TEMPERATURE = 0.5
+DEFAULT_MODEL = "gemini-2.0-flash-exp"
+DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
+
 RATE_LIMITS = {
     "gpt-4o": (10, 60),
     "gpt-4o-mini": (10, 60),
@@ -49,7 +56,7 @@ __TOKEN_LIMITS = {
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-g_calls = 10
+g_calls = DEFAULT_FREE_TPM
 g_period = 60
 g_skip_ai_analysis = False
 g_model_temperature = DEFAULT_MODEL_TEMPERATURE
@@ -461,16 +468,16 @@ def call_ai_for_final_analysis(reports, model, timeout):
 def parse_cli_arguments():
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
     parser.add_argument("log_filename", help="Path to the PostgreSQL log file")
-    parser.add_argument("-m", "--model", default="gemini-2.0-flash-exp",
-                        help="AI model to use for analysis (default: gemini-2.0-flash-exp)")
-    parser.add_argument("-c", "--max-ai-calls", type=int, default=-1,
-                        help="Maximum number of AI calls to make. Use -1 for unlimited (default: -1)")
-    parser.add_argument("-t", "--timeout", type=int, default=90,
-                        help="Timeout for AI API calls in seconds (default: 90)")
-    parser.add_argument("-l", "--lang", default="fr",
-                        help="Language for prompts and output (default: fr)")
+    parser.add_argument("-m", "--model", default=DEFAULT_MODEL,
+                        help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})")
+    parser.add_argument("-c", "--max-ai-calls", type=int, default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
+                        help=f"Maximum number of AI calls to make. Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})")
+    parser.add_argument("-t", "--timeout", type=int, default=DEFAULT_AI_CALL_TIMEOUT,
+                        help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})")
+    parser.add_argument("-l", "--lang", default=DEFAULT_LANG,
+                        help=f"Language for prompts and output (default: ${DEFAULT_LANG})")
     parser.add_argument("-p", "--temperature", type=float, default=DEFAULT_MODEL_TEMPERATURE,
-                        help="Temperature for the AI model (default: 0.5)")
+                        help=f"Temperature for the AI model (default: ${DEFAULT_MODEL_TEMPERATURE})")
     parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
                         help="Skips the AI analysis and only generates the HTML report (default: false)")
     parser.add_argument("-o", "--ai_only_for_seq_scan", action="store_true",
@@ -501,18 +508,17 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                     query_names_by_code[query_code] = report["query_name"]
 
     if log_file_path.endswith('.gz'):
-        logger.info('Uncompressing file...')
+        logger.info('Uncompressing gzip file...')
         with gzip.open(log_file_path, 'rt', encoding='utf-8') as f:
             process_plain_text_file(f)
     elif log_file_path.endswith('.zip'):
-        logger.info('Uncompressing file...')
+        logger.info('Uncompressing zip file...')
         with zipfile.ZipFile(log_file_path, 'r') as zip_ref:
             for file_name in zip_ref.namelist():
                 with zip_ref.open(file_name) as raw_f:
                     # Wrap the raw bytes file with TextIOWrapper for UTF-8 decoding
                     f = io.TextIOWrapper(raw_f, encoding='utf-8', errors='replace')
                     process_plain_text_file(f)
-
     else:
         with open(log_file_path, 'r', encoding='utf-8') as f:
             process_plain_text_file(f)
