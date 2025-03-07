@@ -246,14 +246,18 @@ def call_deepseek(full_prompt, model, api_key, timeout=90):
 
 def call_chatgpt(full_prompt, model, openai_key, timeout=90):
     # Prepare the request payload
+    messages = [{"role": "user", "content": full_prompt}]
+
+    if not model.startswith("o"):
+        messages.insert(0, {"role": "system", "content": "You are a PostgreSQL optimization expert."})
+
     payload = {
         "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a PostgreSQL optimization expert."},
-            {"role": "user", "content": full_prompt}
-        ],
-        "temperature": g_model_temperature  # Add the temperature parameter here
+        "messages": messages
     }
+
+    if not model.startswith("o"):
+        payload["temperature"] = g_model_temperature
 
     # Headers for the API request
     headers = {
@@ -392,7 +396,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
                 <h5>{report['query_timestamp']} : {report['title']} ({report['code'][:6]})
             """
 
-            if (report['seq_scan_indicator']):
+            if report['seq_scan_indicator']:
                 content += """ <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>"""
 
             content += f"""
@@ -405,14 +409,16 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
                 <pev2 :plan-source="plan" :plan-query="query"></pev2>
             </div>
             <script>
-                createApp({{
-                    data() {{
-                        return {{
-                            plan: `{report['plan']}`,
-                            query: `{report['query_text']}`
-                        }};
-                    }}
-                }}).component("pev2", pev2.Plan).mount("#{app_id}");
+                $('#collapseExample-{app_id}').on('shown.bs.collapse', function () {{
+                    createApp({{
+                        data() {{
+                            return {{
+                                plan: `{report['plan']}`,
+                                query: `{report['query_text']}`
+                            }};
+                        }}
+                    }}).component("pev2", pev2.Plan).mount("#{app_id}");
+                }});
             </script>
             </div>
             </div>      
@@ -490,6 +496,8 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
     reports, reports_by_day, query_count_by_code, query_names_by_code = [], defaultdict(list), {}, {}
 
     def process_plain_text_file(file):
+        logger.info(f'Process plain text file {file.name} at {log_file_path}')
+
         for line_number, line in enumerate(file, 1):
             if 'plan:' in line:
                 plan_lines = extract_plan_lines(file, line)
@@ -549,7 +557,7 @@ def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
     seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
 
     if not g_skip_ai_analysis:
-        if max_ai_calls == -1 or (g_ai_call_count <= max_ai_calls):
+        if max_ai_calls == -1 or (g_ai_call_count < max_ai_calls):
             if (g_ai_only_for_seq_scan and seq_scan_indicator) or not g_ai_only_for_seq_scan:
                 ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
                 g_ai_call_count += 1
