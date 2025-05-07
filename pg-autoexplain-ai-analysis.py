@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import asyncio
 import hashlib
 import html
 import io
@@ -27,7 +26,7 @@ DEFAULT_MODEL_TEMPERATURE = 0.5
 DEFAULT_MODEL = "gemini-2.0-flash-exp"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 
-RATE_LIMITS = {
+FREE_TIER_RATE_LIMITS = {
     "gpt-4o": (10, 60),
     "gpt-4o-mini": (10, 60),
     "gpt-3.5-turbo": (10, 60),
@@ -156,7 +155,7 @@ def call_ai_provider(prompt, model, timeout):
     except Exception as e:
         logger.error(f"Error communicating with LiteLLM API for model {model}: {e}")
         # Log more details if available, e.g., response from LiteLLM
-        if hasattr(e, "response") and e.response is not None:
+        if hasattr(e, "response"):
              logger.error(f"LiteLLM Response content: {e.response.text}")
         return None
 
@@ -475,7 +474,7 @@ def main():
         logger.info(f"Model temperature : {args.temperature}")
         logger.info(f"AI Analysis only for Seq Scan queries : {args.ai_only_for_seq_scan}")
 
-    g_calls, g_period = RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
+    g_calls, g_period = FREE_TIER_RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
     load_prompts(args.lang)
 
