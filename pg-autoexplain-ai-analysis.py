@@ -48,6 +48,8 @@ g_model_temperature = DEFAULT_MODEL_TEMPERATURE
 g_model_token_limit = DEFAULT_TOKEN_LIMIT
 g_prompts = {}
 g_total_input_tokens = 0
+g_total_output_tokens = 0
+g_total_cost = 0.0
 g_ai_call_count = 0
 g_ai_only_for_seq_scan = False
 
@@ -107,7 +109,7 @@ def call_ai_for_plan_analysis(plan, model, timeout):
 @sleep_and_retry
 @limits(calls=g_calls, period=g_period)
 def call_ai_provider(prompt, model, timeout):
-    global g_total_input_tokens
+    global g_total_input_tokens, g_total_output_tokens, g_total_cost
     logger.info("Calling AI Model for plan analysis...")
 
     messages = [{"role": "user", "content": prompt}]
@@ -146,6 +148,18 @@ def call_ai_provider(prompt, model, timeout):
         if response.usage and hasattr(response.usage, 'prompt_tokens') and response.usage.prompt_tokens is not None:
             g_total_input_tokens += response.usage.prompt_tokens
         
+        # Accumulate actual output tokens from the response
+        if response.usage and hasattr(response.usage, 'completion_tokens') and response.usage.completion_tokens is not None:
+            g_total_output_tokens += response.usage.completion_tokens
+
+        # Calculate and accumulate cost
+        try:
+            cost = litellm.completion_cost(completion_response=response)
+            if cost is not None:
+                g_total_cost += cost
+        except Exception as e:
+            logger.warning(f"Could not calculate cost for the API call: {e}")
+
         # LiteLLM response structure is similar to OpenAI's
         if response.choices and response.choices[0].message and response.choices[0].message.content:
             return response.choices[0].message.content.strip()
@@ -513,6 +527,8 @@ def main():
                          query_codes)
 
     logger.info(f"Total input tokens processed: {g_total_input_tokens}")
+    logger.info(f"Total output tokens processed: {g_total_output_tokens}")
+    logger.info(f"Estimated total cost: ${g_total_cost:.4f}")
 
 
 if __name__ == "__main__":
