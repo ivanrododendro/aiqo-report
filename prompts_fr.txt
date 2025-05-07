@@ -18,6 +18,7 @@ Structure de ta réponse :
 Format attendu :
 	•	Utilise des balises <code> pour tous les noms d’objets de base de données, paramètres PostgreSQL et extraits de code SQL.
 	•	Eglobe les paramètres PostgreSQL cités dans une balise <a href="https://postgresqlco.nf/doc/fr/param/work_mem/"> avec un lien vers la documentation PostgreSQLco.nf, par exemple <a>work_mem</a>
+	-   Utilise systématiquement la balise <p> pour englober chaque paragraphe
 
 <p>
 <strong>Description : </strong> Description rapide et synthétique de la requête.
