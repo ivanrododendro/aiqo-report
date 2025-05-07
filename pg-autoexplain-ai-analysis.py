@@ -11,7 +11,6 @@ from pathlib import Path
 
 import litellm
 import sqlparse
-import tiktoken
 from ratelimit import limits, sleep_and_retry
 import gzip
 import zipfile
@@ -98,15 +97,6 @@ def load_prompts(lang):
     return None
 
 
-# Add this function to estimate token count
-def estimate_token_count(text):
-    global g_total_input_tokens
-    encoding = tiktoken.encoding_for_model("gpt-4")
-    token_count = len(encoding.encode(text))
-    g_total_input_tokens += token_count
-    return token_count
-
-
 def call_ai_for_plan_analysis(plan, model, timeout):
     static_prompt = g_prompts.get('PLAN_ANALYSIS', '')
     full_prompt = static_prompt + "\n\n" + plan
@@ -117,12 +107,8 @@ def call_ai_for_plan_analysis(plan, model, timeout):
 @sleep_and_retry
 @limits(calls=g_calls, period=g_period)
 def call_ai_provider(prompt, model, timeout):
+    global g_total_input_tokens
     logger.info("Calling AI Model for plan analysis...")
-    estimated_tokens = estimate_token_count(prompt)
-
-    if estimated_tokens > g_model_token_limit:
-        ai_hints = f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
-        return ai_hints
 
     messages = [{"role": "user", "content": prompt}]
     # Add a system prompt for chat models, similar to the old call_chatgpt logic
@@ -135,6 +121,18 @@ def call_ai_provider(prompt, model, timeout):
     if model.startswith("gemini-"):
         effective_model = "gemini/" + model
         logger.info(f"Using Google AI Studio provider for model: {effective_model}")
+    
+    try:
+        # Estimate tokens using litellm.token_counter with the constructed messages
+        estimated_tokens = litellm.token_counter(model=effective_model, messages=messages)
+    except Exception as e:
+        logger.warning(f"Could not estimate token count for model {effective_model} using litellm.token_counter: {e}. Skipping AI analysis.")
+        # Consider if a more specific error message or fallback is needed
+        return f"Could not estimate token count for model {effective_model}. AI analysis skipped."
+
+    if estimated_tokens > g_model_token_limit:
+        ai_hints = f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
+        return ai_hints
 
     try:
         response = litellm.completion(
@@ -143,6 +141,11 @@ def call_ai_provider(prompt, model, timeout):
             temperature=g_model_temperature,
             request_timeout=timeout
         )
+        
+        # Accumulate actual input tokens from the response
+        if response.usage and hasattr(response.usage, 'prompt_tokens') and response.usage.prompt_tokens is not None:
+            g_total_input_tokens += response.usage.prompt_tokens
+        
         # LiteLLM response structure is similar to OpenAI's
         if response.choices and response.choices[0].message and response.choices[0].message.content:
             return response.choices[0].message.content.strip()
