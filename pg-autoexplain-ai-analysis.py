@@ -10,8 +10,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-import google.generativeai as genai
-import requests
+import litellm
 import sqlparse
 import tiktoken
 from ratelimit import limits, sleep_and_retry
@@ -61,9 +60,6 @@ g_period = 60
 g_skip_ai_analysis = False
 g_model_temperature = DEFAULT_MODEL_TEMPERATURE
 g_model_token_limit = DEFAULT_TOKEN_LIMIT
-g_openai_key = None
-g_gemini_key = None
-g_deepseek_key = None
 g_prompts = {}
 g_total_input_tokens = 0
 g_ai_call_count = 0
@@ -115,31 +111,6 @@ def load_prompts(lang):
     return None
 
 
-def load_api_keys(file_path='api_keys.txt'):
-    keys = {}
-    global g_deepseek_key, g_gemini_key, g_openai_key
-
-    try:
-        with open(file_path, 'r') as file:
-            for line in file:
-                key, value = line.strip().split('=')
-                keys[key] = value
-
-        if keys:
-            g_openai_key = keys.get('openai_key')
-            g_gemini_key = keys.get('gemini_key')
-            g_deepseek_key = keys.get('deepseek_key')
-        else:
-            logger.error("Failed to load API keys. Exiting.")
-            exit(1)
-    except FileNotFoundError:
-        logger.error(f"API keys file not found: {file_path}")
-        return None
-    except Exception as e:
-        logger.error(f"Error reading API keys file: {e}")
-        return None
-
-
 # Add this function to estimate token count
 def estimate_token_count(text):
     global g_total_input_tokens
@@ -147,33 +118,6 @@ def estimate_token_count(text):
     token_count = len(encoding.encode(text))
     g_total_input_tokens += token_count
     return token_count
-
-
-async def call_gemini(full_prompt, model, api_key, timeout):
-    # Configure the Gemini API
-    genai.configure(api_key=api_key)
-
-    # Set up the model
-    model = genai.GenerativeModel(model, generation_config=genai.GenerationConfig(temperature=g_model_temperature))
-
-    try:
-        # Generate content
-        response = await asyncio.wait_for(
-            model.generate_content_async(full_prompt),
-            timeout=timeout,
-        )
-
-        if response.text:
-            return response.text
-        else:
-            logger.warning("No analysis content found in Gemini response.")
-            return "No analysis content found in Gemini response."
-    except asyncio.exceptions.TimeoutError as e:
-        logger.error(f"Timeout while communicating with Gemini API: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Error communicating with Gemini API: {e}")
-        return None
 
 
 def call_ai_for_plan_analysis(plan, model, timeout):
@@ -193,99 +137,33 @@ def call_ai_provider(prompt, model, timeout):
         ai_hints = f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
         return ai_hints
 
-    if model.startswith("gpt") or model.startswith("o1"):
-        return call_chatgpt(prompt, model, g_openai_key, timeout)
-    elif model.startswith("gemini"):
-        return asyncio.run(call_gemini(prompt, model, g_gemini_key, timeout))
-    elif model.startswith("deepseek"):
-        return call_deepseek(prompt, model, g_deepseek_key, timeout)
-    else:
-        logger.error(f"Unsupported model: {model}")
-        return None
-
-
-def call_deepseek(full_prompt, model, api_key, timeout=90):
-    url = "https://api.deepseek.com/chat/completions"
-
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": full_prompt}],  # Adjusted to match OpenAI-style structure
-        "temperature": g_model_temperature,
-        "max_tokens": 500  # Adjust as needed
-    }
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=timeout)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-
-        response_json = response.json()
-
-        # Check for the correct key in the API response
-        completion_text = response_json.get("choices", [{}])[0].get("message", {}).get("content")
-        if completion_text:
-            return completion_text.strip()
-        else:
-            logger.warning("DeepSeek API response is missing expected content.")
-            return "DeepSeek response contained no text."
-
-    except requests.exceptions.Timeout:
-        logger.error(f"Timeout: The DeepSeek API request took longer than {timeout} seconds.")
-        return "Error: Request timed out."
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"API request error: {e}")
-        if hasattr(e, "response") and e.response is not None:
-            logger.error(f"Response content: {e.response.text}")
-        return f"Error: {str(e)}"
-
-
-def call_chatgpt(full_prompt, model, openai_key, timeout=90):
-    # Prepare the request payload
-    messages = [{"role": "user", "content": full_prompt}]
-
-    if not model.startswith("o"):
+    messages = [{"role": "user", "content": prompt}]
+    # Add a system prompt for chat models, similar to the old call_chatgpt logic
+    # This might need adjustment based on how model types are identified with LiteLLM
+    if "gpt" in model or "o1" in model or "gemini" in model or "claude" in model: # Heuristic for chat models
         messages.insert(0, {"role": "system", "content": "You are a PostgreSQL optimization expert."})
 
-    payload = {
-        "model": model,
-        "messages": messages
-    }
-
-    if not model.startswith("o"):
-        payload["temperature"] = g_model_temperature
-
-    # Headers for the API request
-    headers = {
-        "Authorization": f"Bearer {openai_key}",
-        "Content-Type": "application/json"
-    }
-
-    # Send the POST request to OpenAI API
     try:
-        response = requests.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers,
-                                 verify=False, timeout=timeout)
-        response.raise_for_status()  # Raise an error for bad status codes
-        response_json = response.json()
-
-        if 'choices' in response_json and len(response_json['choices']) > 0:
-            response_text = response_json['choices'][0]['message']['content']
+        response = litellm.completion(
+            model=model,
+            messages=messages,
+            temperature=g_model_temperature,
+            request_timeout=timeout
+        )
+        # LiteLLM response structure is similar to OpenAI's
+        if response.choices and response.choices[0].message and response.choices[0].message.content:
+            return response.choices[0].message.content.strip()
         else:
-            logger.warning("No analysis content found in ChatGPT response.")
-            response_text = "No analysis content found in ChatGPT response."
-
-        return response_text
-    except requests.exceptions.Timeout:
-        logger.error(f"Timeout error: The request to OpenAI API timed out after {timeout} seconds.")
+            logger.warning(f"No analysis content found in LiteLLM response for model {model}.")
+            return f"No analysis content found in LiteLLM response for model {model}."
+    except litellm.exceptions.Timeout as e:
+        logger.error(f"Timeout while communicating with LiteLLM API for model {model}: {e}")
         return None
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error communicating with OpenAI API: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-            logger.error(f"Response content: {e.response.text}")
+    except Exception as e:
+        logger.error(f"Error communicating with LiteLLM API for model {model}: {e}")
+        # Log more details if available, e.g., response from LiteLLM
+        if hasattr(e, "response") and e.response is not None:
+             logger.error(f"LiteLLM Response content: {e.response.text}")
         return None
 
 
@@ -587,7 +465,7 @@ def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
 def main():
     args = parse_cli_arguments()
 
-    global g_prompts, g_model_token_limit, g_model_temperature, g_openai_key, g_gemini_key, g_deepseek_key, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
+    global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
 
     logger.info(f"Processing PostgreSQL log file {args.log_filename}")
     logger.info(f"Output report: {args.log_filename}_report.html")
@@ -611,7 +489,8 @@ def main():
         logger.error(f"Failed to load prompts for language: {args.lang}. Exiting.")
         exit(1)
 
-    load_api_keys()
+    # API keys are now expected to be set as environment variables for LiteLLM
+    # load_api_keys() is removed.
 
     g_model_token_limit = __TOKEN_LIMITS.get(args.model, DEFAULT_TOKEN_LIMIT)
     g_model_temperature = args.temperature
