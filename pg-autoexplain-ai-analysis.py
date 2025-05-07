@@ -234,7 +234,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://unpkg.com/pev2/dist/style.css" />
+    <link rel="stylesheet" href="https://unpkg.com/pev2/dist/pev2.css" />
     <style>.icon {{{{color: red !important;}}}}</style>
     </head>
     <body class="container-fluid">
@@ -276,8 +276,8 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
             <div class="collapse" id="collapseExample-{app_id}">
             <div class="card card-body">
             {report['chatgpt_hints']}
-            <div id="{app_id}"  style="min-height: 400px;">
-                <pev2 :plan-source="plan" :plan-query="query"></pev2>
+            <div id="{app_id}">
+                <pev2 :plan-source="plan" :plan-query="query" style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
             </div>
             <script>
                 $('#collapseExample-{app_id}').on('shown.bs.collapse', function () {{
@@ -371,12 +371,12 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
 
         for line_number, line in enumerate(file, 1):
             if 'plan:' in line:
-                plan_lines = extract_plan_lines(file, line)
-                parsed_result = parse_log_entry("".join(plan_lines))
+                plan_lines = "".join(extract_plan_lines(file, line))
+                parsed_result = parse_log_entry(plan_lines)
 
                 logger.info(f"Analyzing query at line {line_number}")
 
-                report = process_parsed_result(parsed_result, model, timeout, max_ai_calls)
+                report = process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls)
 
                 if report:
                     reports.append(report)
@@ -414,7 +414,7 @@ def extract_plan_lines(file, first_line):
     return plan_lines
 
 
-def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
+def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls):
     global g_ai_call_count
 
     query_name = parsed_result["query_name"]
@@ -430,7 +430,7 @@ def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
     if not g_skip_ai_analysis:
         if max_ai_calls == -1 or (g_ai_call_count < max_ai_calls):
             if (g_ai_only_for_seq_scan and seq_scan_indicator) or not g_ai_only_for_seq_scan:
-                ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
+                ai_hints = call_ai_for_plan_analysis(plan_lines, model, timeout)
                 g_ai_call_count += 1
             else:
                 logger.info("Skipping AI analysis for query without Seq Scan")
