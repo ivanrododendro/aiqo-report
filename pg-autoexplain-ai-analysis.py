@@ -143,9 +143,15 @@ def call_ai_provider(prompt, model, timeout):
     if "gpt" in model or "o1" in model or "gemini" in model or "claude" in model: # Heuristic for chat models
         messages.insert(0, {"role": "system", "content": "You are a PostgreSQL optimization expert."})
 
+    # Ensure Gemini models use the Google AI Studio API via "gemini/" prefix
+    effective_model = model
+    if model.startswith("gemini-"):
+        effective_model = "gemini/" + model
+        logger.info(f"Using Google AI Studio provider for model: {effective_model}")
+
     try:
         response = litellm.completion(
-            model=model,
+            model=effective_model,
             messages=messages,
             temperature=g_model_temperature,
             request_timeout=timeout
