@@ -38,18 +38,6 @@ RATE_LIMITS = {
     "gemini-1.5-flash-8b": (15, 60),
     "gemini-1.5-pro": (15, 60)
 }
-__TOKEN_LIMITS = {
-    "gpt-4o": 128000,
-    "gpt-4o-mini": 128000,
-    "gpt-3.5-turbo": 16385,
-    "o1": 200000,
-    "o1-mini": 128000,
-    "gemini-2.0-flash": 1048576,
-    "gemini-2.0-flash-exp": 1048576,
-    "gemini-1.5-flash": 1048576,
-    "gemini-1.5-flash-8b": 1048576,
-    "gemini-1.5-pro": 2097152
-}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -498,7 +486,15 @@ def main():
     # API keys are now expected to be set as environment variables for LiteLLM
     # load_api_keys() is removed.
 
-    g_model_token_limit = __TOKEN_LIMITS.get(args.model, DEFAULT_TOKEN_LIMIT)
+    # Get model token limit from litellm, fallback to DEFAULT_TOKEN_LIMIT
+    max_tokens_for_model = litellm.get_max_tokens(args.model)
+    if max_tokens_for_model is not None:
+        g_model_token_limit = max_tokens_for_model
+        logger.info(f"Using token limit for model {args.model}: {g_model_token_limit}")
+    else:
+        g_model_token_limit = DEFAULT_TOKEN_LIMIT
+        logger.warning(f"Could not determine token limit for model {args.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
+        
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
