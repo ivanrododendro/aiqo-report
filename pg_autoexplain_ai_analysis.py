@@ -55,7 +55,13 @@ g_ai_only_for_seq_scan = False
 
 def normalize_sql(sql):
     # Formater le SQL avec sqlparse
-    formatted_sql = sqlparse.format(sql, strip_comments=True, reindent=True, strip_whitespace=True)
+    # Add keyword_case='upper' to ensure keywords are in uppercase.
+    # strip_whitespace=True should handle leading/trailing spaces and spaces around semicolons.
+    formatted_sql = sqlparse.format(sql, strip_comments=True, reindent=True, keyword_case='upper', strip_whitespace=True)
+    
+    # Call strip() on the result to remove any leading/trailing whitespace that 
+    # sqlparse.format might leave, especially after reindenting.
+    formatted_sql = formatted_sql.strip()
 
     # Remplacer les constantes numériques et les chaînes de caractères par '?'
     formatted_sql = re.sub(r'\b\d+\b', '?', formatted_sql)  # Nombres
