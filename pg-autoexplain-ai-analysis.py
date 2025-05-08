@@ -1,24 +1,32 @@
 #!/usr/bin/env python
 
 import argparse
-import asyncio
 import hashlib
 import html
+import io
 import logging
 import re
 from collections import defaultdict
 from pathlib import Path
 
-import google.generativeai as genai
-import requests
+import litellm
 import sqlparse
 import tiktoken
 from ratelimit import limits, sleep_and_retry
+import gzip
+import zipfile
 
+DEFAULT_FREE_TPM = 10
 QUERY_NAME_LIMIT = 140
+
+DEFAULT_LANG = "fr"
+DEFAULT_AI_CALL_TIMEOUT = 90
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_MODEL_TEMPERATURE = 0.5
-RATE_LIMITS = {
+DEFAULT_MODEL = "gemini-2.0-flash-exp"
+DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
+
+FREE_TIER_RATE_LIMITS = {
     "gpt-4o": (10, 60),
     "gpt-4o-mini": (10, 60),
     "gpt-3.5-turbo": (10, 60),
@@ -29,30 +37,16 @@ RATE_LIMITS = {
     "gemini-1.5-flash-8b": (15, 60),
     "gemini-1.5-pro": (15, 60)
 }
-__TOKEN_LIMITS = {
-    "gpt-4o": 128000,
-    "gpt-4o-mini": 128000,
-    "gpt-3.5-turbo": 16385,
-    "o1": 200000,
-    "o1-mini": 128000,
-    "gemini-2.0-flash": 1048576,
-    "gemini-1.5-flash": 1048576,
-    "gemini-1.5-flash-8b": 1048576,
-    "gemini-1.5-pro": 2097152
-}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-g_calls = 10
+g_calls = DEFAULT_FREE_TPM
 g_period = 60
 g_skip_ai_analysis = False
 g_model_temperature = DEFAULT_MODEL_TEMPERATURE
 g_model_token_limit = DEFAULT_TOKEN_LIMIT
-g_openai_key = None
-g_gemini_key = None
-g_deepseek_key = None
 g_prompts = {}
 g_total_input_tokens = 0
 g_ai_call_count = 0
@@ -104,31 +98,6 @@ def load_prompts(lang):
     return None
 
 
-def load_api_keys(file_path='api_keys.txt'):
-    keys = {}
-    global g_deepseek_key, g_gemini_key, g_openai_key
-
-    try:
-        with open(file_path, 'r') as file:
-            for line in file:
-                key, value = line.strip().split('=')
-                keys[key] = value
-
-        if keys:
-            g_openai_key = keys.get('openai_key')
-            g_gemini_key = keys.get('gemini_key')
-            g_deepseek_key = keys.get('deepseek_key')
-        else:
-            logger.error("Failed to load API keys. Exiting.")
-            exit(1)
-    except FileNotFoundError:
-        logger.error(f"API keys file not found: {file_path}")
-        return None
-    except Exception as e:
-        logger.error(f"Error reading API keys file: {e}")
-        return None
-
-
 # Add this function to estimate token count
 def estimate_token_count(text):
     global g_total_input_tokens
@@ -136,33 +105,6 @@ def estimate_token_count(text):
     token_count = len(encoding.encode(text))
     g_total_input_tokens += token_count
     return token_count
-
-
-async def call_gemini(full_prompt, model, api_key, timeout):
-    # Configure the Gemini API
-    genai.configure(api_key=api_key)
-
-    # Set up the model
-    model = genai.GenerativeModel(model, generation_config=genai.GenerationConfig(temperature=g_model_temperature))
-
-    try:
-        # Generate content
-        response = await asyncio.wait_for(
-            model.generate_content_async(full_prompt),
-            timeout=timeout,
-        )
-
-        if response.text:
-            return response.text
-        else:
-            logger.warning("No analysis content found in Gemini response.")
-            return "No analysis content found in Gemini response."
-    except asyncio.exceptions.TimeoutError as e:
-        logger.error(f"Timeout while communicating with Gemini API: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Error communicating with Gemini API: {e}")
-        return None
 
 
 def call_ai_for_plan_analysis(plan, model, timeout):
@@ -182,95 +124,39 @@ def call_ai_provider(prompt, model, timeout):
         ai_hints = f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
         return ai_hints
 
-    if model.startswith("gpt") or model.startswith("o1"):
-        return call_chatgpt(prompt, model, g_openai_key, timeout)
-    elif model.startswith("gemini"):
-        return asyncio.run(call_gemini(prompt, model, g_gemini_key, timeout))
-    elif model.startswith("deepseek"):
-        return call_deepseek(prompt, model, g_deepseek_key, timeout)
-    else:
-        logger.error(f"Unsupported model: {model}")
-        return None
+    messages = [{"role": "user", "content": prompt}]
+    # Add a system prompt for chat models, similar to the old call_chatgpt logic
+    # This might need adjustment based on how model types are identified with LiteLLM
+    if "gpt" in model or "o1" in model or "gemini" in model or "claude" in model: # Heuristic for chat models
+        messages.insert(0, {"role": "system", "content": "You are a PostgreSQL optimization expert."})
 
-
-def call_deepseek(full_prompt, model, api_key, timeout=90):
-    url = "https://api.deepseek.com/chat/completions"
-
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": full_prompt}],  # Adjusted to match OpenAI-style structure
-        "temperature": g_model_temperature,
-        "max_tokens": 500  # Adjust as needed
-    }
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+    # Ensure Gemini models use the Google AI Studio API via "gemini/" prefix
+    effective_model = model
+    if model.startswith("gemini-"):
+        effective_model = "gemini/" + model
+        logger.info(f"Using Google AI Studio provider for model: {effective_model}")
 
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=timeout)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-
-        response_json = response.json()
-
-        # Check for the correct key in the API response
-        completion_text = response_json.get("choices", [{}])[0].get("message", {}).get("content")
-        if completion_text:
-            return completion_text.strip()
+        response = litellm.completion(
+            model=effective_model,
+            messages=messages,
+            temperature=g_model_temperature,
+            request_timeout=timeout
+        )
+        # LiteLLM response structure is similar to OpenAI's
+        if response.choices and response.choices[0].message and response.choices[0].message.content:
+            return response.choices[0].message.content.strip()
         else:
-            logger.warning("DeepSeek API response is missing expected content.")
-            return "DeepSeek response contained no text."
-
-    except requests.exceptions.Timeout:
-        logger.error(f"Timeout: The DeepSeek API request took longer than {timeout} seconds.")
-        return "Error: Request timed out."
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"API request error: {e}")
-        if hasattr(e, "response") and e.response is not None:
-            logger.error(f"Response content: {e.response.text}")
-        return f"Error: {str(e)}"
-
-
-def call_chatgpt(full_prompt, model, openai_key, timeout=90):
-    # Prepare the request payload
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a PostgreSQL optimization expert."},
-            {"role": "user", "content": full_prompt}
-        ],
-        "temperature": g_model_temperature  # Add the temperature parameter here
-    }
-
-    # Headers for the API request
-    headers = {
-        "Authorization": f"Bearer {openai_key}",
-        "Content-Type": "application/json"
-    }
-
-    # Send the POST request to OpenAI API
-    try:
-        response = requests.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers,
-                                 verify=False, timeout=timeout)
-        response.raise_for_status()  # Raise an error for bad status codes
-        response_json = response.json()
-
-        if 'choices' in response_json and len(response_json['choices']) > 0:
-            response_text = response_json['choices'][0]['message']['content']
-        else:
-            logger.warning("No analysis content found in ChatGPT response.")
-            response_text = "No analysis content found in ChatGPT response."
-
-        return response_text
-    except requests.exceptions.Timeout:
-        logger.error(f"Timeout error: The request to OpenAI API timed out after {timeout} seconds.")
+            logger.warning(f"No analysis content found in LiteLLM response for model {model}.")
+            return f"No analysis content found in LiteLLM response for model {model}."
+    except litellm.exceptions.Timeout as e:
+        logger.error(f"Timeout while communicating with LiteLLM API for model {model}: {e}")
         return None
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error communicating with OpenAI API: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-            logger.error(f"Response content: {e.response.text}")
+    except Exception as e:
+        logger.error(f"Error communicating with LiteLLM API for model {model}: {e}")
+        # Log more details if available, e.g., response from LiteLLM
+        if hasattr(e, "response"):
+             logger.error(f"LiteLLM Response content: {e.response.text}")
         return None
 
 
@@ -332,7 +218,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
     if g_skip_ai_analysis:
         title = "PostgreSQL Auto Explain Report"
     else:
-        title = f"PostgreSQL Auto Explain AI ({model}) Report"
+        title = f"PostgreSQL Auto Explain AI Report ({model}) "
 
     html_template = f"""
     <!DOCTYPE html>
@@ -348,7 +234,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://unpkg.com/pev2/dist/style.css" />
+    <link rel="stylesheet" href="https://unpkg.com/pev2/dist/pev2.css" />
     <style>.icon {{{{color: red !important;}}}}</style>
     </head>
     <body class="container-fluid">
@@ -381,7 +267,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
                 <h5>{report['query_timestamp']} : {report['title']} ({report['code'][:6]})
             """
 
-            if (report['seq_scan_indicator']):
+            if report['seq_scan_indicator']:
                 content += """ <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>"""
 
             content += f"""
@@ -390,18 +276,20 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
             <div class="collapse" id="collapseExample-{app_id}">
             <div class="card card-body">
             {report['chatgpt_hints']}
-            <div id="{app_id}"  style="min-height: 400px;">
-                <pev2 :plan-source="plan" :plan-query="query"></pev2>
+            <div id="{app_id}">
+                <pev2 :plan-source="plan" :plan-query="query" style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
             </div>
             <script>
-                createApp({{
-                    data() {{
-                        return {{
-                            plan: `{report['plan']}`,
-                            query: `{report['query_text']}`
-                        }};
-                    }}
-                }}).component("pev2", pev2.Plan).mount("#{app_id}");
+                $('#collapseExample-{app_id}').on('shown.bs.collapse', function () {{
+                    createApp({{
+                        data() {{
+                            return {{
+                                plan: `{report['plan']}`,
+                                query: `{report['query_text']}`
+                            }};
+                        }}
+                    }}).component("pev2", pev2.Plan).mount("#{app_id}");
+                }});
             </script>
             </div>
             </div>      
@@ -457,16 +345,16 @@ def call_ai_for_final_analysis(reports, model, timeout):
 def parse_cli_arguments():
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
     parser.add_argument("log_filename", help="Path to the PostgreSQL log file")
-    parser.add_argument("-m", "--model", default="gemini-2.0-flash-exp",
-                        help="AI model to use for analysis (default: gemini-2.0-flash-exp)")
-    parser.add_argument("-c", "--max-ai-calls", type=int, default=-1,
-                        help="Maximum number of AI calls to make. Use -1 for unlimited (default: -1)")
-    parser.add_argument("-t", "--timeout", type=int, default=90,
-                        help="Timeout for AI API calls in seconds (default: 90)")
-    parser.add_argument("-l", "--lang", default="fr",
-                        help="Language for prompts and output (default: fr)")
+    parser.add_argument("-m", "--model", default=DEFAULT_MODEL,
+                        help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})")
+    parser.add_argument("-c", "--max-ai-calls", type=int, default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
+                        help=f"Maximum number of AI calls to make. Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})")
+    parser.add_argument("-t", "--timeout", type=int, default=DEFAULT_AI_CALL_TIMEOUT,
+                        help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})")
+    parser.add_argument("-l", "--lang", default=DEFAULT_LANG,
+                        help=f"Language for prompts and output (default: ${DEFAULT_LANG})")
     parser.add_argument("-p", "--temperature", type=float, default=DEFAULT_MODEL_TEMPERATURE,
-                        help="Temperature for the AI model (default: 0.5)")
+                        help=f"Temperature for the AI model (default: ${DEFAULT_MODEL_TEMPERATURE})")
     parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
                         help="Skips the AI analysis and only generates the HTML report (default: false)")
     parser.add_argument("-o", "--ai_only_for_seq_scan", action="store_true",
@@ -478,15 +366,17 @@ def parse_cli_arguments():
 def process_log_file(log_file_path, model, max_ai_calls, timeout):
     reports, reports_by_day, query_count_by_code, query_names_by_code = [], defaultdict(list), {}, {}
 
-    with open(log_file_path, 'r', encoding='utf-8') as f:
-        for line_number, line in enumerate(f, 1):
+    def process_plain_text_file(file):
+        logger.info(f'Process plain text file {file.name} at {log_file_path}')
+
+        for line_number, line in enumerate(file, 1):
             if 'plan:' in line:
-                plan_lines = extract_plan_lines(f, line)
-                parsed_result = parse_log_entry("".join(plan_lines))
+                plan_lines = "".join(extract_plan_lines(file, line))
+                parsed_result = parse_log_entry(plan_lines)
 
                 logger.info(f"Analyzing query at line {line_number}")
 
-                report = process_parsed_result(parsed_result, model, timeout, max_ai_calls)
+                report = process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls)
 
                 if report:
                     reports.append(report)
@@ -495,6 +385,22 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                     reports_by_day[report["day"]].append(report)
                     query_count_by_code[query_code] = query_count_by_code.get(query_code, 0) + 1
                     query_names_by_code[query_code] = report["query_name"]
+
+    if log_file_path.endswith('.gz'):
+        logger.info('Uncompressing gzip file...')
+        with gzip.open(log_file_path, 'rt', encoding='utf-8') as f:
+            process_plain_text_file(f)
+    elif log_file_path.endswith('.zip'):
+        logger.info('Uncompressing zip file...')
+        with zipfile.ZipFile(log_file_path, 'r') as zip_ref:
+            for file_name in zip_ref.namelist():
+                with zip_ref.open(file_name) as raw_f:
+                    # Wrap the raw bytes file with TextIOWrapper for UTF-8 decoding
+                    f = io.TextIOWrapper(raw_f, encoding='utf-8', errors='replace')
+                    process_plain_text_file(f)
+    else:
+        with open(log_file_path, 'r', encoding='utf-8') as f:
+            process_plain_text_file(f)
 
     return reports, reports_by_day, query_count_by_code, query_names_by_code
 
@@ -508,7 +414,7 @@ def extract_plan_lines(file, first_line):
     return plan_lines
 
 
-def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
+def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls):
     global g_ai_call_count
 
     query_name = parsed_result["query_name"]
@@ -522,9 +428,9 @@ def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
     seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
 
     if not g_skip_ai_analysis:
-        if g_ai_call_count <= max_ai_calls:
+        if max_ai_calls == -1 or (g_ai_call_count < max_ai_calls):
             if (g_ai_only_for_seq_scan and seq_scan_indicator) or not g_ai_only_for_seq_scan:
-                ai_hints = call_ai_for_plan_analysis(execution_plan, model, timeout)
+                ai_hints = call_ai_for_plan_analysis(plan_lines, model, timeout)
                 g_ai_call_count += 1
             else:
                 logger.info("Skipping AI analysis for query without Seq Scan")
@@ -552,7 +458,7 @@ def process_parsed_result(parsed_result, model, timeout, max_ai_calls):
 def main():
     args = parse_cli_arguments()
 
-    global g_prompts, g_model_token_limit, g_model_temperature, g_openai_key, g_gemini_key, g_deepseek_key, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
+    global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
 
     logger.info(f"Processing PostgreSQL log file {args.log_filename}")
     logger.info(f"Output report: {args.log_filename}_report.html")
@@ -568,7 +474,7 @@ def main():
         logger.info(f"Model temperature : {args.temperature}")
         logger.info(f"AI Analysis only for Seq Scan queries : {args.ai_only_for_seq_scan}")
 
-    g_calls, g_period = RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
+    g_calls, g_period = FREE_TIER_RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
     load_prompts(args.lang)
 
@@ -576,9 +482,18 @@ def main():
         logger.error(f"Failed to load prompts for language: {args.lang}. Exiting.")
         exit(1)
 
-    load_api_keys()
+    # API keys are now expected to be set as environment variables for LiteLLM
+    # load_api_keys() is removed.
 
-    g_model_token_limit = __TOKEN_LIMITS.get(args.model, DEFAULT_TOKEN_LIMIT)
+    # Get model token limit from litellm, fallback to DEFAULT_TOKEN_LIMIT
+    max_tokens_for_model = litellm.get_max_tokens(args.model)
+    if max_tokens_for_model is not None:
+        g_model_token_limit = max_tokens_for_model
+        logger.info(f"Using token limit for model {args.model}: {g_model_token_limit}")
+    else:
+        g_model_token_limit = DEFAULT_TOKEN_LIMIT
+        logger.warning(f"Could not determine token limit for model {args.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
+        
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
