@@ -64,7 +64,7 @@ def normalize_sql(sql):
     formatted_sql = formatted_sql.strip()
 
     # Remplacer les constantes numériques et les chaînes de caractères par '?'
-    formatted_sql = re.sub(r'\b\d+\b', '?', formatted_sql)  # Nombres
+    formatted_sql = re.sub(r'\b\d+\.?\d*\b', '?', formatted_sql)  # Nombres (entiers et décimaux)
     formatted_sql = re.sub(r"'[^']*'", '?', formatted_sql)  # Chaînes de caractères
 
     return formatted_sql
