@@ -3,12 +3,12 @@ from pg_autoexplain_ai_analysis import normalize_sql
 
 def test_normalize_sql_simple_query():
     sql = "SELECT * FROM users WHERE id = 1;"
-    expected = "SELECT * FROM users WHERE id = ?;"
+    expected = "SELECT *\nFROM users\nWHERE id = ?;"
     assert normalize_sql(sql) == expected
 
 def test_normalize_sql_with_strings_and_numbers():
     sql = "INSERT INTO logs (message, level) VALUES ('Error message', 5);"
-    expected = "INSERT INTO logs (message, level) VALUES (?, ?);"
+    expected = "INSERT INTO logs (message, level)\nVALUES (?, ?);"
     assert normalize_sql(sql) == expected
 
 def test_normalize_sql_with_comments():
