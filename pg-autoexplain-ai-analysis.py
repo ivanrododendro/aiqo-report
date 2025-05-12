@@ -11,7 +11,6 @@ from pathlib import Path
 
 import litellm
 import sqlparse
-import tiktoken
 from ratelimit import limits, sleep_and_retry
 import gzip
 import zipfile
@@ -49,6 +48,8 @@ g_model_temperature = DEFAULT_MODEL_TEMPERATURE
 g_model_token_limit = DEFAULT_TOKEN_LIMIT
 g_prompts = {}
 g_total_input_tokens = 0
+g_total_output_tokens = 0
+g_total_cost = 0.0
 g_ai_call_count = 0
 g_ai_only_for_seq_scan = False
 
@@ -98,15 +99,6 @@ def load_prompts(lang):
     return None
 
 
-# Add this function to estimate token count
-def estimate_token_count(text):
-    global g_total_input_tokens
-    encoding = tiktoken.encoding_for_model("gpt-4")
-    token_count = len(encoding.encode(text))
-    g_total_input_tokens += token_count
-    return token_count
-
-
 def call_ai_for_plan_analysis(plan, model, timeout):
     static_prompt = g_prompts.get('PLAN_ANALYSIS', '')
     full_prompt = static_prompt + "\n\n" + plan
@@ -117,12 +109,8 @@ def call_ai_for_plan_analysis(plan, model, timeout):
 @sleep_and_retry
 @limits(calls=g_calls, period=g_period)
 def call_ai_provider(prompt, model, timeout):
+    global g_total_input_tokens, g_total_output_tokens, g_total_cost
     logger.info("Calling AI Model for plan analysis...")
-    estimated_tokens = estimate_token_count(prompt)
-
-    if estimated_tokens > g_model_token_limit:
-        ai_hints = f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
-        return ai_hints
 
     messages = [{"role": "user", "content": prompt}]
     # Add a system prompt for chat models, similar to the old call_chatgpt logic
@@ -135,6 +123,18 @@ def call_ai_provider(prompt, model, timeout):
     if model.startswith("gemini-"):
         effective_model = "gemini/" + model
         logger.info(f"Using Google AI Studio provider for model: {effective_model}")
+    
+    try:
+        # Estimate tokens using litellm.token_counter with the constructed messages
+        estimated_tokens = litellm.token_counter(model=effective_model, messages=messages)
+    except Exception as e:
+        logger.warning(f"Could not estimate token count for model {effective_model} using litellm.token_counter: {e}. Skipping AI analysis.")
+        # Consider if a more specific error message or fallback is needed
+        return f"Could not estimate token count for model {effective_model}. AI analysis skipped."
+
+    if estimated_tokens > g_model_token_limit:
+        ai_hints = f"Token count ({estimated_tokens}) exceeds the model limit ({g_model_token_limit}). AI analysis skipped."
+        return ai_hints
 
     try:
         response = litellm.completion(
@@ -143,6 +143,23 @@ def call_ai_provider(prompt, model, timeout):
             temperature=g_model_temperature,
             request_timeout=timeout
         )
+        
+        # Accumulate actual input tokens from the response
+        if response.usage and hasattr(response.usage, 'prompt_tokens') and response.usage.prompt_tokens is not None:
+            g_total_input_tokens += response.usage.prompt_tokens
+        
+        # Accumulate actual output tokens from the response
+        if response.usage and hasattr(response.usage, 'completion_tokens') and response.usage.completion_tokens is not None:
+            g_total_output_tokens += response.usage.completion_tokens
+
+        # Calculate and accumulate cost
+        try:
+            cost = litellm.completion_cost(completion_response=response)
+            if cost is not None:
+                g_total_cost += cost
+        except Exception as e:
+            logger.warning(f"Could not calculate cost for the API call: {e}")
+
         # LiteLLM response structure is similar to OpenAI's
         if response.choices and response.choices[0].message and response.choices[0].message.content:
             return response.choices[0].message.content.strip()
@@ -485,15 +502,15 @@ def main():
     # API keys are now expected to be set as environment variables for LiteLLM
     # load_api_keys() is removed.
 
-    # Get model token limit from litellm, fallback to DEFAULT_TOKEN_LIMIT
-    max_tokens_for_model = litellm.get_max_tokens(args.model)
-    if max_tokens_for_model is not None:
-        g_model_token_limit = max_tokens_for_model
-        logger.info(f"Using token limit for model {args.model}: {g_model_token_limit}")
+    # Get model input token limit from litellm, fallback to DEFAULT_TOKEN_LIMIT
+    model_info = litellm.get_model_info(args.model)
+    if model_info and 'max_input_tokens' in model_info and model_info['max_input_tokens'] is not None:
+        g_model_token_limit = model_info['max_input_tokens']
+        logger.info(f"Using input token limit for model {args.model}: {g_model_token_limit}")
     else:
         g_model_token_limit = DEFAULT_TOKEN_LIMIT
-        logger.warning(f"Could not determine token limit for model {args.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
-        
+        logger.warning(f"Could not determine input token limit for model {args.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
+
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
@@ -510,6 +527,8 @@ def main():
                          query_codes)
 
     logger.info(f"Total input tokens processed: {g_total_input_tokens}")
+    logger.info(f"Total output tokens processed: {g_total_output_tokens}")
+    logger.info(f"Estimated total cost: ${g_total_cost:.4f}")
 
 
 if __name__ == "__main__":
