@@ -502,15 +502,15 @@ def main():
     # API keys are now expected to be set as environment variables for LiteLLM
     # load_api_keys() is removed.
 
-    # Get model token limit from litellm, fallback to DEFAULT_TOKEN_LIMIT
-    max_tokens_for_model = litellm.get_max_tokens(args.model)
-    if max_tokens_for_model is not None:
-        g_model_token_limit = max_tokens_for_model
-        logger.info(f"Using token limit for model {args.model}: {g_model_token_limit}")
+    # Get model input token limit from litellm, fallback to DEFAULT_TOKEN_LIMIT
+    model_info = litellm.get_model_info(args.model)
+    if model_info and 'max_input_tokens' in model_info and model_info['max_input_tokens'] is not None:
+        g_model_token_limit = model_info['max_input_tokens']
+        logger.info(f"Using input token limit for model {args.model}: {g_model_token_limit}")
     else:
         g_model_token_limit = DEFAULT_TOKEN_LIMIT
-        logger.warning(f"Could not determine token limit for model {args.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
-        
+        logger.warning(f"Could not determine input token limit for model {args.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
+
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
