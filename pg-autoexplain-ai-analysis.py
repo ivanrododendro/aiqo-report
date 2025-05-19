@@ -178,6 +178,16 @@ def call_ai_provider(prompt, model, timeout):
 
 
 def parse_log_entry(log_entry):
+    duration_ms = None
+    first_line = log_entry.splitlines()[0]
+    duration_match = re.search(r"duration: (\d+\.?\d*) ms", first_line)
+    if duration_match:
+        try:
+            duration_ms = float(duration_match.group(1))
+        except ValueError:
+            logger.warning(f"Could not parse duration from line: {first_line}")
+            duration_ms = None # Ensure it's None if parsing fails
+
     # Extract the timestamp from the first 23 characters of the log entry
     timestamp = log_entry[:23].strip()
     # Extract the block from "Query Text:" to "Settings:"
@@ -223,7 +233,8 @@ def parse_log_entry(log_entry):
         "query_name": query_name,
         "job_name": job_name,
         "query_text": "\n".join(query_lines).strip(),
-        "execution_plan": "\n".join(plan_lines).strip()
+        "execution_plan": "\n".join(plan_lines).strip(),
+        "duration" : duration_ms
     }
 
 
