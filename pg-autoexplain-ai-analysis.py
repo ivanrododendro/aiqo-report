@@ -303,6 +303,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
             </a>
             <div class="collapse" id="collapseExample-{app_id}">
             <div class="card card-body">
+            {report['duration']}
             {report['chatgpt_hints']}
             <div id="{app_id}">
                 <pev2 :plan-source="plan" :plan-query="query" style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
@@ -477,7 +478,8 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
         "job_name": parsed_result["job_name"],
         "code": query_code,
         "day": day,
-        "seq_scan_indicator": seq_scan_indicator
+        "seq_scan_indicator": seq_scan_indicator,
+        "duration" : parsed_result["duration"]
     }
 
     return report
