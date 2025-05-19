@@ -3,8 +3,7 @@ Act as a DBA expert. Analyze the following PostgreSQL query plan for potential o
 
 Structure of your answer:
 1. Query description: Provide a summary description of the main characteristics of the query (tables involved, join types, important columns, etc.).
-2. Execution time: Indicate its estimated execution time in hours and minutes, without any particular formatting.
-3. Analysis and recommendation:
+2. Analysis and recommendation:
 • Identify the node in the execution plan with the highest cost.
 • Propose a single targeted recommendation for this node, which respects the following constraints:
 • No modification of the query structure (join types, etc.).
@@ -18,9 +17,6 @@ Expected format:
 
 <p>
 <strong>Description:</strong> Quick and concise description of the query.
-</p>
-<p>
-<strong>Execution time:</strong>[X hours Y minutes].
 </p>
 <p>
 <strong>Put the title of the recommendation here</strong>

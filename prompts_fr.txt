@@ -3,8 +3,7 @@ Agis en tant qu’expert DBA. Analyse le plan de requête PostgreSQL suivant pou
 
 Structure de ta réponse :
 	1.	Description de la requête : Fournis une description synthétique des principales caractéristiques de la requête (tables impliquées, types de jointures, colonnes importantes, etc.).
-	2.	Temps d’exécution : Indique son temps d’exécution estimé en heures et minutes, sans formatage particulier.
-	3.	Analyse et recommandation :
+	2.	Analyse et recommandation :
         •	Identifie le nœud du plan d’exécution avec le coût le plus élevé (fais-y reference avec le nom que cela porte dans le plan)
         •	Propose une seule préconisation ciblée pour ce nœud, qui respecte les contraintes suivantes :
         •   Explique les pas qui t'amènent à proposer la préconisation
@@ -22,9 +21,6 @@ Format attendu :
 
 <p>
 <strong>Description : </strong> Description rapide et synthétique de la requête.
-</p>
-<p>
-<strong>Temps d'exécution : </strong>[X heures Y minutes].
 </p>
 <p>
 <strong>Mets l'intitulé de la préconisation ici</strong>
