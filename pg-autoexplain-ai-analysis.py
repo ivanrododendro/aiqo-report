@@ -240,7 +240,7 @@ def parse_log_entry(log_entry):
 
 # Function to generate an HTML report
 def generate_html_report(output_path, frequent_hints_analysis, model, query_count_by_code, reports_by_day,
-                         query_names_by_code):
+                         query_names_by_code, query_cumulated_time_by_code_ms):
     logger.info(f"Generating HTML report in {output_path}")
 
     if g_skip_ai_analysis:
@@ -255,6 +255,8 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script>const {{{{ Duration }}}} = luxon;</script>
     <script src="https://unpkg.com/vue@3.2.45/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/pev2/dist/pev2.umd.js"></script>
     <link href="https://unpkg.com/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
@@ -303,7 +305,8 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
             </a>
             <div class="collapse" id="collapseExample-{app_id}">
             <div class="card card-body">
-            {report['duration']}
+            <p id="duration-{day}-{i}">
+            <script>document.getElementById("duration-{day}-{i}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({report['duration']}).toFormat("h'h'm'm's's'");</script>
             {report['chatgpt_hints']}
             <div id="{app_id}">
                 <pev2 :plan-source="plan" :plan-query="query" style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
@@ -335,14 +338,23 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
             <table class='table-striped' >
                 <thead>
                     <tr>
-                        <th scope='col'>Requête</th><th scope='col'># occurrences</th>
+                        <th scope='col'>Requête</th>
+                        <th scope='col'>Temps cumulé</th>
+                        <th scope='col'># occurrences</th>
                     </tr>
                 </thead>
                 <tbody>
                 """
 
     for (query_code, count) in query_count_by_code.items():
-        content += f"<tr scope='row'><td>{query_names_by_code[query_code][:QUERY_NAME_LIMIT]} ({query_code[:6]})</td><td>{count}</td></tr>"
+        content += (f""""
+                    <tr scope='row'>
+                    <td>{query_names_by_code[query_code][:QUERY_NAME_LIMIT]} ({query_code[:6]})</td>
+                    <td id='cumulated-time-{query_code}'>{query_cumulated_time_by_code_ms[query_code]}</td>
+                    <script>document.getElementById('cumulated-time-{query_code}').innerHTML = Duration.fromMillis({query_cumulated_time_by_code_ms[query_code]}).toFormat("h'h'm'm's's'");</script>
+                    <td>{count}</td>
+                    </tr>
+                    """)
 
     content += "</tbody> </table> </div></div>"
     content += f"{frequent_hints_analysis}"
@@ -393,7 +405,7 @@ def parse_cli_arguments():
 
 
 def process_log_file(log_file_path, model, max_ai_calls, timeout):
-    reports, reports_by_day, query_count_by_code, query_names_by_code = [], defaultdict(list), {}, {}
+    reports, reports_by_day, query_count_by_code, query_names_by_code, query_cumulated_time_by_code_ms = [], defaultdict(list), {}, {}, {}
 
     def process_plain_text_file(file):
         logger.info(f'Process plain text file {file.name} at {log_file_path}')
@@ -414,6 +426,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
                     reports_by_day[report["day"]].append(report)
                     query_count_by_code[query_code] = query_count_by_code.get(query_code, 0) + 1
                     query_names_by_code[query_code] = report["query_name"]
+                    query_cumulated_time_by_code_ms[query_code] = query_cumulated_time_by_code_ms.get(query_code, 0) + report["duration"]
 
     if log_file_path.endswith('.gz'):
         logger.info('Uncompressing gzip file...')
@@ -431,7 +444,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
         with open(log_file_path, 'r', encoding='utf-8') as f:
             process_plain_text_file(f)
 
-    return reports, reports_by_day, query_count_by_code, query_names_by_code
+    return reports, reports_by_day, query_count_by_code, query_names_by_code, query_cumulated_time_by_code_ms
 
 
 def extract_plan_lines(file, first_line):
@@ -527,7 +540,7 @@ def main():
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
-    reports, days, query_occurrences, query_codes = process_log_file(
+    reports, days, query_occurrences, query_codes, query_cumulated_time_by_code_ms = process_log_file(
         args.log_filename, args.model, args.max_ai_calls, args.timeout
     )
 
@@ -537,7 +550,7 @@ def main():
         analysis = ""
 
     generate_html_report(f"{args.log_filename}_report.html", analysis, args.model, query_occurrences, days,
-                         query_codes)
+                         query_codes, query_cumulated_time_by_code_ms)
 
     logger.info(f"Total input tokens processed: {g_total_input_tokens}")
     logger.info(f"Total output tokens processed: {g_total_output_tokens}")
