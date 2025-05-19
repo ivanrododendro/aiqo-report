@@ -19,9 +19,6 @@ Expected format:
 <strong>Description:</strong> Quick and concise description of the query.
 </p>
 <p>
-<strong>Execution time:</strong>[X hours Y minutes].
-</p>
-<p>
 <strong>Put the title of the recommendation here</strong>
 </p>
 <p>

@@ -23,9 +23,6 @@ Format attendu :
 <strong>Description : </strong> Description rapide et synthétique de la requête.
 </p>
 <p>
-<strong>Temps d'exécution : </strong>[X heures Y minutes].
-</p>
-<p>
 <strong>Mets l'intitulé de la préconisation ici</strong>
 preconisation détaillée et actionnable, avec une justification concise.
 </p>
