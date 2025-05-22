@@ -301,7 +301,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
             if report['seq_scan_indicator']:
                 content += """ <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>"""
 
-            if report['chatgpt_hints']:
+            if report['chatgpt_hints'] and not report['chatgpt_hints'].startswith("AI analysis skipped"):
                 content += """ <i class="bi bi-chat-left-text icon" title="Analyse AI disponible"></i>"""
 
             content += f"""
@@ -376,8 +376,8 @@ def get_query_code(query):
 def call_ai_for_final_analysis(reports, model, timeout):
     logger.info("Creating final analysis...")
 
-    # Concatenate all chatgpt_hints
-    all_hints = "\n\n".join([report["chatgpt_hints"] for report in reports if report["chatgpt_hints"]])
+    # Concatenate only actual chatgpt_hints, excluding "skipped" messages
+    all_hints = "\n\n".join([report["chatgpt_hints"] for report in reports if report["chatgpt_hints"] and not report["chatgpt_hints"].startswith("AI analysis skipped")])
 
     # Prepare the prompt for identifying most frequent optimization hints
     prompt_template = g_prompts.get('FINAL_ANALYSIS', '')
@@ -405,7 +405,7 @@ def parse_cli_arguments():
     parser.add_argument("-o", "--ai_only_for_seq_scan", action="store_true",
                         help="Enables AI Analysis only for queries with Seq Scan (default: false)")
     parser.add_argument("-f", "--filter", action="append",
-                        help="Analyze only queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times.")
+                        help="Perform AI analysis only for queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times. All queries will still be included in the report.")
 
     args, unknown_args = parser.parse_known_args()
 
@@ -428,16 +428,15 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings
 
                 logger.info(f"Analyzing query at line {line_number}")
 
+                # process_parsed_result now always returns a report
                 report = process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings)
 
-                if report:
-                    reports.append(report)
-
-                    query_code = report["code"]
-                    reports_by_day[report["day"]].append(report)
-                    query_count_by_code[query_code] = query_count_by_code.get(query_code, 0) + 1
-                    query_names_by_code[query_code] = report["query_name"]
-                    query_cumulated_time_by_code_ms[query_code] = query_cumulated_time_by_code_ms.get(query_code, 0) + report["duration"]
+                reports.append(report) # Always append the report
+                query_code = report["code"]
+                reports_by_day[report["day"]].append(report)
+                query_count_by_code[query_code] = query_count_by_code.get(query_code, 0) + 1
+                query_names_by_code[query_code] = report["query_name"]
+                query_cumulated_time_by_code_ms[query_code] = query_cumulated_time_by_code_ms.get(query_code, 0) + report["duration"]
 
     if log_file_path.endswith('.gz'):
         logger.info('Uncompressing gzip file...')
@@ -475,11 +474,26 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
     query_text = parsed_result["query_text"]
     query_code = get_query_code(query_text)
 
-    # Filtering logic
-    if filter_strings:
+    title = job_name + query_name
+    execution_plan = parsed_result["execution_plan"]
+    timestamp = parsed_result["timestamp"]
+    day = timestamp[:10]
+    query = html.escape(query_text)
+    ai_hints = "" # Initialize to empty string
+    seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
+
+    should_perform_ai_call = True # Flag to control if AI call should be made
+
+    # 1. Check if AI analysis is globally skipped
+    if g_skip_ai_analysis:
+        ai_hints = "AI analysis skipped (CLI flag --skip_ai_analysis)."
+        should_perform_ai_call = False
+        logger.debug("Skipping AI analysis (skip_ai_analysis flag is true)")
+
+    # 2. Check filter criteria (if not already skipped globally)
+    if should_perform_ai_call and filter_strings:
         match_found = False
         for filter_str in filter_strings:
-            # Case-insensitive search across job_name, query_name, query_text, and query_code
             if (filter_str.lower() in job_name.lower() or
                 filter_str.lower() in query_name.lower() or
                 filter_str.lower() in query_text.lower() or
@@ -487,28 +501,30 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
                 match_found = True
                 break
         if not match_found:
-            logger.info(f"Skipping query (code: {query_code[:6]}) as it does not match filter criteria.")
-            return None # Skip this report
+            ai_hints = "AI analysis skipped due to filter criteria."
+            should_perform_ai_call = False
+            logger.info(f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria.")
 
-    title = job_name + query_name
-    execution_plan = parsed_result["execution_plan"]
-    timestamp = parsed_result["timestamp"]
-    day = timestamp[:10]
-    query = html.escape(query_text)
-    ai_hints = ""
-    seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
+    # 3. Check max AI calls limit (if not already skipped)
+    if should_perform_ai_call and max_ai_calls != -1 and (g_ai_call_count >= max_ai_calls):
+        ai_hints = "AI analysis skipped (AI call limit reached)."
+        should_perform_ai_call = False
+        logger.warning(f"AI call limit reached. Skipping AI analysis for query")
 
-    if not g_skip_ai_analysis:
-        if max_ai_calls == -1 or (g_ai_call_count < max_ai_calls):
-            if (g_ai_only_for_seq_scan and seq_scan_indicator) or not g_ai_only_for_seq_scan:
-                ai_hints = call_ai_for_plan_analysis(plan_lines, model, timeout)
-                g_ai_call_count += 1
-            else:
-                logger.info("Skipping AI analysis for query without Seq Scan")
+    # 4. Check AI only for Seq Scan (if not already skipped)
+    if should_perform_ai_call and g_ai_only_for_seq_scan and not seq_scan_indicator:
+        ai_hints = "AI analysis skipped (only for Seq Scan queries)."
+        should_perform_ai_call = False
+        logger.info("Skipping AI analysis for query without Seq Scan (ai_only_for_seq_scan is true)")
+
+    # 5. Perform AI call if all conditions allow
+    if should_perform_ai_call:
+        ai_hints_result = call_ai_for_plan_analysis(plan_lines, model, timeout)
+        if ai_hints_result is None:
+            ai_hints = "AI analysis failed or timed out."
         else:
-            logger.warning(f"AI call limit reached. Skipping AI analysis for query")
-    else:
-        logger.debug("Skipping AI analysis")
+            ai_hints = ai_hints_result
+        g_ai_call_count += 1
 
     report = {
         "title": title,
@@ -547,7 +563,7 @@ def main():
         logger.info(f"AI Analysis only for Seq Scan queries : {args.ai_only_for_seq_scan}")
 
     if args.filter:
-        logger.info(f"Filtering queries by: {', '.join(args.filter)}")
+        logger.info(f"AI analysis will be filtered by: {', '.join(args.filter)}. All queries will still be reported.")
 
     g_calls, g_period = FREE_TIER_RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
