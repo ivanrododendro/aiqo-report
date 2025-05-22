@@ -404,11 +404,18 @@ def parse_cli_arguments():
                         help="Skips the AI analysis and only generates the HTML report (default: false)")
     parser.add_argument("-o", "--ai_only_for_seq_scan", action="store_true",
                         help="Enables AI Analysis only for queries with Seq Scan (default: false)")
+    parser.add_argument("-f", "--filter", action="append",
+                        help="Analyze only queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times.")
 
-    return parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
+
+    if unknown_args:
+        logger.warning(f"Unrecognized arguments: {unknown_args}. These will be ignored.")
+
+    return args
 
 
-def process_log_file(log_file_path, model, max_ai_calls, timeout):
+def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings):
     reports, reports_by_day, query_count_by_code, query_names_by_code, query_cumulated_time_by_code_ms = [], defaultdict(list), {}, {}, {}
 
     def process_plain_text_file(file):
@@ -421,7 +428,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout):
 
                 logger.info(f"Analyzing query at line {line_number}")
 
-                report = process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls)
+                report = process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings)
 
                 if report:
                     reports.append(report)
@@ -460,16 +467,34 @@ def extract_plan_lines(file, first_line):
     return plan_lines
 
 
-def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls):
+def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings):
     global g_ai_call_count
 
     query_name = parsed_result["query_name"]
-    title = parsed_result["job_name"] + query_name
+    job_name = parsed_result["job_name"]
+    query_text = parsed_result["query_text"]
+    query_code = get_query_code(query_text)
+
+    # Filtering logic
+    if filter_strings:
+        match_found = False
+        for filter_str in filter_strings:
+            # Case-insensitive search across job_name, query_name, query_text, and query_code
+            if (filter_str.lower() in job_name.lower() or
+                filter_str.lower() in query_name.lower() or
+                filter_str.lower() in query_text.lower() or
+                filter_str.lower() in query_code.lower()):
+                match_found = True
+                break
+        if not match_found:
+            logger.info(f"Skipping query (code: {query_code[:6]}) as it does not match filter criteria.")
+            return None # Skip this report
+
+    title = job_name + query_name
     execution_plan = parsed_result["execution_plan"]
     timestamp = parsed_result["timestamp"]
     day = timestamp[:10]
-    query_code = get_query_code(parsed_result["query_text"])
-    query = html.escape(parsed_result["query_text"])
+    query = html.escape(query_text)
     ai_hints = ""
     seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
 
@@ -492,7 +517,7 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
         "query_text": query,
         "query_timestamp": timestamp,
         "query_name": query_name,
-        "job_name": parsed_result["job_name"],
+        "job_name": job_name,
         "code": query_code,
         "day": day,
         "seq_scan_indicator": seq_scan_indicator,
@@ -521,6 +546,9 @@ def main():
         logger.info(f"Model temperature : {args.temperature}")
         logger.info(f"AI Analysis only for Seq Scan queries : {args.ai_only_for_seq_scan}")
 
+    if args.filter:
+        logger.info(f"Filtering queries by: {', '.join(args.filter)}")
+
     g_calls, g_period = FREE_TIER_RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
     load_prompts(args.lang)
@@ -545,7 +573,7 @@ def main():
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
     reports, days, query_occurrences, query_codes, query_cumulated_time_by_code_ms = process_log_file(
-        args.log_filename, args.model, args.max_ai_calls, args.timeout
+        args.log_filename, args.model, args.max_ai_calls, args.timeout, args.filter
     )
 
     if not g_skip_ai_analysis:
