@@ -51,6 +51,7 @@ g_prompts = {}
 g_total_input_tokens = 0
 g_ai_call_count = 0
 g_ai_only_for_seq_scan = False
+g_custom_prompt = None # Nouvelle variable globale pour le prompt personnalisé
 
 
 def normalize_sql(sql):
@@ -116,6 +117,10 @@ def estimate_token_count(text):
 def call_ai_for_plan_analysis(plan, model, timeout):
     static_prompt = g_prompts.get('PLAN_ANALYSIS', '')
     full_prompt = static_prompt + "\n\n" + plan
+    
+    # Ajouter le prompt personnalisé si fourni
+    if g_custom_prompt:
+        full_prompt += "\n\n" + g_custom_prompt
 
     return call_ai_provider(full_prompt, model, timeout)
 
@@ -365,6 +370,8 @@ def parse_cli_arguments():
                         help="Skips the AI analysis and only generates the HTML report (default: false)")
     parser.add_argument("-o", "--ai_only_for_seq_scan", action="store_true",
                         help="Enables AI Analysis only for queries with Seq Scan (default: false)")
+    parser.add_argument("-x", "--custom-prompt", type=str, default=None,
+                        help="A custom prompt to append to the main AI analysis prompt.")
 
     return parser.parse_args()
 
@@ -464,7 +471,7 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
 def main():
     args = parse_cli_arguments()
 
-    global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
+    global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan, g_custom_prompt
 
     logger.info(f"Processing PostgreSQL log file {args.log_filename}")
     logger.info(f"Output report: {args.log_filename}_report.html")
@@ -479,6 +486,8 @@ def main():
         logger.info(f"Language: {args.lang}")
         logger.info(f"Model temperature : {args.temperature}")
         logger.info(f"AI Analysis only for Seq Scan queries : {args.ai_only_for_seq_scan}")
+        if args.custom_prompt:
+            logger.info(f"Custom prompt provided: '{args.custom_prompt}'")
 
     g_calls, g_period = FREE_TIER_RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
@@ -502,6 +511,7 @@ def main():
         
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
+    g_custom_prompt = args.custom_prompt # Initialisation de la nouvelle variable globale
 
     reports, days, query_occurrences, query_codes = process_log_file(
         args.log_filename, args.model, args.max_ai_calls, args.timeout
