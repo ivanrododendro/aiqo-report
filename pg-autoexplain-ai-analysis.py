@@ -206,7 +206,7 @@ def parse_log_entry(log_entry):
         start_index = 2  # Skip the title lines for further processing
     else:
         job_name = ""
-        query_name = [lines[0]]
+        query_name = [" ".join(lines[0:])]
         start_index = 0
 
     job_name = "\n".join(job_name).strip().replace("\t", "").replace("\n", "")
@@ -295,7 +295,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
             app_id = f"app-{day}-{i}"
             content += f"""
                 <a data-toggle="collapse" href="#collapseExample-{app_id}" role="button" aria-expanded="false" aria-controls="collapseExample-{app_id}">
-                <h5>{report['query_timestamp']} : {report['title']} ({report['code'][:6]})
+                <h5 title="{report['query_timestamp']}">[{report['code'][:6]}] {report['title'][:QUERY_NAME_LIMIT]}
             """
 
             if report['seq_scan_indicator']:
@@ -353,7 +353,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
     for (query_code, count) in query_count_by_code.items():
         content += (f""""
                     <tr scope='row'>
-                    <td>{query_names_by_code[query_code][:QUERY_NAME_LIMIT]} ({query_code[:6]})</td>
+                    <td>[{query_code[:6]}] {query_names_by_code[query_code][:QUERY_NAME_LIMIT]}</td>
                     <td id='cumulated-time-{query_code}'>{query_cumulated_time_by_code_ms[query_code]}</td>
                     <script>document.getElementById('cumulated-time-{query_code}').innerHTML = Duration.fromMillis({query_cumulated_time_by_code_ms[query_code]}).toFormat("h'h'm'm's's'");</script>
                     <td>{count}</td>
@@ -474,7 +474,7 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
     query_text = parsed_result["query_text"]
     query_code = get_query_code(query_text)
 
-    title = job_name + query_name
+    title = job_name + " " + query_name
     execution_plan = parsed_result["execution_plan"]
     timestamp = parsed_result["timestamp"]
     day = timestamp[:10]
