@@ -51,7 +51,7 @@ g_total_input_tokens = 0
 g_total_output_tokens = 0
 g_total_cost = 0.0
 g_ai_call_count = 0
-g_ai_only_for_seq_scan = False
+g_only_seq_scan_ai_analysis = False
 
 
 def normalize_sql(sql):
@@ -397,27 +397,27 @@ def parse_cli_arguments():
     parser.add_argument("log_filename", nargs="?", help="Path to the PostgreSQL log file")
     parser.add_argument("-m", "--model", default=DEFAULT_MODEL,
                         help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})")
-    parser.add_argument("-c", "--max-ai-calls", type=int, default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
+    parser.add_argument("-l", "--limit-ai-calls", type=int, default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
                         help=f"Maximum number of AI calls to make. Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})")
-    parser.add_argument("-t", "--timeout", type=int, default=DEFAULT_AI_CALL_TIMEOUT,
+    parser.add_argument( "--ai-call-timeout", type=int, default=DEFAULT_AI_CALL_TIMEOUT,
                         help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})")
-    parser.add_argument("-l", "--lang", default=DEFAULT_LANG,
+    parser.add_argument("--language", default=DEFAULT_LANG,
                         help=f"Language for prompts and output (default: ${DEFAULT_LANG})")
-    parser.add_argument("-p", "--temperature", type=float, default=DEFAULT_MODEL_TEMPERATURE,
+    parser.add_argument("--temperature", type=float, default=DEFAULT_MODEL_TEMPERATURE,
                         help=f"Temperature for the AI model (default: ${DEFAULT_MODEL_TEMPERATURE})")
     parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
                         help="Skips the AI analysis and only generates the HTML report (default: false)")
-    parser.add_argument("-o", "--ai_only_for_seq_scan", action="store_true",
+    parser.add_argument("-o", "--only-seq-scan-ai-analysis", action="store_true",
                         help="Enables AI Analysis only for queries with Seq Scan (default: false)")
     parser.add_argument("-f", "--filter", action="append",
                         help="Perform AI analysis only for queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times. All queries will still be included in the report.")
-    parser.add_argument("-x", "--custom-prompt", type=str, default=None,
+    parser.add_argument("-c", "--custom-prompt", type=str, default=None,
                         help="Add a custom prompt to the default AI prompt (optional)")
-    parser.add_argument("-d", "--ddl-context-file", type=str, default=None,
+    parser.add_argument("--sql-context-file", type=str, default=None,
                         help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
-    parser.add_argument("-r", "--custom-report", type=str, default=None,
+    parser.add_argument("-r", "--report-filename", type=str, default=None,
                         help="Override the HTML report filename (optional)")
-    parser.add_argument("--directory-mode", action="store_true", default=False,
+    parser.add_argument("-d","--directory-mode", action="store_true", default=False,
                         help="Process all .log and .zip files in the directory specified as the main positional argument")
 
     args, unknown_args = parser.parse_known_args()
@@ -428,7 +428,7 @@ def parse_cli_arguments():
     return args
 
 
-def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings, custom_prompt=None, ddl_context=None):
+def process_log_file(log_file_path, model, limit_ai_calls, timeout, filter_strings, custom_prompt=None, ddl_context=None):
     reports, reports_by_day, query_count_by_code, query_names_by_code, query_cumulated_time_by_code_ms = [], defaultdict(list), {}, {}, {}
     query_stats = {}
 
@@ -443,7 +443,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings
                 logger.info(f"Analyzing query at line {line_number}")
 
                 # process_parsed_result now always returns a report
-                report = process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings, custom_prompt=custom_prompt, ddl_context=ddl_context)
+                report = process_parsed_result(parsed_result, plan_lines, model, timeout, limit_ai_calls, filter_strings, custom_prompt=custom_prompt, ddl_context=ddl_context)
 
                 reports.append(report) # Always append the report
                 query_code = report["code"]
@@ -492,7 +492,7 @@ def extract_plan_lines(file, first_line):
     return plan_lines
 
 
-def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings, custom_prompt=None, ddl_context=None):
+def process_parsed_result(parsed_result, plan_lines, model, timeout, limit_ai_calls, filter_strings, custom_prompt=None, ddl_context=None):
     global g_ai_call_count
 
     query_name = parsed_result["query_name"]
@@ -532,16 +532,16 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
             logger.info(f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria.")
 
     # 3. Check max AI calls limit (if not already skipped)
-    if should_perform_ai_call and max_ai_calls != -1 and (g_ai_call_count >= max_ai_calls):
+    if should_perform_ai_call and limit_ai_calls != -1 and (g_ai_call_count >= limit_ai_calls):
         ai_hints = "AI analysis skipped (AI call limit reached)."
         should_perform_ai_call = False
         logger.warning(f"AI call limit reached. Skipping AI analysis for query")
 
     # 4. Check AI only for Seq Scan (if not already skipped)
-    if should_perform_ai_call and g_ai_only_for_seq_scan and not seq_scan_indicator:
+    if should_perform_ai_call and g_only_seq_scan_ai_analysis and not seq_scan_indicator:
         ai_hints = "AI analysis skipped (only for Seq Scan queries)."
         should_perform_ai_call = False
-        logger.info("Skipping AI analysis for query without Seq Scan (ai_only_for_seq_scan is true)")
+        logger.info("Skipping AI analysis for query without Seq Scan (only_seq_scan_ai_analysis is true)")
 
     # 5. Perform AI call if all conditions allow
     if should_perform_ai_call:
@@ -572,12 +572,11 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
 def main():
     args = parse_cli_arguments()
 
-    global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
+    global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_only_seq_scan_ai_analysis
+    from pathlib import Path
 
     # Directory mode logic
     if args.directory_mode:
-        from pathlib import Path
-
         directory = Path(args.log_filename)
         if not directory.is_dir():
             logger.error(f"Specified directory does not exist: {args.log_filename}")
@@ -590,22 +589,22 @@ def main():
 
         logger.info(f"Processing directory: {args.log_filename}")
         logger.info(f"Found files: {[str(f) for f in log_files]}")
-        report_filename = args.custom_report if args.custom_report else f"{directory.name}_report.html"
+        report_filename = args.report_filename if args.report_filename else f"{directory.name}_report.html"
     else:
         log_files = [Path(args.log_filename)]
-        report_filename = args.custom_report if args.custom_report else f"{args.log_filename}_report.html"
+        report_filename = args.report_filename if args.report_filename else f"{args.log_filename}_report.html"
         logger.info(f"Processing PostgreSQL log file {args.log_filename}")
 
     logger.info(f"Output report: {report_filename}")
 
     ddl_context = None
-    if args.ddl_context_file:
+    if args.sql_context_file:
         try:
-            with open(args.ddl_context_file, "r", encoding="utf-8") as ddl_file:
+            with open(args.sql_context_file, "r", encoding="utf-8") as ddl_file:
                 ddl_context = ddl_file.read()
-            logger.info(f"Loaded DDL context from: {args.ddl_context_file}")
+            logger.info(f"Loaded DDL context from: {args.sql_context_file}")
         except Exception as e:
-            logger.error(f"Could not read DDL context file '{args.ddl_context_file}': {e}")
+            logger.error(f"Could not read DDL context file '{args.sql_context_file}': {e}")
             ddl_context = None
 
     if args.skip_ai_analysis:
@@ -613,25 +612,25 @@ def main():
         g_skip_ai_analysis = True
     else:
         logger.info(f"Using model: {args.model}")
-        logger.info(f"Maximum AI calls: {args.max_ai_calls if args.max_ai_calls != -1 else 'Unlimited'}")
-        logger.info(f"AI API call timeout: {args.timeout} seconds")
-        logger.info(f"Language: {args.lang}")
+        logger.info(f"Maximum AI calls: {args.limit_ai_calls if args.limit_ai_calls != -1 else 'Unlimited'}")
+        logger.info(f"AI API call timeout: {args.ai_call_timeout} seconds")
+        logger.info(f"Language: {args.language}")
         logger.info(f"Model temperature : {args.temperature}")
-        logger.info(f"AI Analysis only for Seq Scan queries : {args.ai_only_for_seq_scan}")
+        logger.info(f"AI Analysis only for Seq Scan queries : {args.only_seq_scan_ai_analysis}")
         if args.custom_prompt:
             logger.info(f"Custom prompt provided: {args.custom_prompt}")
         if ddl_context:
-            logger.info(f"DDL context loaded from file: {args.ddl_context_file}")
+            logger.info(f"DDL context loaded from file: {args.sql_context_file}")
 
     if args.filter:
         logger.info(f"AI analysis will be filtered by: {', '.join(args.filter)}. All queries will still be reported.")
 
     g_calls, g_period = FREE_TIER_RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
-    load_prompts(args.lang)
+    load_prompts(args.language)
 
     if not g_prompts:
-        logger.error(f"Failed to load prompts for language: {args.lang}. Exiting.")
+        logger.error(f"Failed to load prompts for language: {args.language}. Exiting.")
         exit(1)
 
     # API keys are now expected to be set as environment variables for LiteLLM
@@ -647,7 +646,7 @@ def main():
         logger.warning(f"Could not determine input token limit for model {args.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
 
     g_model_temperature = args.temperature
-    g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
+    g_only_seq_scan_ai_analysis = args.only_seq_scan_ai_analysis
 
     # Aggregate all reports, days, and query_stats from all files
     all_reports = []
@@ -656,7 +655,7 @@ def main():
 
     for log_file in log_files:
         reports, days, query_stats = process_log_file(
-            str(log_file), args.model, args.max_ai_calls, args.timeout, args.filter, custom_prompt=args.custom_prompt, ddl_context=ddl_context
+            str(log_file), args.model, args.limit_ai_calls, args.ai_call_timeout, args.filter, custom_prompt=args.custom_prompt, ddl_context=ddl_context
         )
         all_reports.extend(reports)
         for day, day_reports in days.items():
@@ -673,7 +672,7 @@ def main():
     all_query_stats = sorted(all_query_stats_dict.values(), key=lambda x: x["cumulated_time"], reverse=True)
 
     if not g_skip_ai_analysis:
-        analysis = call_ai_for_final_analysis(all_reports, args.model, args.timeout)
+        analysis = call_ai_for_final_analysis(all_reports, args.model, args.ai_call_timeout)
     else:
         analysis = ""
 
