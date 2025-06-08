@@ -417,8 +417,8 @@ def parse_cli_arguments():
                         help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
     parser.add_argument("-r", "--custom-report", type=str, default=None,
                         help="Override the HTML report filename (optional)")
-    parser.add_argument("--directory-mode", type=str, default=None,
-                        help="Specify a directory to process all .log and .zip files and create a unique report (optional)")
+    parser.add_argument("--directory-mode", action="store_true", default=False,
+                        help="Process all .log and .zip files in the directory specified as the main positional argument")
 
     args, unknown_args = parser.parse_known_args()
 
@@ -577,19 +577,18 @@ def main():
     # Directory mode logic
     if args.directory_mode:
         from pathlib import Path
-        import glob
 
-        directory = Path(args.directory_mode)
+        directory = Path(args.log_filename)
         if not directory.is_dir():
-            logger.error(f"Specified directory does not exist: {args.directory_mode}")
+            logger.error(f"Specified directory does not exist: {args.log_filename}")
             exit(1)
 
         log_files = list(directory.glob("*.log")) + list(directory.glob("*.zip"))
         if not log_files:
-            logger.error(f"No .log or .zip files found in directory: {args.directory_mode}")
+            logger.error(f"No .log or .zip files found in directory: {args.log_filename}")
             exit(1)
 
-        logger.info(f"Processing directory: {args.directory_mode}")
+        logger.info(f"Processing directory: {args.log_filename}")
         logger.info(f"Found files: {[str(f) for f in log_files]}")
         report_filename = args.custom_report if args.custom_report else f"{directory.name}_report.html"
     else:
