@@ -415,6 +415,8 @@ def parse_cli_arguments():
                         help="Add a custom prompt to the default AI prompt (optional)")
     parser.add_argument("-d", "--ddl-context-file", type=str, default=None,
                         help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
+    parser.add_argument("-r", "--custom-report", type=str, default=None,
+                        help="Override the HTML report filename (optional)")
 
     args, unknown_args = parser.parse_known_args()
 
@@ -558,7 +560,8 @@ def main():
     global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
 
     logger.info(f"Processing PostgreSQL log file {args.log_filename}")
-    logger.info(f"Output report: {args.log_filename}_report.html")
+    report_filename = args.custom_report if args.custom_report else f"{args.log_filename}_report.html"
+    logger.info(f"Output report: {report_filename}")
 
     ddl_context = None
     if args.ddl_context_file:
@@ -632,7 +635,7 @@ def main():
     else:
         analysis = ""
 
-    generate_html_report(f"{args.log_filename}_report.html", analysis, args.model, query_stats, days, None, None)
+    generate_html_report(report_filename, analysis, args.model, query_stats, days, None, None)
 
     logger.info(f"Total input tokens processed: {g_total_input_tokens}")
     logger.info(f"Total output tokens processed: {g_total_output_tokens}")
