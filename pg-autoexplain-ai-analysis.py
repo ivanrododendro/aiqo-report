@@ -244,8 +244,8 @@ def parse_log_entry(log_entry):
 
 
 # Function to generate an HTML report
-def generate_html_report(output_path, frequent_hints_analysis, model, query_count_by_code, reports_by_day,
-                         query_names_by_code, query_cumulated_time_by_code_ms):
+def generate_html_report(output_path, frequent_hints_analysis, model, query_stats, reports_by_day,
+                         _unused1, _unused2):
     logger.info(f"Generating HTML report in {output_path}")
 
     if g_skip_ai_analysis:
@@ -355,13 +355,13 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_coun
                 <tbody>
                 """
 
-    for (query_code, count) in query_count_by_code.items():
+    for stat in query_stats:
         content += (f""""
                     <tr scope='row'>
-                    <td>[{query_code[:6]}] {query_names_by_code[query_code][:QUERY_NAME_LIMIT]}</td>
-                    <td id='cumulated-time-{query_code}'>{query_cumulated_time_by_code_ms[query_code]}</td>
-                    <script>document.getElementById('cumulated-time-{query_code}').innerHTML = Duration.fromMillis({query_cumulated_time_by_code_ms[query_code]}).toFormat("h'h'm'm's's'");</script>
-                    <td>{count}</td>
+                    <td>[{stat['code'][:6]}] {stat['name'][:QUERY_NAME_LIMIT]}</td>
+                    <td id='cumulated-time-{stat['code']}'>{stat['cumulated_time']}</td>
+                    <script>document.getElementById('cumulated-time-{stat['code']}').innerHTML = Duration.fromMillis({stat['cumulated_time']}).toFormat("h'h'm'm's's'");</script>
+                    <td>{stat['count']}</td>
                     </tr>
                     """)
 
@@ -615,13 +615,24 @@ def main():
         args.log_filename, args.model, args.max_ai_calls, args.timeout, args.filter, custom_prompt=args.custom_prompt, ddl_context=ddl_context
     )
 
+    # Compose a list of dicts with code, name, count, cumulated_time, sorted by cumulated_time desc
+    query_stats = [
+        {
+            "code": code,
+            "name": query_codes[code],
+            "count": query_occurrences[code],
+            "cumulated_time": query_cumulated_time_by_code_ms[code]
+        }
+        for code in query_occurrences
+    ]
+    query_stats.sort(key=lambda x: x["cumulated_time"], reverse=True)
+
     if not g_skip_ai_analysis:
         analysis = call_ai_for_final_analysis(reports, args.model, args.timeout)
     else:
         analysis = ""
 
-    generate_html_report(f"{args.log_filename}_report.html", analysis, args.model, query_occurrences, days,
-                         query_codes, query_cumulated_time_by_code_ms)
+    generate_html_report(f"{args.log_filename}_report.html", analysis, args.model, query_stats, days, None, None)
 
     logger.info(f"Total input tokens processed: {g_total_input_tokens}")
     logger.info(f"Total output tokens processed: {g_total_output_tokens}")
