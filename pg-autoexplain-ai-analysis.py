@@ -428,6 +428,7 @@ def parse_cli_arguments():
 
 def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings, custom_prompt=None, ddl_context=None):
     reports, reports_by_day, query_count_by_code, query_names_by_code, query_cumulated_time_by_code_ms = [], defaultdict(list), {}, {}, {}
+    query_stats = {}
 
     def process_plain_text_file(file):
         logger.info(f'Process plain text file {file.name} at {log_file_path}')
@@ -449,6 +450,18 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings
                 query_names_by_code[query_code] = report["query_name"]
                 query_cumulated_time_by_code_ms[query_code] = query_cumulated_time_by_code_ms.get(query_code, 0) + report["duration"]
 
+                # Update query_stats in-place
+                if query_code not in query_stats:
+                    query_stats[query_code] = {
+                        "code": query_code,
+                        "name": report["query_name"],
+                        "count": 1,
+                        "cumulated_time": report["duration"]
+                    }
+                else:
+                    query_stats[query_code]["count"] += 1
+                    query_stats[query_code]["cumulated_time"] += report["duration"]
+
     if log_file_path.endswith('.gz'):
         logger.info('Uncompressing gzip file...')
         with gzip.open(log_file_path, 'rt', encoding='utf-8') as f:
@@ -465,7 +478,10 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings
         with open(log_file_path, 'r', encoding='utf-8') as f:
             process_plain_text_file(f)
 
-    return reports, reports_by_day, query_count_by_code, query_names_by_code, query_cumulated_time_by_code_ms
+    # Convert query_stats dict to sorted list
+    query_stats_list = sorted(query_stats.values(), key=lambda x: x["cumulated_time"], reverse=True)
+
+    return reports, reports_by_day, query_stats_list
 
 
 def extract_plan_lines(file, first_line):
@@ -614,21 +630,9 @@ def main():
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
-    reports, days, query_occurrences, query_codes, query_cumulated_time_by_code_ms = process_log_file(
+    reports, days, query_stats = process_log_file(
         args.log_filename, args.model, args.max_ai_calls, args.timeout, args.filter, custom_prompt=args.custom_prompt, ddl_context=ddl_context
     )
-
-    # Compose a list of dicts with code, name, count, cumulated_time, sorted by cumulated_time desc
-    query_stats = [
-        {
-            "code": code,
-            "name": query_codes[code],
-            "count": query_occurrences[code],
-            "cumulated_time": query_cumulated_time_by_code_ms[code]
-        }
-        for code in query_occurrences
-    ]
-    query_stats.sort(key=lambda x: x["cumulated_time"], reverse=True)
 
     if not g_skip_ai_analysis:
         analysis = call_ai_for_final_analysis(reports, args.model, args.timeout)
