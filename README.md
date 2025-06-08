@@ -5,7 +5,7 @@ This tool automates the analysis of PostgreSQL `auto_explain` log files using AI
 ## Features
 
 *   **Automated Analysis:** Parses PostgreSQL `auto_explain` logs to extract query execution plans.
-*   **AI-Powered Recommendations:** Leverages AI (GPT-4o, GPT-3.5 Turbo, Gemini) to provide context-aware optimization suggestions.
+*   **AI-Powered Recommendations:** Uses [LiteLLM](https://github.com/BerriAI/litellm) to access multiple AI providers (OpenAI, Google Gemini, Claude, etc.) for context-aware optimization suggestions.
 *   **Multi-Language Support:** Supports analysis and recommendations in multiple languages via customizable prompts.
 *   **Query Fingerprinting:** Generates a unique hashcode for each query to facilitate tracking and comparison across multiple analyses.
 *   **Interactive HTML Reports:** Creates comprehensive HTML reports with:
@@ -14,22 +14,34 @@ This tool automates the analysis of PostgreSQL `auto_explain` log files using AI
     *   Query occurrence statistics and performance metrics.
     *   Overall analysis summary highlighting common optimization opportunities.
 *   **Token Limit Management:** Enforces token limits for different AI models to control costs.
-*   **Flexible Configuration:** Allows customization of AI model, temperature, API keys, and prompts via command-line arguments and configuration files.
+*   **Flexible Configuration:** Allows customization of AI model, temperature, prompts, and more via command-line arguments and configuration files.
+*   **Directory Mode:** Analyze all `.log` and `.zip` files in a directory in a single run.
+*   **Advanced Filtering:** Restrict AI analysis to queries matching specific patterns or containing sequential scans.
 
 ## Requirements
 
 ### Python Dependencies
 
+This tool requires Python 3.8+ and the following dependencies:
+
 ```bash
-pip install requests tiktoken google-generativeai asyncio logging hashlib collections argparse ratelimit
+pip install litellm sqlparse ratelimit
 ```
 
-### API Keys
+Other dependencies (such as requests, tiktoken, etc.) are handled by LiteLLM as needed.
 
-You need API keys for either:
+### API Keys and LiteLLM Configuration
 
-*   **OpenAI GPT:** For `gpt-4o`, `gpt-3.5-turbo` models.
-*   **Google Gemini:** For `gemini-2.0-flash-exp`, `gemini-1.5-flash`, and other Gemini models.
+This tool uses [LiteLLM](https://github.com/BerriAI/litellm) to access AI models. You must set your API keys as environment variables according to the LiteLLM documentation. For example:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key
+export GOOGLE_API_KEY=your_google_api_key
+```
+
+You can also use a `.env` file or other configuration methods supported by LiteLLM. See [LiteLLM docs](https://docs.litellm.ai/docs/providers/) for details.
+
+**Important:** Do not commit your API keys to version control.
 
 ### PostgreSQL Configuration
 
@@ -82,41 +94,57 @@ This command analyzes the specified PostgreSQL log file using the default AI mod
 ### Advanced Options
 
 ```bash
-python pg-autoexplain-ai-analysis.py path/to/postgresql.log -m <MODEL_NAME> -c <MAX_AI_CALLS> -l <LANGUAGE> -t <TIMEOUT> -p <TEMPERATURE>
+python pg-autoexplain-ai-analysis.py path/to/postgresql.log [options]
 ```
 
-#### Parameters
+#### Key Parameters
 
-*   `log_filename`: Path to the PostgreSQL log file containing execution plans.
-*   `-m, --model`: AI model to use for analysis (default: `gemini-2.0-flash-exp`). Supported models:
-    *   OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-3.5-turbo`
-    *   Gemini: `gemini-2.0-flash-exp`, `gemini-1.5-flash`, `gemini-1.5-pro`
-*   `-c, --max-ai-calls`: Maximum number of AI API calls to make (default: `-1` for unlimited).
-*   `-l, --lang`: Language for analysis and recommendations (default: `fr`).  Must have a corresponding `prompts_<lang>.txt` file.
-*   `-t, --timeout`: Timeout in seconds for each AI API call (default: `90`).
-*   `-p, --temperature`:  Model temperature, (default 0.5).
-*   `--ai-only-for-seq-scan`:  Only call AI for queries with Seq Scan.
+*   `log_filename`: Path to the PostgreSQL log file (or directory if using `--directory-mode`).
+*   `-m, --model`: AI model to use for analysis (default: `gemini-2.0-flash-exp`). Supported models depend on your LiteLLM configuration (e.g., `gpt-4o`, `gpt-3.5-turbo`, `gemini-1.5-pro`, etc.).
+*   `-l, --limit-ai-calls`: Maximum number of AI calls to make. Use `-1` for unlimited (default: `-1`).
+*   `--ai-call-timeout`: Timeout for AI API calls in seconds (default: `90`).
+*   `--language`: Language for prompts and output (default: `fr`). Must have a corresponding `prompts_<lang>.txt` file.
+*   `--temperature`: Temperature for the AI model (default: `0.5`).
+*   `-s, --skip_ai_analysis`: Skip AI analysis and only generate the HTML report.
+*   `-o, --only-seq-scan-ai-analysis`: Only perform AI analysis for queries with Seq Scan.
+*   `-f, --filter`: Restrict AI analysis to queries containing the specified string (can be used multiple times).
+*   `-c, --custom-prompt`: Add a custom prompt to the default AI prompt.
+*   `--sql-context-file`: Add the content of a DDL SQL file to the prompt.
+*   `-r, --report-filename`: Override the HTML report filename.
+*   `-d, --directory-mode`: Process all `.log` and `.zip` files in the specified directory.
 
 ### Examples
 
 1.  Analyze `postgresql.log` using the GPT-4o model, limiting the analysis to 10 AI calls:
 
     ```bash
-    python pg-autoexplain-ai-analysis.py postgresql.log -m gpt-4o -c 10
+    python pg-autoexplain-ai-analysis.py postgresql.log -m gpt-4o -l 10
     ```
 
-2.  Analyze `postgresql.log` using the Gemini 1.5 Pro model with a timeout of 120 seconds and generate the report in English:
+2.  Analyze all `.log` and `.zip` files in a directory, using Gemini 1.5 Pro, with a timeout of 120 seconds and generate the report in English:
 
     ```bash
-    python pg-autoexplain-ai-analysis.py postgresql.log -m gemini-1.5-pro -t 120 -l en
+    python pg-autoexplain-ai-analysis.py /path/to/logs/dir -d -m gemini-1.5-pro --ai-call-timeout 120 --language en
+    ```
+
+3.  Analyze only queries containing "Seq Scan" and skip AI analysis for others:
+
+    ```bash
+    python pg-autoexplain-ai-analysis.py postgresql.log --only-seq-scan-ai-analysis
+    ```
+
+4.  Add a custom prompt and DDL context to the AI analysis:
+
+    ```bash
+    python pg-autoexplain-ai-analysis.py postgresql.log -c "Focus on index usage" --sql-context-file schema.sql
     ```
 
 This will:
 
-1.  Process execution plans from `postgresql.log`.
-2.  Use the specified AI model for analysis.
-3.  Limit the number of AI API calls.
-4.  Generate an HTML report at `postgresql.log_report.html`.
+1.  Process execution plans from the specified log file(s).
+2.  Use the selected AI model for analysis.
+3.  Limit the number of AI API calls if specified.
+4.  Generate an HTML report (e.g., `postgresql.log_report.html`).
 
 ## Output
 
