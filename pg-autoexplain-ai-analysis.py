@@ -99,9 +99,11 @@ def load_prompts(lang):
     return None
 
 
-def call_ai_for_plan_analysis(plan, model, timeout, custom_prompt=None):
+def call_ai_for_plan_analysis(plan, model, timeout, custom_prompt=None, ddl_context=None):
     static_prompt = g_prompts.get('PLAN_ANALYSIS', '')
     full_prompt = static_prompt
+    if ddl_context:
+        full_prompt += "\n\nDDL context:\n" + ddl_context
     if custom_prompt:
         full_prompt += "\n\n" + custom_prompt
     full_prompt += "\n\n" + plan
@@ -411,6 +413,8 @@ def parse_cli_arguments():
                         help="Perform AI analysis only for queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times. All queries will still be included in the report.")
     parser.add_argument("-x", "--custom-prompt", type=str, default=None,
                         help="Add a custom prompt to the default AI prompt (optional)")
+    parser.add_argument("-d", "--ddl-context-file", type=str, default=None,
+                        help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
 
     args, unknown_args = parser.parse_known_args()
 
@@ -420,7 +424,7 @@ def parse_cli_arguments():
     return args
 
 
-def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings, custom_prompt=None):
+def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings, custom_prompt=None, ddl_context=None):
     reports, reports_by_day, query_count_by_code, query_names_by_code, query_cumulated_time_by_code_ms = [], defaultdict(list), {}, {}, {}
 
     def process_plain_text_file(file):
@@ -434,7 +438,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings
                 logger.info(f"Analyzing query at line {line_number}")
 
                 # process_parsed_result now always returns a report
-                report = process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings, custom_prompt=custom_prompt)
+                report = process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings, custom_prompt=custom_prompt, ddl_context=ddl_context)
 
                 reports.append(report) # Always append the report
                 query_code = report["code"]
@@ -471,7 +475,7 @@ def extract_plan_lines(file, first_line):
     return plan_lines
 
 
-def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings, custom_prompt=None):
+def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_calls, filter_strings, custom_prompt=None, ddl_context=None):
     global g_ai_call_count
 
     query_name = parsed_result["query_name"]
@@ -524,7 +528,7 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, max_ai_call
 
     # 5. Perform AI call if all conditions allow
     if should_perform_ai_call:
-        ai_hints_result = call_ai_for_plan_analysis(plan_lines, model, timeout, custom_prompt=custom_prompt)
+        ai_hints_result = call_ai_for_plan_analysis(plan_lines, model, timeout, custom_prompt=custom_prompt, ddl_context=ddl_context)
         if ai_hints_result is None:
             ai_hints = "AI analysis failed or timed out."
         else:
@@ -556,6 +560,16 @@ def main():
     logger.info(f"Processing PostgreSQL log file {args.log_filename}")
     logger.info(f"Output report: {args.log_filename}_report.html")
 
+    ddl_context = None
+    if args.ddl_context_file:
+        try:
+            with open(args.ddl_context_file, "r", encoding="utf-8") as ddl_file:
+                ddl_context = ddl_file.read()
+            logger.info(f"Loaded DDL context from: {args.ddl_context_file}")
+        except Exception as e:
+            logger.error(f"Could not read DDL context file '{args.ddl_context_file}': {e}")
+            ddl_context = None
+
     if args.skip_ai_analysis:
         logger.info("Skipping AI Analysis")
         g_skip_ai_analysis = True
@@ -568,6 +582,8 @@ def main():
         logger.info(f"AI Analysis only for Seq Scan queries : {args.ai_only_for_seq_scan}")
         if args.custom_prompt:
             logger.info(f"Custom prompt provided: {args.custom_prompt}")
+        if ddl_context:
+            logger.info(f"DDL context loaded from file: {args.ddl_context_file}")
 
     if args.filter:
         logger.info(f"AI analysis will be filtered by: {', '.join(args.filter)}. All queries will still be reported.")
@@ -596,7 +612,7 @@ def main():
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
     reports, days, query_occurrences, query_codes, query_cumulated_time_by_code_ms = process_log_file(
-        args.log_filename, args.model, args.max_ai_calls, args.timeout, args.filter, custom_prompt=args.custom_prompt
+        args.log_filename, args.model, args.max_ai_calls, args.timeout, args.filter, custom_prompt=args.custom_prompt, ddl_context=ddl_context
     )
 
     if not g_skip_ai_analysis:
