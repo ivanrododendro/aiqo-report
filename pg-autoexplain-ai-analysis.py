@@ -450,7 +450,7 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings
                 reports_by_day[report["day"]].append(report)
 
                 # Update query_stats in-place
-                if query_code not in query_st/ats:
+                if query_code not in query_stats:
                     query_stats[query_code] = {
                         "code": query_code,
                         "name": report["query_name"],
