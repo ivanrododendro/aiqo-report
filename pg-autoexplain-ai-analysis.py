@@ -394,7 +394,7 @@ def call_ai_for_final_analysis(reports, model, timeout):
 
 def parse_cli_arguments():
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
-    parser.add_argument("log_filename", help="Path to the PostgreSQL log file")
+    parser.add_argument("log_filename", nargs="?", help="Path to the PostgreSQL log file")
     parser.add_argument("-m", "--model", default=DEFAULT_MODEL,
                         help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})")
     parser.add_argument("-c", "--max-ai-calls", type=int, default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
@@ -417,6 +417,8 @@ def parse_cli_arguments():
                         help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
     parser.add_argument("-r", "--custom-report", type=str, default=None,
                         help="Override the HTML report filename (optional)")
+    parser.add_argument("--directory-mode", type=str, default=None,
+                        help="Specify a directory to process all .log and .zip files and create a unique report (optional)")
 
     args, unknown_args = parser.parse_known_args()
 
@@ -572,8 +574,29 @@ def main():
 
     global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_ai_only_for_seq_scan
 
-    logger.info(f"Processing PostgreSQL log file {args.log_filename}")
-    report_filename = args.custom_report if args.custom_report else f"{args.log_filename}_report.html"
+    # Directory mode logic
+    if args.directory_mode:
+        from pathlib import Path
+        import glob
+
+        directory = Path(args.directory_mode)
+        if not directory.is_dir():
+            logger.error(f"Specified directory does not exist: {args.directory_mode}")
+            exit(1)
+
+        log_files = list(directory.glob("*.log")) + list(directory.glob("*.zip"))
+        if not log_files:
+            logger.error(f"No .log or .zip files found in directory: {args.directory_mode}")
+            exit(1)
+
+        logger.info(f"Processing directory: {args.directory_mode}")
+        logger.info(f"Found files: {[str(f) for f in log_files]}")
+        report_filename = args.custom_report if args.custom_report else f"{directory.name}_report.html"
+    else:
+        log_files = [Path(args.log_filename)]
+        report_filename = args.custom_report if args.custom_report else f"{args.log_filename}_report.html"
+        logger.info(f"Processing PostgreSQL log file {args.log_filename}")
+
     logger.info(f"Output report: {report_filename}")
 
     ddl_context = None
@@ -627,16 +650,35 @@ def main():
     g_model_temperature = args.temperature
     g_ai_only_for_seq_scan = args.ai_only_for_seq_scan
 
-    reports, days, query_stats = process_log_file(
-        args.log_filename, args.model, args.max_ai_calls, args.timeout, args.filter, custom_prompt=args.custom_prompt, ddl_context=ddl_context
-    )
+    # Aggregate all reports, days, and query_stats from all files
+    all_reports = []
+    all_days = defaultdict(list)
+    all_query_stats_dict = {}
+
+    for log_file in log_files:
+        reports, days, query_stats = process_log_file(
+            str(log_file), args.model, args.max_ai_calls, args.timeout, args.filter, custom_prompt=args.custom_prompt, ddl_context=ddl_context
+        )
+        all_reports.extend(reports)
+        for day, day_reports in days.items():
+            all_days[day].extend(day_reports)
+        for stat in query_stats:
+            code = stat["code"]
+            if code not in all_query_stats_dict:
+                all_query_stats_dict[code] = stat.copy()
+            else:
+                all_query_stats_dict[code]["count"] += stat["count"]
+                all_query_stats_dict[code]["cumulated_time"] += stat["cumulated_time"]
+
+    # Sort the merged query_stats
+    all_query_stats = sorted(all_query_stats_dict.values(), key=lambda x: x["cumulated_time"], reverse=True)
 
     if not g_skip_ai_analysis:
-        analysis = call_ai_for_final_analysis(reports, args.model, args.timeout)
+        analysis = call_ai_for_final_analysis(all_reports, args.model, args.timeout)
     else:
         analysis = ""
 
-    generate_html_report(report_filename, analysis, args.model, query_stats, days, None, None)
+    generate_html_report(report_filename, analysis, args.model, all_query_stats, all_days, None, None)
 
     logger.info(f"Total input tokens processed: {g_total_input_tokens}")
     logger.info(f"Total output tokens processed: {g_total_output_tokens}")
