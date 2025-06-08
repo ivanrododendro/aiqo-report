@@ -446,12 +446,9 @@ def process_log_file(log_file_path, model, max_ai_calls, timeout, filter_strings
                 reports.append(report) # Always append the report
                 query_code = report["code"]
                 reports_by_day[report["day"]].append(report)
-                query_count_by_code[query_code] = query_count_by_code.get(query_code, 0) + 1
-                query_names_by_code[query_code] = report["query_name"]
-                query_cumulated_time_by_code_ms[query_code] = query_cumulated_time_by_code_ms.get(query_code, 0) + report["duration"]
 
                 # Update query_stats in-place
-                if query_code not in query_stats:
+                if query_code not in query_st/ats:
                     query_stats[query_code] = {
                         "code": query_code,
                         "name": report["query_name"],
