@@ -257,7 +257,7 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_stat
         loader=FileSystemLoader(str(Path(__file__).parent)),
         autoescape=select_autoescape(['html', 'xml'])
     )
-    template = env.get_template("report_template.html")
+    template = env.get_template("report_templates/report_template.html")
 
     html_report = template.render(
         title=title,
