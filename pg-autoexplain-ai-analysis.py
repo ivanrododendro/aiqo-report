@@ -582,9 +582,9 @@ def main():
             logger.error(f"Specified directory does not exist: {args.log_filename}")
             exit(1)
 
-        log_files = list(directory.glob("*.log")) + list(directory.glob("*.zip"))
+        log_files = list(directory.glob("*.log")) + list(directory.glob("*.gz"))
         if not log_files:
-            logger.error(f"No .log or .zip files found in directory: {args.log_filename}")
+            logger.error(f"No .log or .gz files found in directory: {args.log_filename}")
             exit(1)
 
         logger.info(f"Processing directory: {args.log_filename}")
