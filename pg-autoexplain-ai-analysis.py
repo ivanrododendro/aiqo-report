@@ -2,7 +2,6 @@
 
 import argparse
 import hashlib
-import html
 import io
 import logging
 import re
@@ -404,7 +403,7 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, limit_ai_ca
     execution_plan = parsed_result["execution_plan"]
     timestamp = parsed_result["timestamp"]
     day = timestamp[:10]
-    query = html.escape(query_text)
+    query = query_text
     ai_hints = "" # Initialize to empty string
     seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
 
