@@ -69,7 +69,7 @@ def load_prompts(lang):
     global g_prompts
     current_prompt = None
     current_content = []
-    base_path = Path(__file__).parent / 'prompts'
+    base_path = Path(__file__).parent / 'prompts/prompts'
 
     lang_file_path = f"{base_path}_{lang}.txt"
 
