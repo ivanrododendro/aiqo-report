@@ -14,6 +14,7 @@ import sqlparse
 from ratelimit import limits, sleep_and_retry
 import gzip
 import zipfile
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 DEFAULT_FREE_TPM = 10
 QUERY_NAME_LIMIT = 140
@@ -253,122 +254,21 @@ def generate_html_report(output_path, frequent_hints_analysis, model, query_stat
     else:
         title = f"PostgreSQL Auto Explain AI Report ({model}) "
 
-    html_template = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title}</title>
-    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
-    <script>const {{{{ Duration }}}} = luxon;</script>
-    <script src="https://unpkg.com/vue@3.2.45/dist/vue.global.prod.js"></script>
-    <script src="https://unpkg.com/pev2/dist/pev2.umd.js"></script>
-    <link href="https://unpkg.com/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://unpkg.com/pev2/dist/pev2.css" />
-    <style>.bi-database-exclamation {{{{color: red !important;}}}}</style>
-    <style>.bi-chat-left-text {{{{color: green !important;}}}}</style>
-    </head>
-    <body class="container-fluid">
-        <script>
-            const {{{{ createApp }}}} = Vue;
-        </script>
-        <h1 class="mb-4">{title}</h1>
-        <h2>Requêtes</h2>
-        {{content}}
-    </body>
-    </html>
-    """
-    content = ""
-    sorted_days = sorted(reports_by_day.keys())
+    # Préparer l'environnement Jinja2
+    env = Environment(
+        loader=FileSystemLoader(str(Path(__file__).parent)),
+        autoescape=select_autoescape(['html', 'xml'])
+    )
+    template = env.get_template("report_template.html")
 
-    for day in sorted_days:
-        content += f"""
-            <a data-toggle="collapse" href="#collapseDay-{day}" role="button" aria-expanded="false" aria-controls="collapseDay-{day}">
-                <h3>{day}</h3>
-            </a>
-            <div class="collapse" id="collapseDay-{day}">
-            <div class="card card-body">
-        """
-
-        for i, report in enumerate(reports_by_day[day]):
-            # Generate unique IDs for each Vue app instance
-            app_id = f"app-{day}-{i}"
-            content += f"""
-                <a data-toggle="collapse" href="#collapseExample-{app_id}" role="button" aria-expanded="false" aria-controls="collapseExample-{app_id}">
-                <h5 title="{report['query_timestamp']}">[{report['code'][:6]}] {report['title'][:QUERY_NAME_LIMIT]}
-            """
-
-            if report['seq_scan_indicator']:
-                content += """ <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>"""
-
-            if report['chatgpt_hints'] and not report['chatgpt_hints'].startswith("AI analysis skipped"):
-                content += """ <i class="bi bi-chat-left-text icon" title="Analyse AI disponible"></i>"""
-
-            content += f"""
-            </h5>
-            </a>
-            <div class="collapse" id="collapseExample-{app_id}">
-            <div class="card card-body">
-            <p id="duration-{day}-{i}">
-            <script>document.getElementById("duration-{day}-{i}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({report['duration']}).toFormat("h'h'm'm's's'");</script>
-            {report['chatgpt_hints']}
-            <div id="{app_id}">
-                <pev2 :plan-source="plan" :plan-query="query" style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
-            </div>
-            <script>
-                $('#collapseExample-{app_id}').on('shown.bs.collapse', function () {{
-                    createApp({{
-                        data() {{
-                            return {{
-                                plan: `{report['plan']}`,
-                                query: `{report['query_text']}`
-                            }};
-                        }}
-                    }}).component("pev2", pev2.Plan).mount("#{app_id}");
-                }});
-            </script>
-            </div>
-            </div>      
-            """
-        content += "</div></div>"
-
-    content += "<h2>Synthèse</h2>"
-    content += """
-        <a data-toggle="collapse" href="#requestCollapse" role="button" aria-expanded="false" aria-controls="requestCollapse">
-            <h3>Requêtes</h3>
-        </a>
-          <div class="collapse" id="requestCollapse">
-        <div class="card card-body">
-            <table class='table-striped' >
-                <thead>
-                    <tr>
-                        <th scope='col'>Requête</th>
-                        <th scope='col'>Temps cumulé</th>
-                        <th scope='col'># occurrences</th>
-                    </tr>
-                </thead>
-                <tbody>
-                """
-
-    for stat in query_stats:
-        content += (f""""
-                    <tr scope='row'>
-                    <td>[{stat['code'][:6]}] {stat['name'][:QUERY_NAME_LIMIT]}</td>
-                    <td id='cumulated-time-{stat['code']}'>{stat['cumulated_time']}</td>
-                    <script>document.getElementById('cumulated-time-{stat['code']}').innerHTML = Duration.fromMillis({stat['cumulated_time']}).toFormat("h'h'm'm's's'");</script>
-                    <td>{stat['count']}</td>
-                    </tr>
-                    """)
-
-    content += "</tbody> </table> </div></div>"
-    content += f"{frequent_hints_analysis}"
-
-    html_report = html_template.format(content=content, model=model)
+    html_report = template.render(
+        title=title,
+        frequent_hints_analysis=frequent_hints_analysis,
+        model=model,
+        query_stats=query_stats,
+        reports_by_day=reports_by_day,
+        QUERY_NAME_LIMIT=QUERY_NAME_LIMIT
+    )
     Path(output_path).write_text(html_report, encoding="utf-8")
 
 

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script>const {Duration} = luxon;</script>
+    <script src="https://unpkg.com/vue@3.2.45/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/pev2/dist/pev2.umd.js"></script>
+    <link href="https://unpkg.com/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
+            crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/pev2/dist/pev2.css"/>
+    <style>.bi-database-exclamation {
+        color: red !important;
+    }</style>
+    <style>.bi-chat-left-text {
+        color: green !important;
+    }</style>
+</head>
+<body class="container-fluid">
+<script>
+    const {createApp} = Vue;
+</script>
+<h1 class="mb-4">{{ title }}</h1>
+<h2>Requêtes</h2>
+{% for day, reports in reports_by_day.items()|sort %}
+<a data-toggle="collapse" href="#collapseDay-{{ day }}" role="button" aria-expanded="false"
+   aria-controls="collapseDay-{{ day }}">
+    <h3>{{ day }}</h3>
+</a>
+<div class="collapse" id="collapseDay-{{ day }}">
+    <div class="card card-body">
+        {% for report in reports %}
+        {% set i = loop.index0 %}
+        {% set app_id = 'app-' ~ day ~ '-' ~ i %}
+        <a data-toggle="collapse" href="#collapseExample-{{ app_id }}" role="button" aria-expanded="false"
+           aria-controls="collapseExample-{{ app_id }}">
+            <h5 title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}
+                {% if report.seq_scan_indicator %}
+                <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>
+                {% endif %}
+                {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
+                <i class="bi bi-chat-left-text icon" title="Analyse AI disponible"></i>
+                {% endif %}
+            </h5>
+        </a>
+        <div class="collapse" id="collapseExample-{{ app_id }}">
+            <div class="card card-body">
+                <p id="duration-{{ day }}-{{ i }}">
+                    <script>document.getElementById("duration-{{ day }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({
+                    {
+                        report.duration
+                    }
+                    }).toFormat("h'h'm'm's's'");</script>
+                    {{ report.chatgpt_hints|safe }}
+                <div id="{{ app_id }}">
+                    <pev2 :plan-source="plan" :plan-query="query"
+                          style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
+                </div>
+                <script>
+                    $('#collapseExample-{{ app_id }}').on('shown.bs.collapse', function () {
+                        createApp({
+                            data() {
+                                return {
+                                    plan: `{{ report.plan|safe }}`,
+                                    query: `{{ report.query_text|safe }}`
+                                };
+                            }
+                        }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+                    });
+                </script>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+<h2>Synthèse</h2>
+<a data-toggle="collapse" href="#requestCollapse" role="button" aria-expanded="false" aria-controls="requestCollapse">
+    <h3>Requêtes</h3>
+</a>
+<div class="collapse" id="requestCollapse">
+    <div class="card card-body">
+        <table class='table-striped'>
+            <thead>
+            <tr>
+                <th scope='col'>Requête</th>
+                <th scope='col'>Temps cumulé</th>
+                <th scope='col'># occurrences</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for stat in query_stats %}
+            <tr scope='row'>
+                <td>[{{ stat.code[:6] }}] {{ stat.name[:QUERY_NAME_LIMIT] }}</td>
+                <td id='cumulated-time-{{ stat.code }}'>{{ stat.cumulated_time }}</td>
+                <script>document.getElementById('cumulated-time-{{ stat.code }}').innerHTML = Duration.fromMillis({
+                {
+                    stat.cumulated_time
+                }
+                }).toFormat("h'h'm'm's's'");</script>
+                <td>{{ stat.count }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{ frequent_hints_analysis|safe }}
+</body>
+</html>
