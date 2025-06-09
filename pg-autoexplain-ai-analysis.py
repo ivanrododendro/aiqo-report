@@ -244,8 +244,7 @@ def parse_log_entry(log_entry):
 
 
 # Function to generate an HTML report
-def generate_html_report(output_path, frequent_hints_analysis, model, query_stats, reports_by_day,
-                         _unused1, _unused2):
+def generate_html_report(output_path, frequent_hints_analysis, model, query_stats, reports_by_day):
     logger.info(f"Generating HTML report in {output_path}")
 
     if g_skip_ai_analysis:
@@ -556,9 +555,12 @@ def main():
         reports, days, query_stats = process_log_file(
             str(log_file), args.model, args.limit_ai_calls, args.ai_call_timeout, args.filter, custom_prompt=args.custom_prompt, ddl_context=ddl_context
         )
+
         all_reports.extend(reports)
+
         for day, day_reports in days.items():
             all_days[day].extend(day_reports)
+
         for stat in query_stats:
             code = stat["code"]
             if code not in all_query_stats_dict:
@@ -575,7 +577,7 @@ def main():
     else:
         analysis = ""
 
-    generate_html_report(report_filename, analysis, args.model, all_query_stats, all_days, None, None)
+    generate_html_report(report_filename, analysis, args.model, all_query_stats, all_days)
 
     logger.info(f"Total input tokens processed: {g_total_input_tokens}")
     logger.info(f"Total output tokens processed: {g_total_output_tokens}")
