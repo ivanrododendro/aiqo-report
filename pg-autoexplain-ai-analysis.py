@@ -22,7 +22,7 @@ DEFAULT_LANG = "fr" # Default language for output, not for prompt file selection
 DEFAULT_AI_CALL_TIMEOUT = 90
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_MODEL_TEMPERATURE = 0.5
-DEFAULT_MODEL = "gemini-2.0-flash-exp"
+DEFAULT_MODEL = "gemini-2.0-flash"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 
 FREE_TIER_RATE_LIMITS = {
