@@ -476,8 +476,7 @@ def main():
     args = parse_cli_arguments()
 
     global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_only_seq_scan_ai_analysis, g_lang
-    from pathlib import Path
-
+    
     # Directory mode logic
     if args.directory_mode:
         directory = Path(args.log_filename)
@@ -485,16 +484,29 @@ def main():
             logger.error(f"Specified directory does not exist: {args.log_filename}")
             exit(1)
 
-        log_files = list(directory.glob("*.log")) + list(directory.glob("*.gz"))
+        # Include .zip files in the glob pattern
+        log_files = list(directory.glob("*.log")) + list(directory.glob("*.gz")) + list(directory.glob("*.zip"))
         if not log_files:
-            logger.error(f"No .log or .gz files found in directory: {args.log_filename}")
+            logger.error(f"No .log, .gz or .zip files found in directory: {args.log_filename}")
             exit(1)
 
         logger.info(f"Processing directory: {args.log_filename}")
         logger.info(f"Found files: {[str(f) for f in log_files]}")
-        report_filename = args.report_filename if args.report_filename else f"{directory.name}_report.html"
-    else:
-        log_files = [Path(args.log_filename)]
+        
+        # Default report filename for directory mode: inside the specified directory
+        if args.report_filename:
+            report_filename = args.report_filename
+        else:
+            report_filename = str(directory / f"{directory.name}_report.html")
+
+    else: # Single file mode
+        log_file_path = Path(args.log_filename)
+        if not log_file_path.is_file():
+            logger.error(f"Specified log file does not exist: {args.log_filename}")
+            exit(1)
+        log_files = [log_file_path]
+
+        # Default report filename for single file mode: next to the log file
         report_filename = args.report_filename if args.report_filename else f"{args.log_filename}_report.html"
         logger.info(f"Processing PostgreSQL log file {args.log_filename}")
 
