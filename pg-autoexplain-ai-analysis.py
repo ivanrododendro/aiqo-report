@@ -343,13 +343,11 @@ def process_log_file(log_file_path, model, limit_ai_calls, timeout, filter_strin
 
         for line_number, line in enumerate(file, 1):
             if 'plan:' in line:
-                plan_lines = "".join(extract_plan_lines(file, line))
-                parsed_result = parse_log_entry(plan_lines)
+                plan_lines, parsed_result = extract_and_parse_plan(file, line)
 
                 logger.info(f"Analyzing query at line {line_number}")
 
-                # process_parsed_result now always returns a report
-                report = process_parsed_result(parsed_result, plan_lines, model, timeout, limit_ai_calls, filter_strings, custom_prompt=custom_prompt, ddl_context=ddl_context)
+                report = generate_report_from_parsed_result(parsed_result, plan_lines, model, timeout, limit_ai_calls, filter_strings, custom_prompt=custom_prompt, ddl_context=ddl_context)
 
                 reports.append(report) # Always append the report
                 query_code = report["code"]
@@ -366,6 +364,11 @@ def process_log_file(log_file_path, model, limit_ai_calls, timeout, filter_strin
                 else:
                     query_stats[query_code]["count"] += 1
                     query_stats[query_code]["cumulated_time"] += report["duration"]
+
+    def extract_and_parse_plan(file, first_line):
+        plan_lines = "".join(extract_plan_starting_at_line(file, first_line))
+        parsed_result = parse_log_entry(plan_lines)
+        return plan_lines, parsed_result
 
     if log_file_path.endswith('.gz'):
         logger.info('Uncompressing gzip file...')
@@ -389,7 +392,7 @@ def process_log_file(log_file_path, model, limit_ai_calls, timeout, filter_strin
     return reports, reports_by_day, query_stats_list
 
 
-def extract_plan_lines(file, first_line):
+def extract_plan_starting_at_line(file, first_line):
     plan_lines = [first_line]
     for line in file:
         plan_lines.append(line)
@@ -398,7 +401,7 @@ def extract_plan_lines(file, first_line):
     return plan_lines
 
 
-def process_parsed_result(parsed_result, plan_lines, model, timeout, limit_ai_calls, filter_strings, custom_prompt=None, ddl_context=None):
+def generate_report_from_parsed_result(parsed_result, plan_lines, model, timeout, limit_ai_calls, filter_strings, custom_prompt=None, ddl_context=None):
     global g_ai_call_count
 
     query_name = parsed_result["query_name"]
