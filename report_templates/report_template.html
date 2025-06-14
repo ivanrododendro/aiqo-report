@@ -52,11 +52,8 @@
         <div class="collapse" id="collapseExample-{{ app_id }}">
             <div class="card card-body">
                 <p id="duration-{{ day }}-{{ i }}">
-                    <script>document.getElementById("duration-{{ day }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({
-                    {
-                        report.duration
-                    }
-                    }).toFormat("h'h'm'm's's'");</script>
+                    <script>document.getElementById("duration-{{ day }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
+                    .toFormat("h'h'm'm's's'");</script>
                     {{ report.chatgpt_hints|safe }}
                 <div id="{{ app_id }}">
                     <pev2 :plan-source="plan" :plan-query="query"
@@ -99,11 +96,8 @@
             <tr scope='row'>
                 <td>[{{ stat.code[:6] }}] {{ stat.name[:QUERY_NAME_LIMIT] }}</td>
                 <td id='cumulated-time-{{ stat.code }}'>{{ stat.cumulated_time }}</td>
-                <script>document.getElementById('cumulated-time-{{ stat.code }}').innerHTML = Duration.fromMillis({
-                {
-                    stat.cumulated_time
-                }
-                }).toFormat("h'h'm'm's's'");</script>
+                <script>document.getElementById('cumulated-time-{{ stat.code }}').innerHTML = Duration.fromMillis(
+                    {{ stat.cumulated_time }}).toFormat("h'h'm'm's's'");</script>
                 <td>{{ stat.count }}</td>
             </tr>
             {% endfor %}
