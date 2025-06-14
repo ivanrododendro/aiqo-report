@@ -18,7 +18,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 DEFAULT_FREE_TPM = 10
 QUERY_NAME_LIMIT = 140
 
-DEFAULT_LANG = "fr"
+DEFAULT_LANG = "fr" # Default language for output, not for prompt file selection
 DEFAULT_AI_CALL_TIMEOUT = 90
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_MODEL_TEMPERATURE = 0.5
@@ -52,6 +52,7 @@ g_total_output_tokens = 0
 g_total_cost = 0.0
 g_ai_call_count = 0
 g_only_seq_scan_ai_analysis = False
+g_lang = DEFAULT_LANG # New global variable to store the desired output language
 
 
 def normalize_sql(sql):
@@ -65,13 +66,14 @@ def normalize_sql(sql):
     return formatted_sql
 
 
-def load_prompts(lang):
+def load_prompts(lang_to_load="en"): # Always load prompts from the English file
     global g_prompts
     current_prompt = None
     current_content = []
     base_path = Path(__file__).parent / 'prompts/prompts'
 
-    lang_file_path = f"{base_path}_{lang}.txt"
+    # Always load the English prompt file
+    lang_file_path = f"{base_path}_{lang_to_load}.txt"
 
     try:
         with open(lang_file_path, 'r') as file:
@@ -89,12 +91,14 @@ def load_prompts(lang):
             g_prompts[current_prompt] = '\n'.join(current_content).strip()
 
         if not g_prompts:
-            logger.error(f"Failed to load prompts for language: {lang}. Exiting.")
+            logger.error(f"Failed to load prompts from: {lang_file_path}. Exiting.")
             exit(1)
     except FileNotFoundError:
         logger.error(f"Prompts file not found: {lang_file_path}")
+        exit(1)
     except Exception as e:
         logger.error(f"Error reading prompts file: {e}")
+        exit(1)
 
     return None
 
@@ -107,6 +111,8 @@ def call_ai_for_plan_analysis(plan, model, timeout, custom_prompt=None, ddl_cont
     if custom_prompt:
         full_prompt += "\n\n" + custom_prompt
     full_prompt += "\n\n" + plan
+    # Add language instruction to the prompt
+    full_prompt += f"\n\nPlease provide the analysis in {g_lang}."
 
     return call_ai_provider(full_prompt, model, timeout)
 
@@ -285,6 +291,8 @@ def call_ai_for_final_analysis(reports, model, timeout):
     # Prepare the prompt for identifying most frequent optimization hints
     prompt_template = g_prompts.get('FINAL_ANALYSIS', '')
     prompt = prompt_template.format(all_hints=all_hints)
+    # Add language instruction to the prompt
+    prompt += f"\n\nPlease provide the analysis in {g_lang}."
 
     # Call ChatGPT API with the concatenated hints
     return call_ai_provider(prompt, model, timeout)
@@ -300,7 +308,7 @@ def parse_cli_arguments():
     parser.add_argument( "--ai-call-timeout", type=int, default=DEFAULT_AI_CALL_TIMEOUT,
                         help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})")
     parser.add_argument("--language", default=DEFAULT_LANG,
-                        help=f"Language for prompts and output (default: ${DEFAULT_LANG})")
+                        help=f"Language for AI output (default: ${DEFAULT_LANG})") # Updated description
     parser.add_argument("--temperature", type=float, default=DEFAULT_MODEL_TEMPERATURE,
                         help=f"Temperature for the AI model (default: ${DEFAULT_MODEL_TEMPERATURE})")
     parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
@@ -470,7 +478,7 @@ def process_parsed_result(parsed_result, plan_lines, model, timeout, limit_ai_ca
 def main():
     args = parse_cli_arguments()
 
-    global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_only_seq_scan_ai_analysis
+    global g_prompts, g_model_token_limit, g_model_temperature, g_skip_ai_analysis, g_calls, g_period, g_only_seq_scan_ai_analysis, g_lang
     from pathlib import Path
 
     # Directory mode logic
@@ -512,7 +520,7 @@ def main():
         logger.info(f"Using model: {args.model}")
         logger.info(f"Maximum AI calls: {args.limit_ai_calls if args.limit_ai_calls != -1 else 'Unlimited'}")
         logger.info(f"AI API call timeout: {args.ai_call_timeout} seconds")
-        logger.info(f"Language: {args.language}")
+        logger.info(f"Language for AI output: {args.language}") # Updated log message
         logger.info(f"Model temperature : {args.temperature}")
         logger.info(f"AI Analysis only for Seq Scan queries : {args.only_seq_scan_ai_analysis}")
         if args.custom_prompt:
@@ -525,10 +533,11 @@ def main():
 
     g_calls, g_period = FREE_TIER_RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
-    load_prompts(args.language)
+    g_lang = args.language # Set the global language based on CLI argument
+    load_prompts("en") # Always load prompts from the English file
 
     if not g_prompts:
-        logger.error(f"Failed to load prompts for language: {args.language}. Exiting.")
+        logger.error(f"Failed to load prompts. Exiting.") # Simplified error message
         exit(1)
 
     # API keys are now expected to be set as environment variables for LiteLLM
