@@ -510,7 +510,9 @@ def main():
         report_filename = args.report_filename if args.report_filename else f"{args.log_filename}_report.html"
         logger.info(f"Processing PostgreSQL log file {args.log_filename}")
 
-    logger.info(f"Output report: {report_filename}")
+    # Resolve the report filename to its absolute path before logging
+    resolved_report_filename = Path(report_filename).resolve()
+    logger.info(f"Output report: {resolved_report_filename}")
 
     ddl_context = None
     if args.sql_context_file:
@@ -595,7 +597,7 @@ def main():
     else:
         analysis = ""
 
-    generate_html_report(report_filename, analysis, args.model, all_query_stats, all_days)
+    generate_html_report(str(resolved_report_filename), analysis, args.model, all_query_stats, all_days)
 
     logger.info(f"Total input tokens processed: {g_total_input_tokens}")
     logger.info(f"Total output tokens processed: {g_total_output_tokens}")
