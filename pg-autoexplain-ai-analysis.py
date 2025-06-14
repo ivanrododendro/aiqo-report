@@ -66,14 +66,11 @@ def normalize_sql(sql):
     return formatted_sql
 
 
-def load_prompts(lang_to_load="en"): # Always load prompts from the English file
+def load_prompts(): # Always load prompts from the English file
     global g_prompts
     current_prompt = None
     current_content = []
-    base_path = Path(__file__).parent / 'prompts/prompts'
-
-    # Always load the English prompt file
-    lang_file_path = f"{base_path}_{lang_to_load}.txt"
+    lang_file_path = Path(__file__).parent / 'prompts/prompts.txt'
 
     try:
         with open(lang_file_path, 'r') as file:
@@ -534,7 +531,7 @@ def main():
     g_calls, g_period = FREE_TIER_RATE_LIMITS.get(args.model, (10, 60))  # Default to 10 calls per minute if model not found
 
     g_lang = args.language # Set the global language based on CLI argument
-    load_prompts("en") # Always load prompts from the English file
+    load_prompts() # Always load prompts from the English file
 
     if not g_prompts:
         logger.error(f"Failed to load prompts. Exiting.") # Simplified error message
