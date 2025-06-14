@@ -323,6 +323,8 @@ def parse_cli_arguments():
                         help="Override the HTML report filename (optional)")
     parser.add_argument("-d","--directory-mode", action="store_true", default=False,
                         help="Process all .log and .zip files in the directory specified as the main positional argument")
+    parser.add_argument("--target-query-mode", action="store_true", default=False,
+                        help="Enables target query mode for analysis (default: false)")
 
     args, unknown_args = parser.parse_known_args()
 
@@ -539,6 +541,9 @@ def main():
             logger.info(f"Custom prompt provided: {args.custom_prompt}")
         if ddl_context:
             logger.info(f"DDL context loaded from file: {args.sql_context_file}")
+    
+    if args.target_query_mode:
+        logger.info("Target Query Mode is ENABLED.")
 
     if args.filter:
         logger.info(f"AI analysis will be filtered by: {', '.join(args.filter)}. All queries will still be reported.")
