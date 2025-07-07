@@ -153,6 +153,24 @@
             };
         });
 
+        // Add the "Total Queries" dataset
+        const totalQueriesData = allDays.map(day => {
+            const dayStats = dailyQueryStats[day];
+            return dayStats?.total_queries != null ? dayStats.total_queries : null;
+        });
+
+        datasets.push({
+            label: 'Total Queries',
+            data: totalQueriesData,
+            borderColor: 'black',
+            backgroundColor: 'black', // For consistency, though line chart doesn't use fill by default
+            fill: false,
+            tension: 0.1,
+            yAxisID: 'yAxisRight', // Assign to the new right axis
+            hidden: false,
+            spanGaps: true
+        });
+
         const ctx = document.getElementById('dailyQueryDurationChart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
@@ -166,7 +184,7 @@
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Daily Cumulated Query Duration by Query Code (Minutes)'
+                        text: 'Daily Cumulated Query Duration Trends'
                     },
                     tooltip: {
                         callbacks: {
@@ -176,7 +194,12 @@
                                     label += ': ';
                                 }
                                 if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toFixed(2) + ' min';
+                                    // Check which axis the dataset belongs to for formatting
+                                    if (context.dataset.yAxisID === 'yAxisRight') {
+                                        label += context.parsed.y.toFixed(0); // Total queries are integers
+                                    } else {
+                                        label += context.parsed.y.toFixed(2) + ' min';
+                                    }
                                 }
                                 return label;
                             }
@@ -214,13 +237,27 @@
                             text: 'Date'
                         }
                     },
-                    y: {
+                    y: { // Left Y-axis for Duration
+                        type: 'linear',
+                        position: 'left',
                         title: {
                             display: true,
                             text: 'Duration (Minutes)'
                         },
                         beginAtZero: true,
-                        max: yAxisMax // Set the calculated max value here
+                        max: yAxisMax
+                    },
+                    yAxisRight: { // New Right Y-axis for Total Queries
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Total Queries Count'
+                        },
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false // Only draw grid lines for the primary Y-axis
+                        }
                     }
                 }
             }
