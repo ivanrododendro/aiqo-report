@@ -291,7 +291,8 @@ class PGAutoExplainAnalyzer:
             self.final_analysis_result,
             self.model,
             query_stats_list,
-            self.reports_by_day
+            self.reports_by_day,
+            self.daily_query_stats # Pass the new data structure
         )
 
 
