@@ -140,10 +140,9 @@ def extract_plan_starting_at_line(file_iterator, first_line):
 
 
 class AiCaller:
-    def __init__(self, model, temperature, token_limit, ai_call_timeout, lang, prompts):
+    def __init__(self, model, temperature, ai_call_timeout, lang, prompts):
         self.model = model
         self.temperature = temperature
-        self.token_limit = token_limit
         self.ai_call_timeout = ai_call_timeout
         self.lang = lang
         self.prompts = prompts
@@ -151,6 +150,16 @@ class AiCaller:
         self.total_output_tokens = 0
         self.total_cost = 0.0
         self.call_count = 0
+        self.token_limit = self._get_model_token_limit() # Set token limit internally
+
+    def _get_model_token_limit(self):
+        model_info = litellm.get_model_info(self.model)
+        if model_info and 'max_input_tokens' in model_info and model_info['max_input_tokens'] is not None:
+            logger.info(f"Using input token limit for model {self.model}: {model_info['max_input_tokens']}")
+            return model_info['max_input_tokens']
+        else:
+            logger.warning(f"Could not determine input token limit for model {self.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
+            return DEFAULT_TOKEN_LIMIT
 
     @sleep_and_retry
     @limits(calls=g_calls, period=g_period) # Uses global g_calls, g_period set in main()
@@ -333,7 +342,6 @@ class PGAutoExplainAnalyzer:
         self.ai_caller = AiCaller( # Renamed from AIClient
             model=self.model,
             temperature=self.temperature,
-            token_limit=self._get_model_token_limit(),
             ai_call_timeout=self.ai_call_timeout,
             lang=self.language,
             prompts=self.prompts
@@ -389,14 +397,6 @@ class PGAutoExplainAnalyzer:
             exit(1)
         return current_prompts
 
-    def _get_model_token_limit(self):
-        model_info = litellm.get_model_info(self.model)
-        if model_info and 'max_input_tokens' in model_info and model_info['max_input_tokens'] is not None:
-            logger.info(f"Using input token limit for model {self.model}: {model_info['max_input_tokens']}")
-            return model_info['max_input_tokens']
-        else:
-            logger.warning(f"Could not determine input token limit for model {self.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
-            return DEFAULT_TOKEN_LIMIT
 
     def _process_parsed_log_entry(self, parsed_result):
         query_name = parsed_result["query_name"]
