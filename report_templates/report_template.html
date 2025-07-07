@@ -115,43 +115,28 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const dailyQueryStats = JSON.parse(`{{ daily_query_stats_json | safe }}`);
+        // Directly assign the JavaScript objects rendered by Jinja
+        const dailyQueryStats = {{ daily_query_stats_json | safe }};
+        const globalQueryStats = {{ query_stats | tojson | safe }};
 
         const allDays = Object.keys(dailyQueryStats).sort();
-        const allQueryCodes = new Set();
 
-        // Collect all unique query codes
-        allDays.forEach(day => {
-            for (const code in dailyQueryStats[day].queries_by_code) {
-                allQueryCodes.add(code);
-            }
-        });
-
-        const datasets = [];
-        const queryCodeToName = {}; // To store query code -> query name mapping for labels
-
-        // Populate queryCodeToName from query_stats (global stats)
-        // This assumes query_stats contains all unique query codes and their names
-        const globalQueryStats = JSON.parse(`{{ query_stats | tojson | safe }}`);
-        globalQueryStats.forEach(stat => {
-            queryCodeToName[stat.code] = stat.name;
-        });
-
-
-        allQueryCodes.forEach(code => {
+        const datasets = globalQueryStats.map(stat => {
             const data = allDays.map(day => {
                 const dayStats = dailyQueryStats[day];
-                // Convert milliseconds to minutes
-                return dayStats && dayStats.queries_by_code[code] ? dayStats.queries_by_code[code] / 60000 : null;
+                // Use optional chaining for safer property access
+                const durationMs = dayStats?.queries_by_code?.[stat.code];
+                // Convert to minutes or return null if no data for that day
+                return durationMs != null ? durationMs / 60000 : null;
             });
 
-            datasets.push({
-                label: `[${code.substring(0, 6)}] ${queryCodeToName[code] ? queryCodeToName[code].substring(0, {{ QUERY_NAME_LIMIT }}) : 'Unknown Query'}`,
+            return {
+                label: `[${stat.code.substring(0, 6)}] ${stat.name.substring(0, {{ QUERY_NAME_LIMIT }})}`,
                 data: data,
                 fill: false,
                 tension: 0.1,
                 hidden: false // All series visible by default
-            });
+            };
         });
 
         const ctx = document.getElementById('dailyQueryDurationChart').getContext('2d');
