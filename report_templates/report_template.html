@@ -181,6 +181,30 @@
                                 return label;
                             }
                         }
+                    },
+                    legend: {
+                        onClick: (e, legendItem, legend) => {
+                            const chart = legend.chart;
+                            const datasetIndex = legendItem.datasetIndex;
+
+                            // Check if the clicked item is already the only visible one
+                            const isAlreadySolo = chart.data.datasets.every((dataset, i) =>
+                                i === datasetIndex ? !dataset.hidden : dataset.hidden
+                            );
+
+                            if (isAlreadySolo) {
+                                // If already solo, make all visible again
+                                chart.data.datasets.forEach(dataset => {
+                                    dataset.hidden = false;
+                                });
+                            } else {
+                                // Solo the clicked dataset
+                                chart.data.datasets.forEach((dataset, i) => {
+                                    dataset.hidden = (i !== datasetIndex);
+                                });
+                            }
+                            chart.update();
+                        }
                     }
                 },
                 scales: {
