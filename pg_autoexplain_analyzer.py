@@ -74,6 +74,8 @@ class PGAutoExplainAnalyzer:
         self.all_reports = []
         self.reports_by_day = defaultdict(list)
         self.all_query_stats_dict = {}
+        # New data structure for daily query statistics
+        self.daily_query_stats = defaultdict(lambda: {"total_queries": 0, "cumulated_time": 0.0, "queries_by_code": defaultdict(float)})
         self.final_analysis_result = ""
 
     def _load_ddl_context(self, sql_context_file):
@@ -129,10 +131,11 @@ class PGAutoExplainAnalyzer:
         title = job_name + " " + query_name
         execution_plan = parsed_result["execution_plan"]
         timestamp = parsed_result["timestamp"]
-        day = timestamp[:10]
+        day = timestamp[:10] # Extract YYYY-MM-DD
         query = query_text
         ai_hints = "" # Initialize to empty string
         seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
+        duration = parsed_result["duration"]
 
         should_perform_ai_call = True # Flag to control if AI call should be made
 
@@ -190,23 +193,28 @@ class PGAutoExplainAnalyzer:
             "code": query_code,
             "day": day,
             "seq_scan_indicator": seq_scan_indicator,
-            "duration" : parsed_result["duration"]
+            "duration" : duration
         }
 
         self.all_reports.append(report)
         self.reports_by_day[report["day"]].append(report)
 
-        # Update query_stats in-place
+        # Update query_stats in-place (global stats across all days)
         if query_code not in self.all_query_stats_dict:
             self.all_query_stats_dict[query_code] = {
                 "code": query_code,
                 "name": report["query_name"],
                 "count": 1,
-                "cumulated_time": report["duration"]
+                "cumulated_time": duration
             }
         else:
             self.all_query_stats_dict[query_code]["count"] += 1
-            self.all_query_stats_dict[query_code]["cumulated_time"] += report["duration"]
+            self.all_query_stats_dict[query_code]["cumulated_time"] += duration
+
+        # Update new daily_query_stats data structure
+        self.daily_query_stats[day]["total_queries"] += 1
+        self.daily_query_stats[day]["cumulated_time"] += duration
+        self.daily_query_stats[day]["queries_by_code"][query_code] += duration
 
 
     def run(self):
@@ -218,7 +226,7 @@ class PGAutoExplainAnalyzer:
                 logger.error(f"Specified directory does not exist: {self.args.log_filename}")
                 exit(1)
 
-            log_files = list(directory.glob("*.log")) + list(directory.gloob("*.gz")) + list(directory.glob("*.zip"))
+            log_files = list(directory.glob("*.log")) + list(directory.glob("*.gz")) + list(directory.glob("*.zip"))
             if not log_files:
                 logger.error(f"No .log, .gz or .zip files found in directory: {self.args.log_filename}")
                 exit(1)
@@ -337,4 +345,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
