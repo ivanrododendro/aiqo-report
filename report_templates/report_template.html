@@ -113,6 +113,11 @@
     <canvas id="dailyQueryDurationChart"></canvas>
 </div>
 
+<h3>Daily Cumulated Time Trends</h3>
+<div class="card card-body">
+    <canvas id="dailyCumulatedTimeChart"></canvas>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Helper function to generate a random color
@@ -165,7 +170,7 @@
             };
         });
 
-        // Add the "Total Queries" dataset
+        // Add the "Total Queries" dataset to the first chart
         const totalQueriesData = allDays.map(day => {
             const dayStats = dailyQueryStats[day];
             return dayStats?.total_queries != null ? dayStats.total_queries : null;
@@ -183,8 +188,8 @@
             spanGaps: true
         });
 
-        const ctx = document.getElementById('dailyQueryDurationChart').getContext('2d');
-        new Chart(ctx, {
+        const ctx1 = document.getElementById('dailyQueryDurationChart').getContext('2d');
+        new Chart(ctx1, {
             type: 'line',
             data: {
                 labels: allDays,
@@ -196,7 +201,7 @@
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Daily Cumulated Query Duration Trends'
+                        text: 'Daily Cumulated Query Duration Trends (Individual Queries)'
                     },
                     tooltip: {
                         callbacks: {
@@ -270,6 +275,69 @@
                         grid: {
                             drawOnChartArea: false // Only draw grid lines for the primary Y-axis
                         }
+                    }
+                }
+            }
+        });
+
+        // --- New Chart for Daily Cumulated Time ---
+        const cumulatedTimeData = allDays.map(day => {
+            const dayStats = dailyQueryStats[day];
+            // Convert to minutes or return null if no data for that day
+            return dayStats?.cumulated_time != null ? dayStats.cumulated_time / 60000 : null;
+        });
+
+        const ctx2 = document.getElementById('dailyCumulatedTimeChart').getContext('2d');
+        new Chart(ctx2, {
+            type: 'line',
+            data: {
+                labels: allDays,
+                datasets: [{
+                    label: 'Total Cumulated Time',
+                    data: cumulatedTimeData,
+                    borderColor: 'rgb(75, 192, 192)', // A distinct color for this single line
+                    backgroundColor: 'rgb(75, 192, 192)',
+                    fill: false,
+                    tension: 0.1,
+                    spanGaps: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Daily Cumulated Time Trends (All Queries Combined)'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toFixed(2) + ' min';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Cumulated Time (Minutes)'
+                        },
+                        beginAtZero: true
                     }
                 }
             }
