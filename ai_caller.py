@@ -40,6 +40,10 @@ class AiCaller:
         )
         logger.info(f"AI Caller initialized with rate limit: {self.calls_per_period} calls per {self.period_seconds} seconds for model {self.model}")
 
+        # Create a rate-limited version of the internal _perform_ai_call method
+        # This uses the 'limits' function (not decorator) to apply the rate limit dynamically
+        self._rate_limited_perform_ai_call = limits(calls=self.calls_per_period, period=self.period_seconds)(self._perform_ai_call)
+
 
     def _get_model_token_limit(self):
         model_info = litellm.get_model_info(self.model)
@@ -50,18 +54,9 @@ class AiCaller:
             logger.warning(f"Could not determine input token limit for model {self.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}")
             return DEFAULT_TOKEN_LIMIT
 
-    # Define methods to return the rate limit values dynamically for the decorator
-    def get_calls_per_period(self):
-        return self.calls_per_period
-
-    def get_period_seconds(self):
-        return self.period_seconds
-
-    @sleep_and_retry
-    @limits(calls='get_calls_per_period', period='get_period_seconds')
-    def call_ai_provider(self, prompt):
-        logger.info("Calling AI Model for plan analysis...")
-
+    # This is the actual method that performs the AI call logic.
+    # It is NOT decorated with @limits directly.
+    def _perform_ai_call(self, prompt):
         messages = [{"role": "user", "content": prompt}]
         # Add a system prompt for chat models, similar to the old call_chatgpt logic
         if "gpt" in self.model or "o1" in self.model or "gemini" in self.model or "claude" in self.model: # Heuristic for chat models
@@ -123,6 +118,12 @@ class AiCaller:
             if hasattr(e, "response"):
                  logger.error(f"LiteLLM Response content: {e.response.text}")
             return None
+
+    # This is the public method that will be called by other classes.
+    # It applies the sleep_and_retry logic to the rate-limited internal method.
+    def call_ai_provider(self, prompt):
+        logger.info("Calling AI Model for plan analysis...")
+        return sleep_and_retry(self._rate_limited_perform_ai_call)(prompt)
 
     def call_ai_for_plan_analysis(self, plan, custom_prompt=None, ddl_context=None):
         static_prompt = self.prompts.get('PLAN_ANALYSIS', '')
