@@ -58,7 +58,7 @@ class AiCaller:
         return self.period_seconds
 
     @sleep_and_retry
-    @limits(calls=lambda self: self.get_calls_per_period(), period=lambda self: self.get_period_seconds())
+    @limits(calls='get_calls_per_period', period='get_period_seconds')
     def call_ai_provider(self, prompt):
         logger.info("Calling AI Model for plan analysis...")
 
