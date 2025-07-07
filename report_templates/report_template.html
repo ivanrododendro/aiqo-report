@@ -121,6 +121,19 @@
 
         const allDays = Object.keys(dailyQueryStats).sort();
 
+        let maxDurationMs = 0;
+        for (const day of allDays) {
+            const dayStats = dailyQueryStats[day];
+            if (dayStats && dayStats.queries_by_code) {
+                for (const code in dayStats.queries_by_code) {
+                    if (dayStats.queries_by_code.hasOwnProperty(code)) {
+                        maxDurationMs = Math.max(maxDurationMs, dayStats.queries_by_code[code]);
+                    }
+                }
+            }
+        }
+        const yAxisMax = (maxDurationMs / 60000) * 1.25; // Convert to minutes and add 25% buffer
+
         const datasets = globalQueryStats.map(stat => {
             const data = allDays.map(day => {
                 const dayStats = dailyQueryStats[day];
@@ -181,7 +194,8 @@
                             display: true,
                             text: 'Duration (Minutes)'
                         },
-                        beginAtZero: true
+                        beginAtZero: true,
+                        max: yAxisMax // Set the calculated max value here
                     }
                 }
             }
