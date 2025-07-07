@@ -120,14 +120,6 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Helper function to generate a random color
-        function getRandomColor() {
-            const r = Math.floor(Math.random() * 255);
-            const g = Math.floor(Math.random() * 255);
-            const b = Math.floor(Math.random() * 255);
-            return `rgb(${r}, ${g}, ${b})`;
-        }
-
         // Directly assign the JavaScript objects rendered by Jinja
         const dailyQueryStats = {{ daily_query_stats_json | safe }};
         const globalQueryStats = {{ query_stats | tojson | safe }};
@@ -156,17 +148,13 @@
                 return durationMs != null ? durationMs / 60000 : null;
             });
 
-            const randomColor = getRandomColor(); // Generate a random color for each series
-
             return {
                 label: `[${stat.code.substring(0, 6)}] ${stat.name.substring(0, {{ QUERY_NAME_LIMIT }})}`,
                 data: data,
                 fill: false,
                 tension: 0.1,
                 hidden: false, // All series visible by default
-                spanGaps: true, // Connect points across null values
-                borderColor: randomColor, // Assign random color
-                backgroundColor: randomColor // Assign random color
+                spanGaps: true // Connect points across null values
             };
         });
 
