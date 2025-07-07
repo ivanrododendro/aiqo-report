@@ -218,7 +218,7 @@ class PGAutoExplainAnalyzer:
                 logger.error(f"Specified directory does not exist: {self.args.log_filename}")
                 exit(1)
 
-            log_files = list(directory.glob("*.log")) + list(directory.glob("*.gz")) + list(directory.glob("*.zip"))
+            log_files = list(directory.glob("*.log")) + list(directory.gloob("*.gz")) + list(directory.glob("*.zip"))
             if not log_files:
                 logger.error(f"No .log, .gz or .zip files found in directory: {self.args.log_filename}")
                 exit(1)
