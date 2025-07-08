@@ -154,18 +154,8 @@
 
         const allDays = Object.keys(dailyQueryStats).sort();
 
-        let maxDurationMs = 0;
-        for (const day of allDays) {
-            const dayStats = dailyQueryStats[day];
-            if (dayStats && dayStats.queries_by_code) {
-                for (const code in dayStats.queries_by_code) {
-                    if (dayStats.queries_by_code.hasOwnProperty(code)) {
-                        maxDurationMs = Math.max(maxDurationMs, dayStats.queries_by_code[code]);
-                    }
-                }
-            }
-        }
-        const yAxisMax = (maxDurationMs / 60000) * 1.25; // Convert to minutes and add 25% buffer
+        // Removed the calculation and setting of yAxisMax for dailyQueryDurationChart
+        // Chart.js will now automatically adjust the Y-axis scale based on visible data.
 
         const datasets = globalQueryStats.map(stat => {
             const data = allDays.map(day => {
@@ -277,7 +267,7 @@
                                     dataset.hidden = (i !== datasetIndex);
                                 });
                             }
-                            chart.update();
+                            chart.update(); // Update the chart to trigger rescale
                         }
                     },
                     annotation: { // Add annotation plugin configuration here
@@ -296,8 +286,8 @@
                             display: true,
                             text: 'Duration (Minutes)'
                         },
-                        beginAtZero: true,
-                        max: yAxisMax // Set the calculated max value here
+                        beginAtZero: true
+                        // Removed 'max: yAxisMax' to allow automatic Y-axis scaling
                     }
                 }
             }
