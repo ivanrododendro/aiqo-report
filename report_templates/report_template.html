@@ -120,6 +120,14 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Helper function to generate a random color
+        function getRandomColor() {
+            const r = Math.floor(Math.random() * 255);
+            const g = Math.floor(Math.random() * 255);
+            const b = Math.floor(Math.random() * 255);
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
         // Directly assign the JavaScript objects rendered by Jinja
         const dailyQueryStats = {{ daily_query_stats_json | safe }};
         const globalQueryStats = {{ query_stats | tojson | safe }};
@@ -148,13 +156,17 @@
                 return durationMs != null ? durationMs / 60000 : null;
             });
 
+            const randomColor = getRandomColor(); // Generate a random color for each series
+
             return {
                 label: `[${stat.code.substring(0, 6)}] ${stat.name.substring(0, {{ QUERY_NAME_LIMIT }})}`,
                 data: data,
                 fill: false,
                 tension: 0.1,
                 hidden: false, // All series visible by default
-                spanGaps: true // Connect points across null values
+                spanGaps: true, // Connect points across null values
+                borderColor: randomColor, // Assign random color
+                backgroundColor: randomColor // Assign random color
             };
         });
 
@@ -238,20 +250,37 @@
             return dayStats?.cumulated_time != null ? dayStats.cumulated_time / 60000 : null;
         });
 
+        const totalQueriesData = allDays.map(day => {
+            const dayStats = dailyQueryStats[day];
+            return dayStats?.total_queries != null ? dayStats.total_queries : null;
+        });
+
         const ctx2 = document.getElementById('dailyCumulatedTimeChart').getContext('2d');
         new Chart(ctx2, {
-            type: 'line',
+            type: 'line', // Default type for the first dataset
             data: {
                 labels: allDays,
-                datasets: [{
-                    label: 'Total Cumulated Time',
-                    data: cumulatedTimeData,
-                    borderColor: 'rgb(75, 192, 192)', // A distinct color for this single line
-                    backgroundColor: 'rgb(75, 192, 192)',
-                    fill: false,
-                    tension: 0.1,
-                    spanGaps: true
-                }]
+                datasets: [
+                    {
+                        label: 'Total Cumulated Time',
+                        data: cumulatedTimeData,
+                        borderColor: 'rgb(75, 192, 192)', // A distinct color for this single line
+                        backgroundColor: 'rgb(75, 192, 192)',
+                        fill: false,
+                        tension: 0.1,
+                        spanGaps: true,
+                        yAxisID: 'y' // Assign to the default left axis
+                    },
+                    {
+                        label: 'Total Queries Count',
+                        data: totalQueriesData,
+                        type: 'bar', // This dataset will be a bar chart
+                        backgroundColor: 'rgba(153, 102, 255, 0.5)', // Purple with transparency
+                        borderColor: 'rgba(153, 102, 255, 1)', // Solid purple border
+                        borderWidth: 1,
+                        yAxisID: 'yAxisRightTotalQueries' // Assign to the new right axis
+                    }
+                ]
             },
             options: {
                 responsive: true,
@@ -259,7 +288,7 @@
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Daily Cumulated Time Trends (All Queries Combined)'
+                        text: 'Daily Cumulated Time and Query Count Trends'
                     },
                     tooltip: {
                         callbacks: {
@@ -269,7 +298,11 @@
                                     label += ': ';
                                 }
                                 if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toFixed(2) + ' min';
+                                    if (context.dataset.yAxisID === 'yAxisRightTotalQueries') {
+                                        label += context.parsed.y.toFixed(0); // Total queries are integers
+                                    } else {
+                                        label += context.parsed.y.toFixed(2) + ' min';
+                                    }
                                 }
                                 return label;
                             }
@@ -283,12 +316,26 @@
                             text: 'Date'
                         }
                     },
-                    y: {
+                    y: { // Left Y-axis for Cumulated Time
+                        type: 'linear',
+                        position: 'left',
                         title: {
                             display: true,
                             text: 'Cumulated Time (Minutes)'
                         },
                         beginAtZero: true
+                    },
+                    yAxisRightTotalQueries: { // New Right Y-axis for Total Queries
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Total Queries Count'
+                        },
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false // Only draw grid lines for the primary Y-axis
+                        }
                     }
                 }
             }
