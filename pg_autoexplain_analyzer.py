@@ -134,14 +134,9 @@ class PGAutoExplainAnalyzer:
         Charge les textes d'optimisation pour une liste de codes de requête.
         Chaque code de requête correspond à un fichier <query_code>.txt dans le répertoire d'optimisation.
         Chaque ligne du fichier est au format <yyyy-mm-dd>:<texte d'optimisation>.
-        Retourne un dictionnaire de dictionnaires:
-        {
-            "query_code_1": {
-                "yyyy-mm-dd_1": "optimisation_text_1",
-                "yyyy-mm-dd_2": "optimisation_text_2",
-            },
-            "query_code_2": { ... }
-        }
+        Retourne un dictionnaire où les clés sont les codes de requête et les valeurs sont des listes
+        de textes d'optimisation pour cette requête, triées par date.
+        Ex: { "query_code_1": ["optimisation_text_1", "optimisation_text_2"], ... }
         """
         if not self.optimization_files:
             logger.debug("Le chemin des fichiers d'optimisation n'est pas spécifié. Aucune optimisation ne sera chargée.")
@@ -157,7 +152,8 @@ class PGAutoExplainAnalyzer:
         for query_code in query_codes:
             file_path = optimization_base_path / f"{query_code}.txt"
             if file_path.is_file():
-                query_optimizations = {}
+                # Store as list of (date, text) tuples to sort later
+                query_optimizations_with_dates = []
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         for line in f:
@@ -168,11 +164,14 @@ class PGAutoExplainAnalyzer:
                             if len(parts) == 2:
                                 date = parts[0].strip()
                                 optimization_text = parts[1].strip()
-                                query_optimizations[date] = optimization_text
+                                query_optimizations_with_dates.append((date, optimization_text))
                             else:
                                 logger.warning(f"Ligne mal formatée dans '{file_path}': '{line}'. Format attendu: YYYY-MM-DD:Optimisation text.")
-                    if query_optimizations:
-                        optimizations_data[query_code] = query_optimizations
+                    
+                    if query_optimizations_with_dates:
+                        # Sort by date and extract only the optimization texts
+                        sorted_optimizations = [text for date, text in sorted(query_optimizations_with_dates, key=lambda x: x[0])]
+                        optimizations_data[query_code] = sorted_optimizations
                     else:
                         logger.debug(f"Aucune optimisation valide trouvée dans '{file_path}'.")
                 except Exception as e:
@@ -343,8 +342,12 @@ class PGAutoExplainAnalyzer:
 
         # Convert query_stats dict to sorted list for the report
         query_stats_list = sorted(self.all_query_stats_dict.values(), key=lambda x: x["cumulated_time"], reverse=True)
-
         report_title = "PostgreSQL Auto Explain Report" if self.skip_ai_analysis else f"PostgreSQL Auto Explain AI Report ({self.model}) "
+
+        # Charger les optimisations de requêtes
+        all_query_codes = list(self.all_query_stats_dict.keys())
+        query_optimizations_data = self._load_optimizations_for_queries(all_query_codes)
+
         self.report_generator.generate_report(
             str(resolved_report_filename),
             report_title,
@@ -352,7 +355,8 @@ class PGAutoExplainAnalyzer:
             self.model,
             query_stats_list,
             self.reports_by_day,
-            self.daily_query_stats # Pass the new data structure
+            self.daily_query_stats, # Pass the new data structure
+            query_optimizations_data # Nouveau paramètre passé au template
         )
 
 
