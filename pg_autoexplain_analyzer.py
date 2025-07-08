@@ -324,6 +324,9 @@ class PGAutoExplainAnalyzer:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
             if self.ddl_context:
                 logger.info(f"DDL context loaded from file: {self.args.sql_context_file}")
+            # Log for optimization files
+            if self.optimization_files:
+                logger.info(f"Optimization files loaded from: {self.optimization_files}")
         
         if self.target_query_mode:
             logger.info("Target Query Mode is ENABLED.")
