@@ -54,6 +54,14 @@ class PGAutoExplainAnalyzer:
         self.custom_prompt = args.custom_prompt
         self.ddl_context = self._load_ddl_context(args.sql_context_file)
         self.target_query_mode = args.target_query_mode
+        self.optimization_files = args.optimization_files # Nouvelle variable membre
+        if self.optimization_files:
+            optimization_path = Path(self.optimization_files)
+            if not optimization_path.exists():
+                raise FileNotFoundError(f"Le chemin spécifié pour les fichiers d'optimisation n'existe pas : {self.optimization_files}")
+            if not optimization_path.is_dir():
+                logger.warning(f"Le chemin spécifié pour les fichiers d'optimisation n'est pas un répertoire : {self.optimization_files}. Il sera traité comme un fichier unique si applicable, mais les optimisations par code de requête ne seront pas chargées.")
+
 
         self.prompts = self._load_prompts()
         if not self.prompts:
@@ -96,7 +104,7 @@ class PGAutoExplainAnalyzer:
         lang_file_path = Path(__file__).parent / 'prompts/prompts.txt'
 
         try:
-            with open(lang_file_path, 'r') as file:
+            with open(lang_file_path, 'r', encoding='utf-8') as file:
                 for line in file:
                     line = line.strip()
                     if line.startswith('[') and line.endswith(']'):
@@ -120,6 +128,58 @@ class PGAutoExplainAnalyzer:
             logger.error(f"Error reading prompts file: {e}")
             exit(1)
         return current_prompts
+
+    def _load_optimizations_for_queries(self, query_codes: list) -> dict:
+        """
+        Charge les textes d'optimisation pour une liste de codes de requête.
+        Chaque code de requête correspond à un fichier <query_code>.txt dans le répertoire d'optimisation.
+        Chaque ligne du fichier est au format <yyyy-mm-dd>:<texte d'optimisation>.
+        Retourne un dictionnaire de dictionnaires:
+        {
+            "query_code_1": {
+                "yyyy-mm-dd_1": "optimisation_text_1",
+                "yyyy-mm-dd_2": "optimisation_text_2",
+            },
+            "query_code_2": { ... }
+        }
+        """
+        if not self.optimization_files:
+            logger.debug("Le chemin des fichiers d'optimisation n'est pas spécifié. Aucune optimisation ne sera chargée.")
+            return {}
+
+        optimizations_data = {}
+        optimization_base_path = Path(self.optimization_files)
+
+        if not optimization_base_path.is_dir():
+            logger.warning(f"Le chemin spécifié pour les fichiers d'optimisation '{self.optimization_files}' n'est pas un répertoire. Impossible de charger les optimisations par code de requête.")
+            return {}
+
+        for query_code in query_codes:
+            file_path = optimization_base_path / f"{query_code}.txt"
+            if file_path.is_file():
+                query_optimizations = {}
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            parts = line.split(':', 1) # Split only on the first colon
+                            if len(parts) == 2:
+                                date = parts[0].strip()
+                                optimization_text = parts[1].strip()
+                                query_optimizations[date] = optimization_text
+                            else:
+                                logger.warning(f"Ligne mal formatée dans '{file_path}': '{line}'. Format attendu: YYYY-MM-DD:Optimisation text.")
+                    if query_optimizations:
+                        optimizations_data[query_code] = query_optimizations
+                    else:
+                        logger.debug(f"Aucune optimisation valide trouvée dans '{file_path}'.")
+                except Exception as e:
+                    logger.error(f"Erreur lors de la lecture du fichier d'optimisation '{file_path}': {e}")
+            else:
+                logger.debug(f"Fichier d'optimisation non trouvé pour la requête '{query_code}': '{file_path}'")
+        return optimizations_data
 
 
     def _process_parsed_log_entry(self, parsed_result):
@@ -325,6 +385,9 @@ def parse_cli_arguments():
                         help="Process all .log and .zip files in the directory specified as the main positional argument")
     parser.add_argument("--target-query-mode", action="store_true", default=False,
                         help="Enables target query mode for analysis (default: false)")
+    parser.add_argument("--optimization-files", "-of", type=str, default=None,
+                        help="Chemin vers un répertoire contenant des fichiers SQL d'optimisation ou un fichier SQL unique. Ces fichiers seront utilisés comme contexte pour l'analyse des plans d'exécution.")
+
 
     args, unknown_args = parser.parse_known_args()
 
