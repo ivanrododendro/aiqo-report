@@ -150,7 +150,8 @@ class PGAutoExplainAnalyzer:
             return {}
 
         for query_code in query_codes:
-            file_path = optimization_base_path / f"{query_code}.txt"
+            # Utiliser uniquement les 6 premiers caractères du code de requête pour le nom du fichier
+            file_path = optimization_base_path / f"{query_code[:6]}.txt"
             if file_path.is_file():
                 query_optimizations_with_dates = []
                 try:
@@ -176,7 +177,7 @@ class PGAutoExplainAnalyzer:
                 except Exception as e:
                     logger.error(f"Erreur lors de la lecture du fichier d'optimisation '{file_path}': {e}")
             else:
-                logger.debug(f"Fichier d'optimisation non trouvé pour la requête '{query_code}': '{file_path}'")
+                logger.debug(f"Fichier d'optimisation non trouvé pour la requête '{query_code[:6]}': '{file_path}'")
         return optimizations_data
 
 
@@ -328,7 +329,7 @@ class PGAutoExplainAnalyzer:
             logger.info("Target Query Mode is ENABLED.")
 
         if self.filter_strings:
-            logger.info(f"AI analysis will be filtered by: {', '.join(self.filter_strings)}. All queries will still be reported.")
+            logger.info(f"AI analysis will be filtered by: {', '.join(self.filter_strings)}. All queries will still be included in the report.")
 
         for log_file in log_files:
             for parsed_entry in self.log_parser.parse_log_file(log_file):
