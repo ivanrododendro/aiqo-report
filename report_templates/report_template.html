@@ -17,6 +17,8 @@
     <link rel="stylesheet" href="https://unpkg.com/pev2/dist/pev2.css"/>
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Chart.js Annotations Plugin CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@latest/dist/chartjs-plugin-annotation.min.js"></script>
     <style>.bi-database-exclamation {
         color: red !important;
     }</style>
@@ -66,7 +68,7 @@
                         {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
                             <ul>
                             {% for opt in query_optimizations[report.code] %}
-                                <li>{{ opt|safe }}</li>
+                                <li>{{ opt.text|safe }} ({{ opt.date }})</li>
                             {% endfor %}
                             </ul>
                         {% else %}
@@ -148,6 +150,7 @@
         // Directly assign the JavaScript objects rendered by Jinja
         const dailyQueryStats = {{ daily_query_stats_json | safe }};
         const globalQueryStats = {{ query_stats | tojson | safe }};
+        const queryOptimizations = {{ query_optimizations | tojson | safe }}; // New: Pass query optimizations
 
         const allDays = Object.keys(dailyQueryStats).sort();
 
@@ -186,6 +189,43 @@
                 backgroundColor: randomColor // Assign random color
             };
         });
+
+        // Prepare annotations for dailyQueryDurationChart
+        const annotations = [];
+        const datasetMap = new Map();
+        globalQueryStats.forEach((stat, index) => {
+            datasetMap.set(stat.code, datasets[index]);
+        });
+
+        for (const queryCode in queryOptimizations) {
+            if (queryOptimizations.hasOwnProperty(queryCode)) {
+                const optimizationsForQuery = queryOptimizations[queryCode]; // Array of {date, text}
+
+                const targetDataset = datasetMap.get(queryCode);
+
+                if (targetDataset) {
+                    optimizationsForQuery.forEach(opt => {
+                        const dayIndex = allDays.indexOf(opt.date);
+                        if (dayIndex !== -1) {
+                            const yValue = targetDataset.data[dayIndex]; // Get the duration for that day
+                            if (yValue != null) { // Ensure there's data for that day
+                                annotations.push({
+                                    type: 'point',
+                                    xValue: opt.date,
+                                    yValue: yValue,
+                                    radius: 7,
+                                    backgroundColor: 'rgba(255, 0, 0, 0.8)', // Red color for optimization marker
+                                    borderColor: 'rgba(255, 0, 0, 1)',
+                                    borderWidth: 2,
+                                    // No label or tooltip directly on the annotation for simplicity
+                                    // The user can refer to the list below the graph for details
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        }
 
         const ctx = document.getElementById('dailyQueryDurationChart').getContext('2d');
         new Chart(ctx, {
@@ -239,6 +279,9 @@
                             }
                             chart.update();
                         }
+                    },
+                    annotation: { // Add annotation plugin configuration here
+                        annotations: annotations
                     }
                 },
                 scales: {

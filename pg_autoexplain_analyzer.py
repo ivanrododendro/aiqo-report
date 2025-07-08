@@ -135,8 +135,8 @@ class PGAutoExplainAnalyzer:
         Chaque code de requête correspond à un fichier <query_code>.txt dans le répertoire d'optimisation.
         Chaque ligne du fichier est au format <yyyy-mm-dd>:<texte d'optimisation>.
         Retourne un dictionnaire où les clés sont les codes de requête et les valeurs sont des listes
-        de textes d'optimisation pour cette requête, triées par date.
-        Ex: { "query_code_1": ["optimisation_text_1", "optimisation_text_2"], ... }
+        de dictionnaires (date, texte) pour cette requête, triées par date.
+        Ex: { "query_code_1": [{"date": "2023-01-01", "text": "opt_text_1"}, {"date": "2023-02-01", "text": "opt_text_2"}], ... }
         """
         if not self.optimization_files:
             logger.debug("Le chemin des fichiers d'optimisation n'est pas spécifié. Aucune optimisation ne sera chargée.")
@@ -152,7 +152,6 @@ class PGAutoExplainAnalyzer:
         for query_code in query_codes:
             file_path = optimization_base_path / f"{query_code}.txt"
             if file_path.is_file():
-                # Store as list of (date, text) tuples to sort later
                 query_optimizations_with_dates = []
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
@@ -160,17 +159,17 @@ class PGAutoExplainAnalyzer:
                             line = line.strip()
                             if not line:
                                 continue
-                            parts = line.split(':', 1) # Split only on the first colon
+                            parts = line.split(':', 1)
                             if len(parts) == 2:
                                 date = parts[0].strip()
                                 optimization_text = parts[1].strip()
-                                query_optimizations_with_dates.append((date, optimization_text))
+                                query_optimizations_with_dates.append({"date": date, "text": optimization_text})
                             else:
                                 logger.warning(f"Ligne mal formatée dans '{file_path}': '{line}'. Format attendu: YYYY-MM-DD:Optimisation text.")
                     
                     if query_optimizations_with_dates:
-                        # Sort by date and extract only the optimization texts
-                        sorted_optimizations = [text for date, text in sorted(query_optimizations_with_dates, key=lambda x: x[0])]
+                        # Sort by date
+                        sorted_optimizations = sorted(query_optimizations_with_dates, key=lambda x: x["date"])
                         optimizations_data[query_code] = sorted_optimizations
                     else:
                         logger.debug(f"Aucune optimisation valide trouvée dans '{file_path}'.")
