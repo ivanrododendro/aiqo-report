@@ -30,8 +30,8 @@
             display: flex;
             flex-direction: row; /* Onglets horizontaux */
             border-bottom: 1px solid #dee2e6; /* Restaurer la bordure inférieure par défaut */
-            padding-left: 0; /* Supprimer le padding par défaut de l'UL */
-            margin-bottom: 0; /* Supprimer la marge par défaut de l'UL */
+            padding-left: 0; /* Supprimer le padding par default de l'UL */
+            margin-bottom: 0; /* Supprimer la marge par default de l'UL */
             height: 120px; /* Hauteur suffisante pour les onglets pivotés */
             align-items: flex-end; /* Aligner les onglets en bas de la barre */
         }
@@ -120,14 +120,7 @@
             <h4>Synthèse du {{ day }}</h4>
             <p><strong>Nombre total de requêtes :</strong> <span id="total-queries-{{ day | replace('.', '-') }}"></span></p>
             <p><strong>Temps cumulé total :</strong> <span id="cumulated-time-day-{{ day | replace('.', '-') }}"></span></p>
-            <script>
-                // Populate daily summary data
-                const currentDayStats = dailyQueryStats['{{ day }}'];
-                if (currentDayStats) {
-                    document.getElementById("total-queries-{{ day | replace('.', '-' )}}").innerHTML = currentDayStats.total_queries || 0;
-                    document.getElementById("cumulated-time-day-{{ day | replace('.', '-' )}}").innerHTML = Duration.fromMillis(currentDayStats.cumulated_time || 0).toFormat("h'h'm'm's's'");
-                }
-            </script>
+            {# Removed inline script for daily summary population #}
 
             <h5 class="mt-4">Requêtes par code pour le {{ day }}</h5>
             <div id="queries-by-code-{{ day | replace('.', '-') }}">
@@ -139,21 +132,7 @@
                         </tr>
                     </thead>
                     <tbody id="queries-by-code-table-body-{{ day | replace('.', '-') }}">
-                        <script>
-                            // Populate queries by code table
-                            const currentDayStatsTable = dailyQueryStats['{{ day }}'];
-                            if (currentDayStatsTable && currentDayStatsTable.queries_by_code) {
-                                const queriesByCode = currentDayStatsTable.queries_by_code;
-                                let tableBodyHtml = '';
-                                // Sort by duration descending
-                                const sortedQueries = Object.entries(queriesByCode).sort(([, durationA], [, durationB]) => durationB - durationA);
-
-                                for (const [code, durationMs] of sortedQueries) {
-                                    tableBodyHtml += `<tr><td>${code.substring(0, 6)}</td><td>${Duration.fromMillis(durationMs).toFormat("h'h'm'm's's'")}</td></tr>`;
-                                }
-                                document.getElementById("queries-by-code-table-body-{{ day | replace('.', '-' )}}").innerHTML = tableBodyHtml;
-                            }
-                        </script>
+                        {# Removed inline script for queries by code table population #}
                     </tbody>
                 </table>
             </div>
@@ -413,11 +392,7 @@
                                     label += ': ';
                                 }
                                 if (context.parsed.y !== null) {
-                                    if (context.dataset.yAxisID === 'yAxisRightTotalQueries') {
-                                        label += context.parsed.y.toFixed(0); // Total queries are integers
-                                    } else {
-                                        label += context.parsed.y.toFixed(2) + ' min';
-                                    }
+                                    label += context.parsed.y.toFixed(2) + ' min';
                                 }
                                 return label;
                             }
@@ -609,6 +584,57 @@
                 }
             }
         });
+
+        // --- New Logic for Daily Tab Content Population ---
+
+        // Function to populate daily summary and queries by code table
+        function updateDailyTabContent(day) {
+            const currentDayStats = dailyQueryStats[day];
+
+            // Update total queries and cumulated time
+            const totalQueriesSpan = document.getElementById(`total-queries-${day.replace('.', '-')}`);
+            const cumulatedTimeSpan = document.getElementById(`cumulated-time-day-${day.replace('.', '-')}`);
+            if (totalQueriesSpan && currentDayStats) {
+                totalQueriesSpan.innerHTML = currentDayStats.total_queries || 0;
+            }
+            if (cumulatedTimeSpan && currentDayStats) {
+                cumulatedTimeSpan.innerHTML = Duration.fromMillis(currentDayStats.cumulated_time || 0).toFormat("h'h'm'm's's'");
+            }
+
+            // Update queries by code table
+            const queriesByCodeTableBody = document.getElementById(`queries-by-code-table-body-${day.replace('.', '-')}`);
+            if (queriesByCodeTableBody && currentDayStats && currentDayStats.queries_by_code) {
+                const queriesByCode = currentDayStats.queries_by_code;
+                let tableBodyHtml = '';
+                const sortedQueries = Object.entries(queriesByCode).sort(([, durationA], [, durationB]) => durationB - durationA);
+
+                for (const [code, durationMs] of sortedQueries) {
+                    tableBodyHtml += `<tr><td>${code.substring(0, 6)}</td><td>${Duration.fromMillis(durationMs).toFormat("h'h'm'm's's'")}</td></tr>`;
+                }
+                queriesByCodeTableBody.innerHTML = tableBodyHtml;
+            }
+        }
+
+        // Get all tab links
+        const tabLinks = document.querySelectorAll('#dailyTabs .nav-link');
+
+        tabLinks.forEach(tabLink => {
+            tabLink.addEventListener('shown.bs.tab', function (event) {
+                // Get the ID of the newly active tab pane (e.g., "tab-2023-10-26")
+                const targetTabPaneId = event.target.getAttribute('href').substring(1); // Remove '#'
+                // Extract the day string (e.g., "2023.10.26") by replacing hyphens with dots
+                const day = targetTabPaneId.replace('tab-', '').replace(/-/g, '.');
+                updateDailyTabContent(day);
+            });
+        });
+
+        // Manually trigger for the initially active tab on page load
+        const initialActiveTab = document.querySelector('#dailyTabs .nav-link.active');
+        if (initialActiveTab) {
+            const initialTargetTabPaneId = initialActiveTab.getAttribute('href').substring(1);
+            const initialDay = initialTargetTabPaneId.replace('tab-', '').replace(/-/g, '.');
+            updateDailyTabContent(initialDay);
+        }
     });
 </script>
 </body>
