@@ -136,21 +136,21 @@
     </div>
 </div>
 
-<a data-toggle="collapse" href="#dailyCumulatedTimeChartCollapse" role="button" aria-expanded="true" aria-controls="dailyCumulatedTimeChartCollapse">
-    <h3>Daily Cumulated Time Trends</h3>
-</a>
-<div class="collapse show" id="dailyCumulatedTimeChartCollapse">
-    <div class="card card-body">
-        <canvas id="dailyCumulatedTimeChart"></canvas>
-    </div>
-</div>
-
 <a data-toggle="collapse" href="#optimizationLegendCollapse" role="button" aria-expanded="true" aria-controls="optimizationLegendCollapse">
     <h3>Légende des Optimisations</h3>
 </a>
 <div class="collapse show" id="optimizationLegendCollapse">
     <div class="card card-body">
         <div id="optimizationLegend"></div>
+    </div>
+</div>
+
+<a data-toggle="collapse" href="#dailyCumulatedTimeChartCollapse" role="button" aria-expanded="true" aria-controls="dailyCumulatedTimeChartCollapse">
+    <h3>Daily Cumulated Time Trends</h3>
+</a>
+<div class="collapse show" id="dailyCumulatedTimeChartCollapse">
+    <div class="card card-body">
+        <canvas id="dailyCumulatedTimeChart"></canvas>
     </div>
 </div>
 
@@ -323,6 +323,20 @@
             }
         });
 
+        // After chart creation, populate the optimization legend
+        const legendContainer = document.getElementById('optimizationLegend');
+        if (legendEntries.length > 0) {
+            let legendHtml = '<p>Les lettres sur le graphique correspondent aux optimisations suivantes :</p><ul>';
+            // Sort legend entries by date for better readability
+            legendEntries.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(entry => {
+                legendHtml += `<li><strong>${entry.id}</strong> (${entry.date}) [${entry.queryCode.substring(0, 6)}]: ${entry.text}</li>`;
+            });
+            legendHtml += '</ul>';
+            legendContainer.innerHTML = legendHtml;
+        } else {
+            legendContainer.innerHTML = '<p>Aucune optimisation enregistrée pour les requêtes analysées.</p>';
+        }
+
         // --- New Chart for Daily Cumulated Time ---
         // This chart also needs to use the expanded allDays for its labels
         const cumulatedTimeData = allDays.map(day => {
@@ -421,20 +435,6 @@
                 }
             }
         });
-
-        // After chart creation, populate the optimization legend
-        const legendContainer = document.getElementById('optimizationLegend');
-        if (legendEntries.length > 0) {
-            let legendHtml = '<p>Les lettres sur le graphique correspondent aux optimisations suivantes :</p><ul>';
-            // Sort legend entries by date for better readability
-            legendEntries.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(entry => {
-                legendHtml += `<li><strong>${entry.id}</strong> (${entry.date}) [${entry.queryCode.substring(0, 6)}]: ${entry.text}</li>`;
-            });
-            legendHtml += '</ul>';
-            legendContainer.innerHTML = legendHtml;
-        } else {
-            legendContainer.innerHTML = '<p>Aucune optimisation enregistrée pour les requêtes analysées.</p>';
-        }
     });
 </script>
 </body>
