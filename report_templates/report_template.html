@@ -122,10 +122,10 @@
             <p><strong>Temps cumulé total :</strong> <span id="cumulated-time-day-{{ day | replace('.', '-') }}"></span></p>
             <script>
                 // Populate daily summary data
-                const dailyStatsForDay_{{ day | replace('.', '-' )}} = dailyQueryStats['{{ day }}'];
-                if (dailyStatsForDay_{{ day | replace('.', '-' )}}) {
-                    document.getElementById("total-queries-{{ day | replace('.', '-' )}}").innerHTML = dailyStatsForDay_{{ day | replace('.', '-' )}}.total_queries || 0;
-                    document.getElementById("cumulated-time-day-{{ day | replace('.', '-' )}}").innerHTML = Duration.fromMillis(dailyStatsForDay_{{ day | replace('.', '-' )}}.cumulated_time || 0).toFormat("h'h'm'm's's'");
+                const currentDayStats = dailyQueryStats['{{ day }}'];
+                if (currentDayStats) {
+                    document.getElementById("total-queries-{{ day | replace('.', '-' )}}").innerHTML = currentDayStats.total_queries || 0;
+                    document.getElementById("cumulated-time-day-{{ day | replace('.', '-' )}}").innerHTML = Duration.fromMillis(currentDayStats.cumulated_time || 0).toFormat("h'h'm'm's's'");
                 }
             </script>
 
@@ -141,9 +141,9 @@
                     <tbody id="queries-by-code-table-body-{{ day | replace('.', '-') }}">
                         <script>
                             // Populate queries by code table
-                            const dailyStatsForDayTable_{{ day | replace('.', '-' )}} = dailyQueryStats['{{ day }}'];
-                            if (dailyStatsForDayTable_{{ day | replace('.', '-' )}} && dailyStatsForDayTable_{{ day | replace('.', '-') }}.queries_by_code) {
-                                const queriesByCode = dailyStatsForDayTable_{{ day | replace('.', '-' )}}.queries_by_code;
+                            const currentDayStatsTable = dailyQueryStats['{{ day }}'];
+                            if (currentDayStatsTable && currentDayStatsTable.queries_by_code) {
+                                const queriesByCode = currentDayStatsTable.queries_by_code;
                                 let tableBodyHtml = '';
                                 // Sort by duration descending
                                 const sortedQueries = Object.entries(queriesByCode).sort(([, durationA], [, durationB]) => durationB - durationA);
@@ -413,7 +413,11 @@
                                     label += ': ';
                                 }
                                 if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toFixed(2) + ' min';
+                                    if (context.dataset.yAxisID === 'yAxisRightTotalQueries') {
+                                        label += context.parsed.y.toFixed(0); // Total queries are integers
+                                    } else {
+                                        label += context.parsed.y.toFixed(2) + ' min';
+                                    }
                                 }
                                 return label;
                             }
