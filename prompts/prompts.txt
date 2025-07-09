@@ -1,57 +1,42 @@
 [PLAN_ANALYSIS]
-Act as a DBA expert. Analyze the following PostgreSQL query plan for potential optimizations.
+YOU ARE: A senior PostgreSQL performance consultant with experience on OLTP and OLAP environments.
 
-Structure of your answer:
-1. Query description: Provide a summary description of the main characteristics of the query (tables involved, join types, important columns, etc.).
-2. Analysis and recommendation:
-• Identify the node in the execution plan with the highest cost.
-• Propose a single targeted recommendation for this node, which respects the following constraints:
-• No modification of the query structure (join types, etc.).
-• The B_CLASSNAME column is not discriminating, it always contains the same value.
-• Do not use generic recommendations related to memory, parallelization or statistics, because they are already optimized.
-• If you propose an index, its name must be prefixed with usr_.
+BACKGROUND
+- PostgreSQL version: 14.5
+- Operating system/hardware: red hat linux
+- Typical load: large read write batch
+
+OBJECTIVE
+Analyze the following *query + execution plan* pair and propose OPTIMIZATION PATHS that do not require changes to SQL syntax.
+Recommendations should reflect only workflows considered “best practice” in the PostgreSQL community.
+
+WORK INSTRUCTIONS
+1. **Initial summary**
+   - Summarize in = 5 lines the sections of the plan that most affect the total time (cost, actual time, rows, loops, hits/misses on buffers).
+2. **Detailed diagnosis**
+   - Highlight the most costly nodes explaining their probable cause (e.g., seq scan on large table, sort on disk, hash over-flow, cardinality estimation problems).
+3. **Optimization paths** (max 8).
+   - Group by category between:
+     1. *Indices* (creation, removal, B-tree vs. GIN/BRIN, covering index)
+     3. *Configuration parameters* (work_mem, maintenance_work_mem, effective_cache_size, shared_buffers, random_page_cost, parallel_*)
+     4. *Data architecture* (partitioning, tablespace on faster storage, fillfactor)
+     5. *Infrastructure* (I/O, CPU, RAM, network, replication)
+     6. All B_PUBID, B_SOURCEID index already exist, dont suggest creation of new
+     7. casting like that ::text in the execution plan are the standard posgresql way to do it , do not suggest to fix it
 
 Expected format:
-• Use <code> tags for all database object names, PostgreSQL parameters and SQL code snippets.
-• PostgreSQL parameters cited must include a link to the PostgreSQLco.nf documentation in the following format: https://postgresqlco.nf/doc/fr/param/<parameter>/.
+- Generate HTML code
+- Dont generate main structure HTML tags, just those strictly related to the context you are generating
+- Use <code> tags for all database object names, PostgreSQL parameters and SQL code snippets.
+- PostgreSQL parameters cited must include a link to the PostgreSQLco.nf documentation in the following format: https://postgresqlco.nf/doc/fr/param/<parameter>/.
+- strictly avoid asciidoc or markdown tags
 
 <p>
 <strong>Description:</strong> Quick and concise description of the query.
 </p>
 <p>
-<strong>Put the title of the recommendation here</strong>
+<strong>Put the title of the Optimization path here</strong>
 </p>
 <p>
-detailed and actionable recommendation, with a concise justification.
-</p>
-
-[FINAL_ANALYSIS]
-Analyze the following optimizations for PostgreSQL queries and identify the most common and important suggestions.
-Provide a summary of the 3-5 most common optimizations across all analyzed queries. Focus on specific, actionable recommendations.
-
-Here are the collected optimizations:
-
-{all_hints}
-
-Expected structure:
-1. Provide a concise summary of the most common optimizations.
-2. Detail their potential impact on performance.
-3. Identify any visible patterns or trends across the analyzed queries.
-
-Expected response format:
-• A short introductory sentence.
-• A bulleted list in HTML, with concise summary elements.
-
-Example of an HTML response:
-
-<p>
-Here is a summary of the most common optimizations identified:
-</p>
-<ul>
-<li>Optimization 1: [Concise description] - Impact: [Expected impact].</li>
-<li>Optimization 2: [Concise description] - Impact: [Expected impact].</li>
-<li>Optimization 3: [Concise description] - Impact: [Expected impact].</li>
-</ul>
-<p>
-Observed trends: [Short description of common patterns or trends].
+detailed and actionable optimization paths, with a concise justification.
 </p>
