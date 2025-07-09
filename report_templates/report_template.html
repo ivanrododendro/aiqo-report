@@ -59,23 +59,25 @@
                     <script>document.getElementById("duration-{{ day }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
                     .toFormat("h'h'm'm's's'");</script>
                 </p>
-                {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
-                    <p><strong>Analyse AI :</strong> {{ report.chatgpt_hints|safe }}</p>
-                {% endif %}
                 {% if query_optimizations[report.code] %}
                     <p>
                         <strong>Optimisations déjà appliquées :</strong>
                         {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
-                            <ul>
-                            {% for opt in query_optimizations[report.code] %}
-                            <li> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
-                            {% endfor %}
-                            </ul>
-                        {% else %}
-                            {{ query_optimizations[report.code]|safe }}
-                        {% endif %}
+                    <ul>
+                        {% for opt in query_optimizations[report.code] %}
+                        <li> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    {{ query_optimizations[report.code]|safe }}
+                    {% endif %}
                     </p>
                 {% endif %}
+
+                {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
+                    <p><strong>Analyse AI :</strong> {{ report.chatgpt_hints|safe }}</p>
+                {% endif %}
+
                 <div id="{{ app_id }}">
                     <pev2 :plan-source="plan" :plan-query="query"
                           style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
