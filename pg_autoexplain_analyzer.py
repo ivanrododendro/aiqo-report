@@ -84,7 +84,6 @@ class PGAutoExplainAnalyzer:
         self.all_query_stats_dict = {}
         # New data structure for daily query statistics
         self.daily_query_stats = defaultdict(lambda: {"total_queries": 0, "cumulated_time": 0.0, "queries_by_code": defaultdict(float)})
-        self.final_analysis_result = ""
 
     def _load_ddl_context(self, sql_context_file):
         if sql_context_file:
@@ -338,11 +337,6 @@ class PGAutoExplainAnalyzer:
             for parsed_entry in self.log_parser.parse_log_file(log_file):
                 self._process_parsed_log_entry(parsed_entry)
 
-        if not self.skip_ai_analysis:
-            self.final_analysis_result = self.ai_caller.call_ai_for_final_analysis(self.all_reports)
-        else:
-            self.final_analysis_result = ""
-
         # Convert query_stats dict to sorted list for the report
         query_stats_list = sorted(self.all_query_stats_dict.values(), key=lambda x: x["cumulated_time"], reverse=True)
         report_title = "PostgreSQL Auto Explain Report" if self.skip_ai_analysis else f"PostgreSQL Auto Explain AI Report ({self.model}) "
@@ -354,7 +348,6 @@ class PGAutoExplainAnalyzer:
         self.report_generator.generate_report(
             str(resolved_report_filename),
             report_title,
-            self.final_analysis_result,
             self.model,
             query_stats_list,
             self.reports_by_day,

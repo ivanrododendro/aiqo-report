@@ -15,7 +15,7 @@ class ReportGenerator:
         )
         self.template = self.env.get_template("report_templates/report_template.html")
 
-    def generate_report(self, output_path, title, frequent_hints_analysis, model, query_stats, reports_by_day, daily_query_stats, query_optimizations): # Ajout de query_optimizations
+    def generate_report(self, output_path, title, model, query_stats, reports_by_day, daily_query_stats, query_optimizations): # Ajout de query_optimizations
         logger.info(f"Generating HTML report in {output_path}")
 
         # Convert defaultdicts to regular dicts for JSON serialization
@@ -30,7 +30,6 @@ class ReportGenerator:
 
         html_report = self.template.render(
             title=title,
-            frequent_hints_analysis=frequent_hints_analysis,
             model=model,
             query_stats=query_stats,
             reports_by_day=reports_by_day,
