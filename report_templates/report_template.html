@@ -9,9 +9,8 @@
     <script src="https://unpkg.com/vue@3.2.45/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/pev2/dist/pev2.umd.js"></script>
     <link href="https://unpkg.com/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
+    <!-- Removed jQuery and old Popper.js, replaced with Bootstrap 5 bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
             crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://unpkg.com/pev2/dist/pev2.css"/>
@@ -107,7 +106,7 @@
 <ul class="nav nav-tabs" id="dailyTabs" role="tablist">
     {% for day, reports in reports_by_day.items()|sort %}
     <li class="nav-item" role="presentation">
-        <a class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ day | replace('.', '-') }}-tab" data-toggle="tab" href="#tab-{{ day | replace('.', '-') }}" role="tab" aria-controls="tab-{{ day | replace('.', '-') }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+        <a class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ day | replace('.', '-') }}-tab" data-bs-toggle="tab" href="#tab-{{ day | replace('.', '-') }}" role="tab" aria-controls="tab-{{ day | replace('.', '-') }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
             {{ day }}
         </a>
     </li>
@@ -123,10 +122,10 @@
             <p><strong>Temps cumulé total :</strong> <span id="cumulated-time-day-{{ day | replace('.', '-') }}"></span></p>
             <script>
                 // Populate daily summary data
-                const dailyStatsForDay_{{ day | replace('.', '-') }} = dailyQueryStats['{{ day }}'];
-                if (dailyStatsForDay_{{ day | replace('.', '-') }}) {
-                    document.getElementById("total-queries-{{ day | replace('.', '-') }}").innerHTML = dailyStatsForDay_{{ day | replace('.', '-' )}}.total_queries || 0;
-                    document.getElementById("cumulated-time-day-{{ day | replace('.', '-') }}").innerHTML = Duration.fromMillis(dailyStatsForDay_{{ day | replace('.', '-' )}}.cumulated_time || 0).toFormat("h'h'm'm's's'");
+                const dailyStatsForDay_{{ day | replace('.', '-' )}} = dailyQueryStats['{{ day }}'];
+                if (dailyStatsForDay_{{ day | replace('.', '-' )}}) {
+                    document.getElementById("total-queries-{{ day | replace('.', '-' )}}").innerHTML = dailyStatsForDay_{{ day | replace('.', '-' )}}.total_queries || 0;
+                    document.getElementById("cumulated-time-day-{{ day | replace('.', '-' )}}").innerHTML = Duration.fromMillis(dailyStatsForDay_{{ day | replace('.', '-' )}}.cumulated_time || 0).toFormat("h'h'm'm's's'");
                 }
             </script>
 
@@ -142,9 +141,9 @@
                     <tbody id="queries-by-code-table-body-{{ day | replace('.', '-') }}">
                         <script>
                             // Populate queries by code table
-                            const dailyStatsForDayTable_{{ day | replace('.', '-') }} = dailyQueryStats['{{ day }}'];
+                            const dailyStatsForDayTable_{{ day | replace('.', '-' )}} = dailyQueryStats['{{ day }}'];
                             if (dailyStatsForDayTable_{{ day | replace('.', '-' )}} && dailyStatsForDayTable_{{ day | replace('.', '-') }}.queries_by_code) {
-                                const queriesByCode = dailyStatsForDayTable_{{ day | replace('.', '-') }}.queries_by_code;
+                                const queriesByCode = dailyStatsForDayTable_{{ day | replace('.', '-' )}}.queries_by_code;
                                 let tableBodyHtml = '';
                                 // Sort by duration descending
                                 const sortedQueries = Object.entries(queriesByCode).sort(([, durationA], [, durationB]) => durationB - durationA);
@@ -152,7 +151,7 @@
                                 for (const [code, durationMs] of sortedQueries) {
                                     tableBodyHtml += `<tr><td>${code.substring(0, 6)}</td><td>${Duration.fromMillis(durationMs).toFormat("h'h'm'm's's'")}</td></tr>`;
                                 }
-                                document.getElementById("queries-by-code-table-body-{{ day | replace('.', '-') }}").innerHTML = tableBodyHtml;
+                                document.getElementById("queries-by-code-table-body-{{ day | replace('.', '-' )}}").innerHTML = tableBodyHtml;
                             }
                         </script>
                     </tbody>
@@ -163,7 +162,7 @@
             {% for report in reports %}
             {% set i = loop.index0 %}
             {% set app_id = 'app-' ~ day | replace('.', '-') ~ '-' ~ i %} {# Ensure app_id is also safe for dots #}
-            <a data-toggle="collapse" href="#collapseExample-{{ app_id }}" role="button" aria-expanded="false"
+            <a data-bs-toggle="collapse" data-bs-target="#collapseExample-{{ app_id }}" href="#collapseExample-{{ app_id }}" role="button" aria-expanded="false"
                aria-controls="collapseExample-{{ app_id }}">
                 <h5 title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}
                     {% if report.seq_scan_indicator %}
@@ -204,7 +203,8 @@
                               style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
                     </div>
                     <script>
-                        $('#collapseExample-{{ app_id }}').on('shown.bs.collapse', function () {
+                        // Changed from jQuery .on() to vanilla JS addEventListener
+                        document.getElementById('collapseExample-{{ app_id }}').addEventListener('shown.bs.collapse', function () {
                             createApp({
                                 data() {
                                     return {
@@ -224,7 +224,7 @@
 </div>
 
 <h2>Synthèse globale</h2> {# Changed from "Synthèse" to "Synthèse globale" for clarity #}
-<a data-toggle="collapse" href="#requestCollapse" role="button" aria-expanded="false" aria-controls="requestCollapse">
+<a data-bs-toggle="collapse" data-bs-target="#requestCollapse" href="#requestCollapse" role="button" aria-expanded="false" aria-controls="requestCollapse">
     <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3> {# More descriptive title #}
 </a>
 <div class="collapse" id="requestCollapse">
@@ -252,7 +252,7 @@
     </div>
 </div>
 
-<a data-toggle="collapse" href="#dailyQueryDurationChartCollapse" role="button" aria-expanded="false" aria-controls="dailyQueryDurationChartCollapse">
+<a data-bs-toggle="collapse" data-bs-target="#dailyQueryDurationChartCollapse" href="#dailyQueryDurationChartCollapse" role="button" aria-expanded="false" aria-controls="dailyQueryDurationChartCollapse">
     <h3>Tendances quotidiennes de la durée des requêtes</h3>
 </a>
 <div class="collapse " id="dailyQueryDurationChartCollapse">
@@ -264,7 +264,7 @@
     </div>
 </div>
 
-<a data-toggle="collapse" href="#dailyCumulatedTimeChartCollapse" role="button" aria-expanded="false" aria-controls="dailyCumulatedTimeChartCollapse">
+<a data-bs-toggle="collapse" data-bs-target="#dailyCumulatedTimeChartCollapse" href="#dailyCumulatedTimeChartCollapse" role="button" aria-expanded="false" aria-controls="dailyCumulatedTimeChartCollapse">
     <h3>Tendances quotidiennes du temps cumulé et du nombre de requêtes</h3>
 </a>
 <div class="collapse " id="dailyCumulatedTimeChartCollapse">
