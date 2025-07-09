@@ -29,80 +29,139 @@
 <body class="container-fluid">
 <script>
     const {createApp} = Vue;
+    // Directly assign the JavaScript objects rendered by Jinja
+    // These are now global for easier access by inline scripts
+    const dailyQueryStats = {{ daily_query_stats_json | safe }};
+    const globalQueryStats = {{ query_stats | tojson | safe }}; // Renamed from query_stats to globalQueryStats to avoid confusion with daily stats
+    const queryOptimizations = {{ query_optimizations | tojson | safe }};
+    const serverOptimizations = {{ server_optimizations | tojson | safe }};
+    const eventOptimizations = {{ event_optimizations | tojson | safe }};
 </script>
 <h1 class="mb-4">{{ title }}</h1>
-<h2>Requêtes</h2>
-{% for day, reports in reports_by_day.items()|sort %}
-<a data-toggle="collapse" href="#collapseDay-{{ day }}" role="button" aria-expanded="false"
-   aria-controls="collapseDay-{{ day }}">
-    <h3>{{ day }}</h3>
-</a>
-<div class="collapse" id="collapseDay-{{ day }}">
-    <div class="card card-body">
-        {% for report in reports %}
-        {% set i = loop.index0 %}
-        {% set app_id = 'app-' ~ day ~ '-' ~ i %}
-        <a data-toggle="collapse" href="#collapseExample-{{ app_id }}" role="button" aria-expanded="false"
-           aria-controls="collapseExample-{{ app_id }}">
-            <h5 title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}
-                {% if report.seq_scan_indicator %}
-                <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>
-                {% endif %}
-                {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
-                <i class="bi bi-chat-left-text icon" title="Analyse AI disponible"></i>
-                {% endif %}
-            </h5>
+<h2>Requêtes par jour</h2>
+
+<ul class="nav nav-tabs" id="dailyTabs" role="tablist">
+    {% for day, reports in reports_by_day.items()|sort %}
+    <li class="nav-item" role="presentation">
+        <a class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ day | replace('.', '-') }}-tab" data-toggle="tab" href="#tab-{{ day | replace('.', '-') }}" role="tab" aria-controls="tab-{{ day | replace('.', '-') }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+            {{ day }}
         </a>
-        <div class="collapse" id="collapseExample-{{ app_id }}">
-            <div class="card card-body">
-                <p id="duration-{{ day }}-{{ i }}">
-                    <script>document.getElementById("duration-{{ day }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
-                    .toFormat("h'h'm'm's's'");</script>
-                </p>
-                {% if query_optimizations[report.code] %}
-                    <p>
-                        <strong>Optimisations déjà appliquées :</strong>
-                        {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
-                    <ul>
-                        {% for opt in query_optimizations[report.code] %}
-                        <li> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    {{ query_optimizations[report.code]|safe }}
-                    {% endif %}
-                    </p>
-                {% endif %}
+    </li>
+    {% endfor %}
+</ul>
 
-                {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
-                    <p><strong>Analyse AI :</strong> {{ report.chatgpt_hints|safe }}</p>
-                {% endif %}
+<div class="tab-content" id="dailyTabContent">
+    {% for day, reports in reports_by_day.items()|sort %}
+    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ day | replace('.', '-') }}" role="tabpanel" aria-labelledby="tab-{{ day | replace('.', '-') }}-tab">
+        <div class="card card-body mt-3">
+            <h4>Synthèse du {{ day }}</h4>
+            <p><strong>Nombre total de requêtes :</strong> <span id="total-queries-{{ day | replace('.', '-') }}"></span></p>
+            <p><strong>Temps cumulé total :</strong> <span id="cumulated-time-day-{{ day | replace('.', '-') }}"></span></p>
+            <script>
+                // Populate daily summary data
+                const dailyStatsForDay_{{ day | replace('.', '-') }} = dailyQueryStats['{{ day }}'];
+                if (dailyStatsForDay_{{ day | replace('.', '-') }}) {
+                    document.getElementById("total-queries-{{ day | replace('.', '-') }}").innerHTML = dailyStatsForDay_{{ day | replace('.', '-' )}}.total_queries;
+                    document.getElementById("cumulated-time-day-{{ day | replace('.', '-') }}").innerHTML = Duration.fromMillis(dailyStatsForDay_{{ day | replace('.', '-' )}}.cumulated_time).toFormat("h'h'm'm's's'");
+                }
+            </script>
 
-                <div id="{{ app_id }}">
-                    <pev2 :plan-source="plan" :plan-query="query"
-                          style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
-                </div>
-                <script>
-                    $('#collapseExample-{{ app_id }}').on('shown.bs.collapse', function () {
-                        createApp({
-                            data() {
-                                return {
-                                    plan: `{{ report.plan|safe }}`,
-                                    query: `{{ report.query_text|safe }}`
-                                };
+            <h5 class="mt-4">Requêtes par code pour le {{ day }}</h5>
+            <div id="queries-by-code-{{ day | replace('.', '-') }}">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Durée cumulée</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queries-by-code-table-body-{{ day | replace('.', '-') }}">
+                        <script>
+                            // Populate queries by code table
+                            const dailyStatsForDayTable_{{ day | replace('.', '-') }} = dailyQueryStats['{{ day }}'];
+                            if (dailyStatsForDayTable_{{ day | replace('.', '-' )}} && dailyStatsForDayTable_{{ day | replace('.', '-') }}.queries_by_code) {
+                                const queriesByCode = dailyStatsForDayTable_{{ day | replace('.', '-') }}.queries_by_code;
+                                let tableBodyHtml = '';
+                                // Sort by duration descending
+                                const sortedQueries = Object.entries(queriesByCode).sort(([, durationA], [, durationB]) => durationB - durationA);
+
+                                for (const [code, durationMs] of sortedQueries) {
+                                    tableBodyHtml += `<tr><td>${code.substring(0, 6)}</td><td>${Duration.fromMillis(durationMs).toFormat("h'h'm'm's's'")}</td></tr>`;
+                                }
+                                document.getElementById("queries-by-code-table-body-{{ day | replace('.', '-') }}").innerHTML = tableBodyHtml;
                             }
-                        }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
-                    });
-                </script>
+                        </script>
+                    </tbody>
+                </table>
             </div>
+
+            <h5 class="mt-4">Détail des requêtes individuelles pour le {{ day }}</h5>
+            {% for report in reports %}
+            {% set i = loop.index0 %}
+            {% set app_id = 'app-' ~ day | replace('.', '-') ~ '-' ~ i %} {# Ensure app_id is also safe for dots #}
+            <a data-toggle="collapse" href="#collapseExample-{{ app_id }}" role="button" aria-expanded="false"
+               aria-controls="collapseExample-{{ app_id }}">
+                <h5 title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}
+                    {% if report.seq_scan_indicator %}
+                    <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>
+                    {% endif %}
+                    {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
+                    <i class="bi bi-chat-left-text icon" title="Analyse AI disponible"></i>
+                    {% endif %}
+                </h5>
+            </a>
+            <div class="collapse" id="collapseExample-{{ app_id }}">
+                <div class="card card-body">
+                    <p id="duration-{{ day | replace('.', '-') }}-{{ i }}">
+                        <script>document.getElementById("duration-{{ day | replace('.', '-') }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
+                        .toFormat("h'h'm'm's's'");</script>
+                    </p>
+                    {% if query_optimizations[report.code] %}
+                        <p>
+                            <strong>Optimisations déjà appliquées :</strong>
+                            {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
+                        <ul>
+                            {% for opt in query_optimizations[report.code] %}
+                            <li> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        {{ query_optimizations[report.code]|safe }}
+                        {% endif %}
+                        </p>
+                    {% endif %}
+
+                    {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
+                        <p><strong>Analyse AI :</strong> {{ report.chatgpt_hints|safe }}</p>
+                    {% endif %}
+
+                    <div id="{{ app_id }}">
+                        <pev2 :plan-source="plan" :plan-query="query"
+                              style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
+                    </div>
+                    <script>
+                        $('#collapseExample-{{ app_id }}').on('shown.bs.collapse', function () {
+                            createApp({
+                                data() {
+                                    return {
+                                        plan: `{{ report.plan|safe }}`,
+                                        query: `{{ report.query_text|safe }}`
+                                    };
+                                }
+                            }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+                        });
+                    </script>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
+    {% endfor %}
 </div>
-{% endfor %}
-<h2>Synthèse</h2>
+
+<h2>Synthèse globale</h2> {# Changed from "Synthèse" to "Synthèse globale" for clarity #}
 <a data-toggle="collapse" href="#requestCollapse" role="button" aria-expanded="false" aria-controls="requestCollapse">
-    <h3>Requêtes</h3>
+    <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3> {# More descriptive title #}
 </a>
 <div class="collapse" id="requestCollapse">
     <div class="card card-body">
@@ -115,7 +174,7 @@
             </tr>
             </thead>
             <tbody>
-            {% for stat in query_stats %}
+            {% for stat in query_stats %} {# This is now globalQueryStats in JS, but query_stats in Jinja #}
             <tr scope='row'>
                 <td>[{{ stat.code[:6] }}] {{ stat.name[:QUERY_NAME_LIMIT] }}</td>
                 <td id='cumulated-time-{{ stat.code }}'>{{ stat.cumulated_time }}</td>
@@ -130,7 +189,7 @@
 </div>
 
 <a data-toggle="collapse" href="#dailyQueryDurationChartCollapse" role="button" aria-expanded="false" aria-controls="dailyQueryDurationChartCollapse">
-    <h3>Daily Query Duration Trends</h3>
+    <h3>Tendances quotidiennes de la durée des requêtes</h3>
 </a>
 <div class="collapse " id="dailyQueryDurationChartCollapse">
     <div class="card card-body">
@@ -142,7 +201,7 @@
 </div>
 
 <a data-toggle="collapse" href="#dailyCumulatedTimeChartCollapse" role="button" aria-expanded="false" aria-controls="dailyCumulatedTimeChartCollapse">
-    <h3>Daily Cumulated Time Trends</h3>
+    <h3>Tendances quotidiennes du temps cumulé et du nombre de requêtes</h3>
 </a>
 <div class="collapse " id="dailyCumulatedTimeChartCollapse">
     <div class="card card-body">
@@ -163,12 +222,11 @@
             return `rgb(${r}, ${g}, ${b})`;
         }
 
-        // Directly assign the JavaScript objects rendered by Jinja
-        const dailyQueryStats = {{ daily_query_stats_json | safe }};
-        const globalQueryStats = {{ query_stats | tojson | safe }};
-        const queryOptimizations = {{ query_optimizations | tojson | safe }};
-        const serverOptimizations = {{ server_optimizations | tojson | safe }};
-        const eventOptimizations = {{ event_optimizations | tojson | safe }};
+        // globalQueryStats is already defined globally
+        // dailyQueryStats is already defined globally
+        // queryOptimizations is already defined globally
+        // serverOptimizations is already defined globally
+        // eventOptimizations is already defined globally
 
         // Collect all unique dates from both query stats and optimizations
         let allDatesSet = new Set();
@@ -184,7 +242,7 @@
 
         const allDays = Array.from(allDatesSet).sort(); // Sort all collected dates
 
-        const datasets = globalQueryStats.map(stat => {
+        const datasets = globalQueryStats.map(stat => { // Use globalQueryStats here
             const data = allDays.map(day => {
                 const dayStats = dailyQueryStats[day];
                 // Use optional chaining for safer property access
@@ -202,6 +260,8 @@
                 tension: 0.1,
                 hidden: false, // All series visible by default
                 spanGaps: true, // Connect points across null values
+                borderColor: randomColor, // Apply random color
+                backgroundColor: randomColor,
             };
         });
 
@@ -360,7 +420,7 @@
         }
 
         // After chart creation, populate the optimization legend
-        const legendContainer = document.getElementById('genericOptimizationLegend');
+        const genericLegendContainer = document.getElementById('genericOptimizationLegend'); // Renamed from legendContainer
         if (genericOptimizationLegendEntries.length > 0) {
             let legendHtml = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
             // Sort legend entries by ID (alphabetical) for better readability
@@ -375,9 +435,9 @@
                     legendHtml += `: ${entry.text}</li>`;
             });
             legendHtml += '</ul>';
-            legendContainer.innerHTML = legendHtml;
+            genericLegendContainer.innerHTML = legendHtml;
         } else {
-            legendContainer.innerHTML = '<p>Aucune optimisation enregistrée.</p>';
+            genericLegendContainer.innerHTML = '<p>Aucune optimisation enregistrée.</p>';
         }
 
         // --- New Chart for Daily Cumulated Time ---
