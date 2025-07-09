@@ -117,6 +117,25 @@
     {% for day, reports in reports_by_day.items()|sort %}
     <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ day | replace('.', '-') }}" role="tabpanel" aria-labelledby="tab-{{ day | replace('.', '-') }}-tab">
         <div class="card card-body mt-3">
+            <h4>Synthèse du {{ day }}</h4>
+            <p><strong>Nombre total de requêtes :</strong> <span id="total-queries-{{ day | replace('.', '-') }}"></span></p>
+            <p><strong>Temps cumulé total :</strong> <span id="cumulated-time-day-{{ day | replace('.', '-') }}"></span></p>
+            {# Removed inline script for daily summary population #}
+
+            <h5 class="mt-4">Requêtes par code pour le {{ day }}</h5>
+            <div id="queries-by-code-{{ day | replace('.', '-') }}">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Durée cumulée</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queries-by-code-table-body-{{ day | replace('.', '-') }}">
+                        {# Removed inline script for queries by code table population #}
+                    </tbody>
+                </table>
+            </div>
 
             <h5 class="mt-4">Détail des requêtes individuelles pour le {{ day }}</h5>
             {% for report in reports %}
@@ -189,7 +208,7 @@
 </a>
 <div class="collapse" id="requestCollapse">
     <div class="card card-body">
-        <table class='table-striped'>
+        <table class='table table-bordered table-striped table-hover'>
             <thead>
             <tr>
                 <th scope='col'>Requête</th>
@@ -445,7 +464,7 @@
 
         // After chart creation, populate the optimization legend
         const genericLegendContainer = document.getElementById('genericOptimizationLegend'); // Renamed from legendContainer
-        if (genericOptimizationLegendEntries.length > 0) {
+        if (genericOptimizationEntries.length > 0) {
             let legendHtml = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
             // Sort legend entries by ID (alphabetical) for better readability
             genericOptimizationLegendEntries.sort((a, b) => a.id.localeCompare(b.id)).forEach(entry => {
