@@ -19,12 +19,80 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <!-- Chart.js Annotations Plugin CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@latest/dist/chartjs-plugin-annotation.min.js"></script>
-    <style>.bi-database-exclamation {
-        color: red !important;
-    }</style>
-    <style>.bi-chat-left-text {
-        color: green !important;
-    }</style>
+    <style>
+        .bi-database-exclamation {
+            color: red !important;
+        }
+        .bi-chat-left-text {
+            color: green !important;
+        }
+
+        /* Réinitialisation des styles d'onglets verticaux précédents */
+        .nav-tabs {
+            display: flex;
+            flex-direction: row; /* Onglets horizontaux */
+            border-bottom: 1px solid #dee2e6; /* Restaurer la bordure inférieure par défaut */
+            border-right: none; /* S'assurer qu'il n'y a pas de bordure droite */
+            width: auto; /* S'assurer d'une largeur automatique */
+            float: none; /* S'assurer qu'il n'y a pas de flottement */
+            margin-right: 0; /* S'assurer qu'il n'y a pas de marge */
+            padding-left: 0; /* Supprimer le padding par défaut de l'UL */
+            margin-bottom: 0; /* Supprimer la marge par défaut de l'UL */
+        }
+
+        .nav-tabs .nav-item {
+            margin-bottom: 0; /* Garder cette propriété */
+            height: 100px; /* Rendre le nav-item suffisamment haut pour le texte pivoté */
+            position: relative; /* Pour le positionnement absolu du nav-link */
+            display: flex; /* Utiliser flexbox pour positionner le lien */
+            align-items: flex-end; /* Aligner le lien en bas de l'élément */
+            justify-content: center; /* Centrer horizontalement dans l'élément */
+            padding-bottom: 10px; /* Espace par rapport à la bordure inférieure des nav-tabs */
+            z-index: 1; /* S'assurer que les onglets sont au-dessus du contenu */
+        }
+
+        .nav-tabs .nav-link {
+            /* Restaurer les valeurs par défaut de Bootstrap pour les onglets horizontaux */
+            border: 1px solid transparent;
+            border-top-left-radius: 0.25rem;
+            border-top-right-radius: 0.25rem;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            text-align: center;
+            padding: 0.5rem 1rem; /* Padding par défaut */
+            margin-right: 2px; /* Petite marge entre les onglets */
+            color: #007bff; /* Couleur de lien par défaut */
+            background-color: transparent; /* Fond par défaut */
+
+            /* Styles pour le texte vertical */
+            white-space: nowrap; /* Empêcher le texte de passer à la ligne */
+            position: absolute; /* Positionner absolument dans le nav-item */
+            bottom: 0; /* Aligner en bas du nav-item */
+            left: 50%; /* Centrer horizontalement */
+            transform: translateX(-50%) rotate(-90deg); /* Centrer et pivoter */
+            transform-origin: center center; /* Pivoter autour du centre de l'élément */
+            
+            /* Ajuster le padding pour que le texte pivoté s'adapte visuellement */
+            padding: 0.5rem 0.75rem; 
+            min-width: 20px; /* Largeur minimale pour le texte pivoté */
+            min-height: 80px; /* Hauteur minimale pour le texte pivoté */
+            display: flex; /* Utiliser flex pour centrer le texte dans la boîte pivotée */
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-tabs .nav-link.active {
+            border-color: #dee2e6 #dee2e6 #fff #dee2e6; /* L'onglet actif a une bordure inférieure blanche */
+            background-color: #fff; /* Fond de l'onglet actif */
+            color: #495057; /* Couleur du texte de l'onglet actif */
+        }
+
+        .tab-content {
+            /* Ajouter un padding-top pour laisser de l'espace aux onglets plus hauts */
+            padding-top: 20px; /* Ajuster si nécessaire */
+            clear: both; /* S'assurer que le contenu commence en dessous des onglets */
+        }
+    </style>
 </head>
 <body class="container-fluid">
 <script>
