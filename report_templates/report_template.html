@@ -64,11 +64,11 @@
                 {% endif %}
                 {% if query_optimizations[report.code] %}
                     <p>
-                        <strong>Optimisations suggérées :</strong>
+                        <strong>Optimisations déjà appliquées :</strong>
                         {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
                             <ul>
                             {% for opt in query_optimizations[report.code] %}
-                                <li>{{ opt.text|safe }} ({{ opt.date }})</li>
+                            <li> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
                             {% endfor %}
                             </ul>
                         {% else %}
@@ -341,15 +341,15 @@
 
         // After chart creation, populate the optimization legend
         const queryLegendContainer = document.getElementById('queryOptimizationLegend');
-        if (genericOptimizationLegendEntries.length > 0) {
+        if (queryOptimizationLegendEntries.length > 0) {
             let legendHtml = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
             // Sort legend entries by ID (alphabetical) for better readability
             queryOptimizationLegendEntries.sort((a, b) => a.id.localeCompare(b.id)).forEach(entry => {
-                legendHtml += `<li><strong>${entry.id}</strong> (${entry.date}) [${entry.type}]`;
+                legendHtml += `<li><strong>${entry.id}</strong>`;
                 if (entry.queryCode) {
                     legendHtml += ` [${entry.queryCode.substring(0, 6)}]`;
                 }
-                legendHtml += `: ${entry.text}</li>`;
+                legendHtml += `: <code>${entry.text}</code></li>`;
             });
             legendHtml += '</ul>';
             queryLegendContainer.innerHTML = legendHtml;
@@ -363,11 +363,14 @@
             let legendHtml = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
             // Sort legend entries by ID (alphabetical) for better readability
             genericOptimizationLegendEntries.sort((a, b) => a.id.localeCompare(b.id)).forEach(entry => {
-                legendHtml += `<li><strong>${entry.id}</strong> (${entry.date}) [${entry.type}]`;
+                legendHtml += `<li><strong>${entry.id}</strong>`;
                 if (entry.queryCode) {
                     legendHtml += ` [${entry.queryCode.substring(0, 6)}]`;
                 }
-                legendHtml += `: ${entry.text}</li>`;
+                if(entry.type === 'Serveur')
+                    legendHtml +=  `: <code>${entry.text}</code></li>`;
+                else
+                    legendHtml += `: ${entry.text}</li>`;
             });
             legendHtml += '</ul>';
             legendContainer.innerHTML = legendHtml;
