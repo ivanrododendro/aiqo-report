@@ -212,15 +212,15 @@
                         borderColor: 'rgba(255, 0, 0, 0.8)', // Red color for optimization marker
                         borderWidth: 2,
                         label: {
-                            content: `Opt. (${opt.date})`, // Label showing "Opt. (YYYY-MM-DD)"
-                            enabled: true,
+                            content: `[${queryCode}] ${opt.text}`, // Label showing "Opt. (YYYY-MM-DD)"
+                            display: true,
                             position: 'top', // Position the label at the top of the chart
                             font: {
                                 size: 10
                             },
                             backgroundColor: 'rgba(255, 0, 0, 0.7)',
                             color: 'white',
-                            rotation: 90 // Rotate label for better readability
+                            rotation: 0 // Rotate label for better readability
                         }
                     });
                 });
