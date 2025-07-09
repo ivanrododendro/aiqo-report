@@ -15,7 +15,7 @@ from log_parser import LogParser
 from report_generator import ReportGenerator, QUERY_NAME_LIMIT
 
 DEFAULT_LANG = "fr" # Default language for output, not for prompt file selection
-DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 
 # Configure logging
