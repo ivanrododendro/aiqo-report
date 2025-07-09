@@ -117,73 +117,98 @@
     {% for day, reports in reports_by_day.items()|sort %}
     <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ day | replace('.', '-') }}" role="tabpanel" aria-labelledby="tab-{{ day | replace('.', '-') }}-tab">
         <div class="card card-body mt-3">
-            {% for report/voi in reports %}
-            {% set i = loop.index0 %}
-            {% set app_id = 'app-' ~ day | replace('.', '-') ~ '-' ~ i %} {# Ensure app_id is also safe for dots #}
-            <a data-bs-toggle="collapse" data-bs-target="#collapseExample-{{ app_id }}" href="#collapseExample-{{ app_id }}" role="button" aria-expanded="false"
-               aria-controls="collapseExample-{{ app_id }}">
-                <h5 title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}
-                    {% if report.seq_scan_indicator %}
-                    <i class="bi bi-database-exclamation icon" title="La requête contient un Seq Scan"></i>
-                    {% endif %}
-                    {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
-                    <i class="bi bi-chat-left-text icon" title="Analyse AI disponible"></i>
-                    {% endif %}
-                </h5>
-            </a>
-            <div class="collapse" id="collapseExample-{{ app_id }}">
-                <div class="card card-body">
-                    <p id="duration-{{ day | replace('.', '-') }}-{{ i }}">
-                        <script>document.getElementById("duration-{{ day | replace('.', '-') }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
-                        .toFormat("h'h'm'm's's'");</script>
-                    </p>
-                    {% if query_optimizations[report.code] %}
-                        <p>
-                            <strong>Optimisations déjà appliquées :</strong>
-                            {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
-                        <ul>
-                            {% for opt in query_optimizations[report.code] %}
-                            <li> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
-                            {% endfor %}
-                        </ul>
-                        {% else %}
-                        {{ query_optimizations[report.code]|safe }}
-                        {% endif %}
-                        </p>
-                    {% endif %}
+            <h4>Synthèse du {{ day }}</h4>
+            <p><strong>Nombre total de requêtes :</strong> <span id="total-queries-{{ day | replace('.', '-') }}"></span></p>
+            <p><strong>Temps cumulé total :</strong> <span id="cumulated-time-day-{{ day | replace('.', '-') }}"></span></p>
+            {# Removed inline script for daily summary population #}
 
-                    {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
-                        <p><strong>Analyse AI :</strong> {{ report.chatgpt_hints|safe }}</p>
-                    {% endif %}
-
-                    <div id="{{ app_id }}">
-                        <pev2 :plan-source="plan" :plan-query="query"
-                              style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
-                    </div>
-                    <script>
-                        // Changed from jQuery .on() to vanilla JS addEventListener
-                        document.getElementById('collapseExample-{{ app_id }}').addEventListener('shown.bs.collapse', function () {
-                            createApp({
-                                data() {
-                                    return {
-                                        plan: `{{ report.plan|safe }}`,
-                                        query: `{{ report.query_text|safe }}`
-                                    };
-                                }
-                            }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
-                        });
-                    </script>
-                </div>
+            <h5 class="mt-4">Requêtes par code pour le {{ day }}</h5>
+            <div id="queries-by-code-{{ day | replace('.', '-') }}">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Durée cumulée</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queries-by-code-table-body-{{ day | replace('.', '-') }}">
+                        {# Removed inline script for queries by code table population #}
+                    </tbody>
+                </table>
             </div>
-            {% endfor %}
+
+            <h5 class="mt-4">Détail des requêtes individuelles pour le {{ day }}</h5>
+            <div class="accordion" id="accordionDailyQueries-{{ day | replace('.', '-') }}">
+                {% for report in reports %}
+                {% set i = loop.index0 %}
+                {% set app_id = 'app-' ~ day | replace('.', '-') ~ '-' ~ i %} {# Ensure app_id is also safe for dots #}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading-{{ app_id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app_id }}" aria-expanded="false" aria-controls="collapse-{{ app_id }}">
+                            <span title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}</span>
+                            {% if report.seq_scan_indicator %}
+                            <i class="bi bi-database-exclamation icon ms-2" title="La requête contient un Seq Scan"></i>
+                            {% endif %}
+                            {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
+                            <i class="bi bi-chat-left-text icon ms-2" title="Analyse AI disponible"></i>
+                            {% endif %}
+                        </button>
+                    </h2>
+                    <div id="collapse-{{ app_id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ app_id }}" data-bs-parent="#accordionDailyQueries-{{ day | replace('.', '-') }}">
+                        <div class="accordion-body">
+                            <p id="duration-{{ day | replace('.', '-') }}-{{ i }}">
+                                <script>document.getElementById("duration-{{ day | replace('.', '-') }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
+                                .toFormat("h'h'm'm's's'");</script>
+                            </p>
+                            {% if query_optimizations[report.code] %}
+                                <p>
+                                    <strong>Optimisations déjà appliquées :</strong>
+                                    {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
+                                <ul>
+                                    {% for opt in query_optimizations[report.code] %}
+                                    <li> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                {{ query_optimizations[report.code]|safe }}
+                                {% endif %}
+                                </p>
+                            {% endif %}
+
+                            {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
+                                <p><strong>Analyse AI :</strong> {{ report.chatgpt_hints|safe }}</p>
+                            {% endif %}
+
+                            <div id="{{ app_id }}">
+                                <pev2 :plan-source="plan" :plan-query="query"
+                                      style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
+                            </div>
+                            <script>
+                                // Changed from jQuery .on() to vanilla JS addEventListener
+                                document.getElementById('collapse-{{ app_id }}').addEventListener('shown.bs.collapse', function () {
+                                    createApp({
+                                        data() {
+                                            return {
+                                                plan: `{{ report.plan|safe }}`,
+                                                query: `{{ report.query_text|safe }}`
+                                            };
+                                        }
+                                    }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+                                });
+                            </script>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
     {% endfor %}
 </div>
 
-<h2>Synthèse globale</h2>
+<h2>Synthèse globale</h2> {# Changed from "Synthèse" to "Synthèse globale" for clarity #}
 <a data-bs-toggle="collapse" data-bs-target="#requestCollapse" href="#requestCollapse" role="button" aria-expanded="false" aria-controls="requestCollapse">
-    <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3>
+    <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3> {# More descriptive title #}
 </a>
 <div class="collapse" id="requestCollapse">
     <div class="card card-body">
@@ -371,7 +396,11 @@
                                     label += ': ';
                                 }
                                 if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toFixed(2) + ' min';
+                                    if (context.dataset.yAxisID === 'yAxisRightTotalQueries') {
+                                        label += context.parsed.y.toFixed(0); // Total queries are integers
+                                    } else {
+                                        label += context.parsed.y.toFixed(2) + ' min';
+                                    }
                                 }
                                 return label;
                             }
@@ -443,7 +472,7 @@
 
         // After chart creation, populate the optimization legend
         const genericLegendContainer = document.getElementById('genericOptimizationLegend'); // Renamed from legendContainer
-        if (genericOptimizationEntries.length > 0) {
+        if (genericOptimizationLegendEntries.length > 0) {
             let legendHtml = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
             // Sort legend entries by ID (alphabetical) for better readability
             genericOptimizationLegendEntries.sort((a, b) => a.id.localeCompare(b.id)).forEach(entry => {
