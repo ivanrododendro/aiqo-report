@@ -117,7 +117,27 @@
     {% for day, reports in reports_by_day.items()|sort %}
     <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ day | replace('.', '-') }}" role="tabpanel" aria-labelledby="tab-{{ day | replace('.', '-') }}-tab">
         <div class="card card-body mt-3">
-           /voi
+            <h4>Synthèse du {{ day }}</h4>
+            <p><strong>Nombre total de requêtes :</strong> <span id="total-queries-{{ day | replace('.', '-') }}"></span></p>
+            <p><strong>Temps cumulé total :</strong> <span id="cumulated-time-day-{{ day | replace('.', '-') }}"></span></p>
+            {# Removed inline script for daily summary population #}
+
+            <h5 class="mt-4">Requêtes par code pour le {{ day }}</h5>
+            <div id="queries-by-code-{{ day | replace('.', '-') }}">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Durée cumulée</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queries-by-code-table-body-{{ day | replace('.', '-') }}">
+                        {# Removed inline script for queries by code table population #}
+                    </tbody>
+                </table>
+            </div>
+
+            <h5 class="mt-4">Détail des requêtes individuelles pour le {{ day }}</h5>
             <div class="accordion" id="accordionDailyQueries-{{ day | replace('.', '-') }}">
                 {% for report in reports %}
                 {% set i = loop.index0 %}
@@ -187,55 +207,75 @@
 </div>
 
 <h2>Synthèse globale</h2> {# Changed from "Synthèse" to "Synthèse globale" for clarity #}
-<a data-bs-toggle="collapse" data-bs-target="#requestCollapse" href="#requestCollapse" role="button" aria-expanded="false" aria-controls="requestCollapse">
-    <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3> {# More descriptive title #}
-</a>
-<div class="collapse" id="requestCollapse">
-    <div class="card card-body">
-        <table class='table table-bordered table-striped table-hover'>
-            <thead>
-            <tr>
-                <th scope='col'>Requête</th>
-                <th scope='col'>Temps cumulé</th>
-                <th scope='col'># occurrences</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for stat in query_stats %} {# This is now globalQueryStats in JS, but query_stats in Jinja #}
-            <tr scope='row'>
-                <td>[{{ stat.code[:6] }}] {{ stat.name[:QUERY_NAME_LIMIT] }}</td>
-                <td id='cumulated-time-{{ stat.code }}'>{{ stat.cumulated_time }}</td>
-                <script>document.getElementById('cumulated-time-{{ stat.code }}').innerHTML = Duration.fromMillis(
-                    {{ stat.cumulated_time }}).toFormat("h'h'm'm's's'");</script>
-                <td>{{ stat.count }}</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+<div class="accordion" id="accordionGlobalSynthesis">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingRequestCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#requestCollapse" aria-expanded="false" aria-controls="requestCollapse">
+                <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3> {# More descriptive title #}
+            </button>
+        </h2>
+        <div id="requestCollapse" class="accordion-collapse collapse" aria-labelledby="headingRequestCollapse" data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="card card-body">
+                    <table class='table table-bordered table-striped table-hover'>
+                        <thead>
+                        <tr>
+                            <th scope='col'>Requête</th>
+                            <th scope='col'>Temps cumulé</th>
+                            <th scope='col'># occurrences</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for stat in query_stats %} {# This is now globalQueryStats in JS, but query_stats in Jinja #}
+                        <tr scope='row'>
+                            <td>[{{ stat.code[:6] }}] {{ stat.name[:QUERY_NAME_LIMIT] }}</td>
+                            <td id='cumulated-time-{{ stat.code }}'>{{ stat.cumulated_time }}</td>
+                            <script>document.getElementById('cumulated-time-{{ stat.code }}').innerHTML = Duration.fromMillis(
+                                {{ stat.cumulated_time }}).toFormat("h'h'm'm's's'");</script>
+                            <td>{{ stat.count }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 
-<a data-bs-toggle="collapse" data-bs-target="#dailyQueryDurationChartCollapse" href="#dailyQueryDurationChartCollapse" role="button" aria-expanded="false" aria-controls="dailyQueryDurationChartCollapse">
-    <h3>Tendances quotidiennes de la durée des requêtes</h3>
-</a>
-<div class="collapse " id="dailyQueryDurationChartCollapse">
-    <div class="card card-body">
-        <canvas id="dailyQueryDurationChart"></canvas>
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingDailyQueryDurationChartCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dailyQueryDurationChartCollapse" aria-expanded="false" aria-controls="dailyQueryDurationChartCollapse">
+                <h3>Tendances quotidiennes de la durée des requêtes</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="dailyQueryDurationChartCollapse" aria-labelledby="headingDailyQueryDurationChartCollapse" data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="card card-body">
+                    <canvas id="dailyQueryDurationChart"></canvas>
+                </div>
+                <div class="card card-body">
+                    <div id="queryOptimizationLegend"></div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card card-body">
-        <div id="queryOptimizationLegend"></div>
-    </div>
-</div>
 
-<a data-bs-toggle="collapse" data-bs-target="#dailyCumulatedTimeChartCollapse" href="#dailyCumulatedTimeChartCollapse" role="button" aria-expanded="false" aria-controls="dailyCumulatedTimeChartCollapse">
-    <h3>Tendances quotidiennes du temps cumulé et du nombre de requêtes</h3>
-</a>
-<div class="collapse " id="dailyCumulatedTimeChartCollapse">
-    <div class="card card-body">
-        <canvas id="dailyCumulatedTimeChart"></canvas>
-    </div>
-    <div class="card card-body">
-        <div id="genericOptimizationLegend"></div>
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingDailyCumulatedTimeChartCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dailyCumulatedTimeChartCollapse" aria-expanded="false" aria-controls="dailyCumulatedTimeChartCollapse">
+                <h3>Tendances quotidiennes du temps cumulé et du nombre de requêtes</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="dailyCumulatedTimeChartCollapse" aria-labelledby="headingDailyCumulatedTimeChartCollapse" data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="card card-body">
+                    <canvas id="dailyCumulatedTimeChart"></canvas>
+                </div>
+                <div class="card card-body">
+                    <div id="genericOptimizationLegend"></div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
