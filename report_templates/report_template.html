@@ -145,6 +145,15 @@
     </div>
 </div>
 
+<a data-toggle="collapse" href="#optimizationLegendCollapse" role="button" aria-expanded="true" aria-controls="optimizationLegendCollapse">
+    <h3>Légende des Optimisations</h3>
+</a>
+<div class="collapse show" id="optimizationLegendCollapse">
+    <div class="card card-body">
+        <div id="optimizationLegend"></div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Helper function to generate a random color
@@ -195,14 +204,24 @@
 
         // Prepare annotations for dailyQueryDurationChart
         const annotations = [];
-        // No need for datasetMap if we are using vertical lines, as they don't attach to a specific dataset's y-value.
-        // The annotation is purely based on the x-axis date.
+        const legendEntries = []; // Array to store data for the external legend
+        let annotationCounter = 0;
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; // For annotation identifiers
 
         for (const queryCode in queryOptimizations) {
             if (queryOptimizations.hasOwnProperty(queryCode)) {
                 const optimizationsForQuery = queryOptimizations[queryCode]; // Array of {date, text}
 
                 optimizationsForQuery.forEach(opt => {
+                    const annotationId = alphabet[annotationCounter % alphabet.length]; // Cycle through alphabet
+                    legendEntries.push({
+                        id: annotationId,
+                        date: opt.date,
+                        queryCode: queryCode,
+                        text: opt.text
+                    });
+                    annotationCounter++;
+
                     // Add a vertical line annotation for each optimization date
                     annotations.push({
                         type: 'line',
@@ -212,15 +231,17 @@
                         borderColor: 'rgba(255, 0, 0, 0.8)', // Red color for optimization marker
                         borderWidth: 2,
                         label: {
-                            content: `[${queryCode}] ${opt.text}`, // Label showing "Opt. (YYYY-MM-DD)"
+                            content: annotationId, // Display only the identifier
                             display: true,
                             position: 'top', // Position the label at the top of the chart
                             font: {
-                                size: 10
+                                size: 12, // Make the identifier slightly larger
+                                weight: 'bold'
                             },
                             backgroundColor: 'rgba(255, 0, 0, 0.7)',
                             color: 'white',
-                            rotation: 0 // Rotate label for better readability
+                            rotation: 0, // No rotation
+                            yAdjust: -10 // Move it slightly above the line
                         }
                     });
                 });
@@ -400,6 +421,20 @@
                 }
             }
         });
+
+        // After chart creation, populate the optimization legend
+        const legendContainer = document.getElementById('optimizationLegend');
+        if (legendEntries.length > 0) {
+            let legendHtml = '<p>Les lettres sur le graphique correspondent aux optimisations suivantes :</p><ul>';
+            // Sort legend entries by date for better readability
+            legendEntries.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(entry => {
+                legendHtml += `<li><strong>${entry.id}</strong> (${entry.date}) [${entry.queryCode.substring(0, 6)}]: ${entry.text}</li>`;
+            });
+            legendHtml += '</ul>';
+            legendContainer.innerHTML = legendHtml;
+        } else {
+            legendContainer.innerHTML = '<p>Aucune optimisation enregistrée pour les requêtes analysées.</p>';
+        }
     });
 </script>
 </body>
