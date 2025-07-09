@@ -136,13 +136,8 @@
     </div>
 </div>
 
-<a data-toggle="collapse" href="#optimizationLegendCollapse" role="button" aria-expanded="true" aria-controls="optimizationLegendCollapse">
-    <h3>Légende des Optimisations</h3>
-</a>
-<div class="collapse show" id="optimizationLegendCollapse">
-    <div class="card card-body">
-        <div id="optimizationLegend"></div>
-    </div>
+<div class="card card-body">
+    <div id="optimizationLegend"></div>
 </div>
 
 <a data-toggle="collapse" href="#dailyCumulatedTimeChartCollapse" role="button" aria-expanded="true" aria-controls="dailyCumulatedTimeChartCollapse">
@@ -327,8 +322,8 @@
         const legendContainer = document.getElementById('optimizationLegend');
         if (legendEntries.length > 0) {
             let legendHtml = '<p>Les lettres sur le graphique correspondent aux optimisations suivantes :</p><ul>';
-            // Sort legend entries by date for better readability
-            legendEntries.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach(entry => {
+            // Sort legend entries by ID (alphabetical) for better readability
+            legendEntries.sort((a, b) => a.id.localeCompare(b.id)).forEach(entry => {
                 legendHtml += `<li><strong>${entry.id}</strong> (${entry.date}) [${entry.queryCode.substring(0, 6)}]: ${entry.text}</li>`;
             });
             legendHtml += '</ul>';
