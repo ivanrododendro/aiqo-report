@@ -127,6 +127,41 @@
     </div>
 </div>
 
+<h2>Optimisations Générales</h2>
+{% if server_optimizations %}
+<a data-toggle="collapse" href="#serverOptimizationsCollapse" role="button" aria-expanded="false" aria-controls="serverOptimizationsCollapse">
+    <h3>Optimisations Serveur</h3>
+</a>
+<div class="collapse" id="serverOptimizationsCollapse">
+    <div class="card card-body">
+        <ul>
+        {% for opt in server_optimizations %}
+            <li><strong>{{ opt.date }}</strong>: {{ opt.text|safe }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+</div>
+{% else %}
+<p>Aucune optimisation serveur enregistrée.</p>
+{% endif %}
+
+{% if event_optimizations %}
+<a data-toggle="collapse" href="#eventOptimizationsCollapse" role="button" aria-expanded="false" aria-controls="eventOptimizationsCollapse">
+    <h3>Optimisations Événements</h3>
+</a>
+<div class="collapse" id="eventOptimizationsCollapse">
+    <div class="card card-body">
+        <ul>
+        {% for opt in event_optimizations %}
+            <li><strong>{{ opt.date }}</strong>: {{ opt.text|safe }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+</div>
+{% else %}
+<p>Aucune optimisation événement enregistrée.</p>
+{% endif %}
+
 <a data-toggle="collapse" href="#dailyQueryDurationChartCollapse" role="button" aria-expanded="true" aria-controls="dailyQueryDurationChartCollapse">
     <h3>Daily Query Duration Trends</h3>
 </a>
@@ -163,6 +198,8 @@ jou
         const dailyQueryStats = {{ daily_query_stats_json | safe }};
         const globalQueryStats = {{ query_stats | tojson | safe }};
         const queryOptimizations = {{ query_optimizations | tojson | safe }};
+        const serverOptimizations = {{ server_optimizations | tojson | safe }}; // Nouveau
+        const eventOptimizations = {{ event_optimizations | tojson | safe }};   // Nouveau
 
         // Collect all unique dates from both query stats and optimizations
         let allDatesSet = new Set();
@@ -172,6 +209,10 @@ jou
                 queryOptimizations[queryCode].forEach(opt => allDatesSet.add(opt.date));
             }
         }
+        // Add dates from server and event optimizations to the set
+        serverOptimizations.forEach(opt => allDatesSet.add(opt.date));
+        eventOptimizations.forEach(opt => allDatesSet.add(opt.date));
+
         const allDays = Array.from(allDatesSet).sort(); // Sort all collected dates
 
         const datasets = globalQueryStats.map(stat => {

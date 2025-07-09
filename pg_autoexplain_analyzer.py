@@ -128,31 +128,35 @@ class PGAutoExplainAnalyzer:
             exit(1)
         return current_prompts
 
-    def _load_optimizations_for_queries(self, query_codes: list) -> dict:
+    def _load_optimizations(self, all_query_codes: list) -> dict:
         """
-        Charge les textes d'optimisation pour une liste de codes de requête.
-        Chaque code de requête correspond à un fichier <query_code>.txt dans le répertoire d'optimisation.
-        Chaque ligne du fichier est au format <yyyy-mm-dd>:<texte d'optimisation>.
-        Retourne un dictionnaire où les clés sont les codes de requête et les valeurs sont des listes
-        de dictionnaires (date, texte) pour cette requête, triées par date.
-        Ex: { "query_code_1": [{"date": "2023-01-01", "text": "opt_text_1"}, {"date": "2023-02-01", "text": "opt_text_2"}], ... }
+        Charge les textes d'optimisation pour les requêtes spécifiques, ainsi que les optimisations
+        générales du serveur et des événements.
+        Retourne un dictionnaire contenant:
+        - "query_optimizations": { "query_code": [{"date": "YYYY-MM-DD", "text": "opt_text"}, ...], ... }
+        - "server_optimizations": [{"date": "YYYY-MM-DD", "text": "opt_text"}, ...]
+        - "event_optimizations": [{"date": "YYYY-MM-DD", "text": "opt_text"}, ...]
         """
+        optimizations_data = {
+            "query_optimizations": {},
+            "server_optimizations": [],
+            "event_optimizations": []
+        }
+
         if not self.optimization_files:
             logger.debug("Le chemin des fichiers d'optimisation n'est pas spécifié. Aucune optimisation ne sera chargée.")
-            return {}
+            return optimizations_data
 
-        optimizations_data = {}
         optimization_base_path = Path(self.optimization_files)
 
         if not optimization_base_path.is_dir():
-            logger.warning(f"Le chemin spécifié pour les fichiers d'optimisation '{self.optimization_files}' n'est pas un répertoire. Impossible de charger les optimisations par code de requête.")
-            return {}
+            logger.warning(f"Le chemin spécifié pour les fichiers d'optimisation '{self.optimization_files}' n'est pas un répertoire. Impossible de charger les optimisations.")
+            return optimizations_data
 
-        for query_code in query_codes:
-            # Utiliser uniquement les 6 premiers caractères du code de requête pour le nom du fichier
-            file_path = optimization_base_path / f"{query_code[:6]}.txt"
+        # Helper to parse a single optimization file
+        def parse_optimization_file(file_path):
+            parsed_opts = []
             if file_path.is_file():
-                query_optimizations_with_dates = []
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         for line in f:
@@ -163,20 +167,36 @@ class PGAutoExplainAnalyzer:
                             if len(parts) == 2:
                                 date = parts[0].strip()
                                 optimization_text = parts[1].strip()
-                                query_optimizations_with_dates.append({"date": date, "text": optimization_text})
+                                parsed_opts.append({"date": date, "text": optimization_text})
                             else:
                                 logger.warning(f"Ligne mal formatée dans '{file_path}': '{line}'. Format attendu: YYYY-MM-DD:Optimisation text.")
-                    
-                    if query_optimizations_with_dates:
-                        # Sort by date
-                        sorted_optimizations = sorted(query_optimizations_with_dates, key=lambda x: x["date"])
-                        optimizations_data[query_code] = sorted_optimizations
-                    else:
-                        logger.debug(f"Aucune optimisation valide trouvée dans '{file_path}'.")
+                    # Sort by date
+                    return sorted(parsed_opts, key=lambda x: x["date"])
                 except Exception as e:
                     logger.error(f"Erreur lors de la lecture du fichier d'optimisation '{file_path}': {e}")
             else:
-                logger.debug(f"Fichier d'optimisation non trouvé pour la requête '{query_code[:6]}': '{file_path}'")
+                logger.debug(f"Fichier d'optimisation non trouvé : '{file_path}'")
+            return []
+
+        # Load SERVER.txt
+        server_file_path = optimization_base_path / "SERVER.txt"
+        optimizations_data["server_optimizations"] = parse_optimization_file(server_file_path)
+        if optimizations_data["server_optimizations"]:
+            logger.info(f"Optimisations serveur chargées depuis : {server_file_path}")
+
+        # Load EVENTS.txt
+        events_file_path = optimization_base_path / "EVENTS.txt"
+        optimizations_data["event_optimizations"] = parse_optimization_file(events_file_path)
+        if optimizations_data["event_optimizations"]:
+            logger.info(f"Optimisations événements chargées depuis : {events_file_path}")
+
+        # Load query-specific optimizations
+        for query_code in all_query_codes:
+            file_path = optimization_base_path / f"{query_code[:6]}.txt"
+            query_opts = parse_optimization_file(file_path)
+            if query_opts:
+                optimizations_data["query_optimizations"][query_code] = query_opts
+
         return optimizations_data
 
 
@@ -341,9 +361,12 @@ class PGAutoExplainAnalyzer:
         query_stats_list = sorted(self.all_query_stats_dict.values(), key=lambda x: x["cumulated_time"], reverse=True)
         report_title = "PostgreSQL Auto Explain Report" if self.skip_ai_analysis else f"PostgreSQL Auto Explain AI Report ({self.model}) "
 
-        # Charger les optimisations de requêtes
+        # Charger les optimisations de requêtes, serveur et événements
         all_query_codes = list(self.all_query_stats_dict.keys())
-        query_optimizations_data = self._load_optimizations_for_queries(all_query_codes)
+        all_optimizations = self._load_optimizations(all_query_codes)
+        query_optimizations_data = all_optimizations["query_optimizations"]
+        server_optimizations_data = all_optimizations["server_optimizations"]
+        event_optimizations_data = all_optimizations["event_optimizations"]
 
         self.report_generator.generate_report(
             str(resolved_report_filename),
@@ -352,7 +375,9 @@ class PGAutoExplainAnalyzer:
             query_stats_list,
             self.reports_by_day,
             self.daily_query_stats, # Pass the new data structure
-            query_optimizations_data # Nouveau paramètre passé au template
+            query_optimizations_data, # Nouveau paramètre passé au template
+            server_optimizations_data, # Nouveau paramètre
+            event_optimizations_data # Nouveau paramètre
         )
 
 
