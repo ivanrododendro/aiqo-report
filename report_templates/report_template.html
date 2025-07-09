@@ -117,8 +117,7 @@
     {% for day, reports in reports_by_day.items()|sort %}
     <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ day | replace('.', '-') }}" role="tabpanel" aria-labelledby="tab-{{ day | replace('.', '-') }}-tab">
         <div class="card card-body mt-3">
-            <h5 class="mt-4">Détail des requêtes individuelles pour le {{ day }}</h5>
-            {% for report in reports %}
+            {% for report/voi in reports %}
             {% set i = loop.index0 %}
             {% set app_id = 'app-' ~ day | replace('.', '-') ~ '-' ~ i %} {# Ensure app_id is also safe for dots #}
             <a data-bs-toggle="collapse" data-bs-target="#collapseExample-{{ app_id }}" href="#collapseExample-{{ app_id }}" role="button" aria-expanded="false"
@@ -182,9 +181,9 @@
     {% endfor %}
 </div>
 
-<h2>Synthèse globale</h2> {# Changed from "Synthèse" to "Synthèse globale" for clarity #}
+<h2>Synthèse globale</h2>
 <a data-bs-toggle="collapse" data-bs-target="#requestCollapse" href="#requestCollapse" role="button" aria-expanded="false" aria-controls="requestCollapse">
-    <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3> {# More descriptive title #}
+    <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3>
 </a>
 <div class="collapse" id="requestCollapse">
     <div class="card card-body">
