@@ -53,8 +53,8 @@ class PGAutoExplainAnalyzer:
         self.filter_strings = args.filter
         self.custom_prompt = args.custom_prompt
         self.ddl_context = self._load_ddl_context(args.sql_context_file)
-        self.server_config_file = args.server_configuration_file # Nouveau paramètre
-        self.server_configuration_context = self._load_server_configuration(args.server_configuration_file) # Chargement du contenu
+        self.server_config_file = args.server_config_file # Nouveau paramètre renommé
+        self.server_configuration_context = self._load_server_configuration(args.server_config_file) # Chargement du contenu avec le nouveau nom
         self.target_query_mode = args.target_query_mode
         self.optimization_files = args.optimization_files
 
@@ -100,19 +100,21 @@ class PGAutoExplainAnalyzer:
     def _load_server_configuration(self, server_config_file):
         """
         Charge le contenu d'un fichier de configuration de serveur.
+        Arrête l'exécution si le fichier n'existe pas ou ne peut pas être lu.
         """
         if server_config_file:
             try:
                 config_path = Path(server_config_file)
                 if not config_path.is_file():
                     logger.error(f"Server configuration file not found: '{server_config_file}'")
-                    return None
+                    exit(1) # Arrête l'exécution
                 with open(config_path, "r", encoding="utf-8") as config_file:
                     config_content = config_file.read()
                 logger.info(f"Loaded server configuration from: {server_config_file}")
                 return config_content
             except Exception as e:
                 logger.error(f"Could not read server configuration file '{server_config_file}': {e}")
+                exit(1) # Arrête l'exécution
         return None
 
     def _load_prompts(self):
@@ -374,7 +376,7 @@ class PGAutoExplainAnalyzer:
             if self.ddl_context:
                 logger.info(f"DDL context loaded from file: {self.args.sql_context_file}")
             if self.server_configuration_context: # Log pour le nouveau paramètre
-                logger.info(f"Server configuration context loaded from file: {self.args.server_configuration_file}")
+                logger.info(f"Server configuration context loaded from file: {self.args.server_config_file}") # Utilise le nouveau nom
             # Log for optimization files
             if self.optimization_files:
                 logger.info(f"Optimization files loaded from: {self.optimization_files}")
@@ -443,7 +445,7 @@ def parse_cli_arguments():
                         help="Add a custom prompt to the default AI prompt (optional)")
     parser.add_argument("--sql-context-file", type=str, default=None,
                         help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
-    parser.add_argument("--server-configuration-file", type=str, default=None, # Nouveau paramètre
+    parser.add_argument("--server-config-file", type=str, default=None, # Nouveau nom de paramètre
                         help="Specify a file containing the full server configuration to be used as AI context (optional)")
     parser.add_argument("-r", "--report-filename", type=str, default=None,
                         help="Override the HTML report filename (optional)")
