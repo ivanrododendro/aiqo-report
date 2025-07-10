@@ -53,16 +53,16 @@ class PGAutoExplainAnalyzer:
         self.filter_strings = args.filter
         self.custom_prompt = args.custom_prompt
         self.ddl_context = self._load_ddl_context(args.sql_context_file)
-        self.server_config_file = args.server_config_file # Nouveau paramètre renommé
-        self.server_configuration_context = self._load_server_configuration(args.server_config_file) # Chargement du contenu avec le nouveau nom
+        self.server_config_file = args.server_config_file
+        self.server_configuration_context = self._load_server_configuration(args.server_config_file)
         self.target_query_mode = args.target_query_mode
-        self.optimization_files = args.optimization_files
+        self.context_folder = args.context_folder # Nouveau paramètre renommé
 
         # Initialisation des variables pour les optimisations
         self.server_optimizations = []
         self.event_optimizations = []
         self.query_optimizations_cache = {} # Cache pour les optimisations spécifiques aux requêtes
-        self.optimization_base_path = None # Sera défini dans run() si optimization_files est fourni
+        self.optimization_base_path = None # Sera défini dans run()
 
         self.prompts = self._load_prompts()
         if not self.prompts:
@@ -330,6 +330,9 @@ class PGAutoExplainAnalyzer:
     def run(self):
         # Rate limit variables are now handled within AiCaller, so these global assignments are removed.
 
+        log_files = []
+        report_filename = None
+        
         if self.args.directory_mode:
             directory = Path(self.args.log_filename)
             if not directory.is_dir():
@@ -362,6 +365,34 @@ class PGAutoExplainAnalyzer:
         resolved_report_filename = Path(report_filename).resolve()
         logger.info(f"Output report: {resolved_report_filename}")
 
+        # Determine the base path for context files (SERVER.txt, EVENTS.txt, query-specific)
+        context_base_path = None
+        if self.args.context_folder: # If --context-folder is explicitly provided
+            context_base_path = Path(self.args.context_folder)
+            logger.info(f"Using specified context folder: {context_base_path}")
+        elif self.args.log_filename: # Determine default context folder if log_filename is provided
+            if self.args.directory_mode:
+                context_base_path = Path(self.args.log_filename) / "CONTEXT"
+                logger.info(f"Using default context folder for directory mode: {context_base_path}")
+            else:
+                context_base_path = Path(self.args.log_filename).parent / "CONTEXT"
+                logger.info(f"Using default context folder for single file mode: {context_base_path}")
+        else:
+            logger.warning("No log file specified, cannot determine default context folder. No optimization context will be loaded.")
+        
+        self.optimization_base_path = context_base_path # Assign to instance variable
+
+        # Validate and load general optimizations
+        if self.optimization_base_path:
+            if not self.optimization_base_path.exists():
+                logger.warning(f"Le chemin spécifié pour le dossier de contexte n'existe pas : {self.optimization_base_path}. Aucune optimisation ne sera chargée.")
+                self.optimization_base_path = None # Clear it if it doesn't exist
+            elif not self.optimization_base_path.is_dir():
+                logger.warning(f"Le chemin spécifié pour le dossier de contexte n'est pas un répertoire : {self.optimization_base_path}. Les optimisations ne seront pas chargées.")
+                self.optimization_base_path = None # Clear it if it's not a directory
+            else:
+                self._load_general_optimizations() # Load SERVER.txt and EVENTS.txt
+
         if self.skip_ai_analysis:
             logger.info("Skipping AI Analysis")
         else:
@@ -375,30 +406,17 @@ class PGAutoExplainAnalyzer:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
             if self.ddl_context:
                 logger.info(f"DDL context loaded from file: {self.args.sql_context_file}")
-            if self.server_configuration_context: # Log pour le nouveau paramètre
-                logger.info(f"Server configuration context loaded from file: {self.args.server_config_file}") # Utilise le nouveau nom
-            # Log for optimization files
-            if self.optimization_files:
-                logger.info(f"Optimization files loaded from: {self.optimization_files}")
+            if self.server_configuration_context:
+                logger.info(f"Server configuration context loaded from file: {self.args.server_config_file}")
+            # Log for context folder
+            if self.optimization_base_path:
+                logger.info(f"Optimization context loaded from folder: {self.optimization_base_path}")
         
         if self.target_query_mode:
             logger.info("Target Query Mode is ENABLED.")
 
         if self.filter_strings:
             logger.info(f"AI analysis will be filtered by: {', '.join(self.filter_strings)}. All queries will still be included in the report.")
-
-        # Charger les optimisations générales (SERVER.txt, EVENTS.txt) au début
-        if self.optimization_files:
-            self.optimization_base_path = Path(self.optimization_files)
-            if not self.optimization_base_path.exists():
-                logger.error(f"Le chemin spécifié pour les fichiers d'optimisation n'existe pas : {self.optimization_files}")
-                exit(1)
-            if not self.optimization_base_path.is_dir():
-                logger.warning(f"Le chemin spécifié pour les fichiers d'optimisation n'est pas un répertoire : {self.optimization_files}. Les optimisations par code de requête ne seront pas chargées.")
-                # Si ce n'est pas un répertoire, on ne peut pas charger SERVER.txt/EVENTS.txt non plus, donc on efface le chemin
-                self.optimization_base_path = None
-            else:
-                self._load_general_optimizations() # Charge les optimisations générales ici
 
         for log_file in log_files:
             for parsed_entry in self.log_parser.parse_log_file(log_file):
@@ -445,7 +463,7 @@ def parse_cli_arguments():
                         help="Add a custom prompt to the default AI prompt (optional)")
     parser.add_argument("--sql-context-file", type=str, default=None,
                         help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
-    parser.add_argument("--server-config-file", type=str, default=None, # Nouveau nom de paramètre
+    parser.add_argument("--server-config-file", type=str, default=None,
                         help="Specify a file containing the full server configuration to be used as AI context (optional)")
     parser.add_argument("-r", "--report-filename", type=str, default=None,
                         help="Override the HTML report filename (optional)")
@@ -453,8 +471,8 @@ def parse_cli_arguments():
                         help="Process all .log and .zip files in the directory specified as the main positional argument")
     parser.add_argument("--target-query-mode", action="store_true", default=False,
                         help="Enables target query mode for analysis (default: false)")
-    parser.add_argument("--optimization-files", "-of", type=str, default=None,
-                        help="Chemin vers un répertoire contenant des fichiers SQL d'optimisation ou un fichier SQL unique. Ces fichiers seront utilisés comme contexte pour l'analyse des plans d'exécution.")
+    parser.add_argument("--context-folder", "-cf", type=str, default=None, # Nouveau nom et raccourci
+                        help="Path to a directory containing optimization context files (SERVER.txt, EVENTS.txt, query-specific .txt files). Overrides the default 'CONTEXT' subfolder behavior.")
 
 
     args, unknown_args = parser.parse_known_args()
