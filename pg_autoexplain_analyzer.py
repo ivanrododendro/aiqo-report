@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import logging
 import re
+import sys # Import sys for exit
 from collections import defaultdict
 from pathlib import Path
 
@@ -57,6 +58,7 @@ class PGAutoExplainAnalyzer:
         self.infra_context = None # Nouveau: Chargé dans run()
         self.target_query_mode = args.target_query_mode
         self.context_folder = args.context_folder # Nouveau paramètre renommé
+        self.directory_mode_active = args.directory_mode_active # Nouveau: flag pour le mode répertoire
 
         # Initialisation des variables pour les optimisations
         self.server_optimizations = []
@@ -67,7 +69,7 @@ class PGAutoExplainAnalyzer:
         self.prompts = self._load_prompts()
         if not self.prompts:
             logger.error("Failed to load prompts. Exiting.")
-            exit(1)
+            sys.exit(1) # Utiliser sys.exit(1) pour quitter proprement
 
         self.ai_caller = AiCaller(
             model=self.model,
@@ -94,14 +96,14 @@ class PGAutoExplainAnalyzer:
         try:
             if not file_path.is_file():
                 logger.error(f"DDL context file not found: '{file_path}'. It is required if a context folder is active.")
-                exit(1) # Arrête l'exécution si le fichier n'existe pas
+                sys.exit(1) # Arrête l'exécution si le fichier n'existe pas
             with open(file_path, "r", encoding="utf-8") as ddl_file:
                 ddl_context = ddl_file.read()
             logger.info(f"Loaded DDL context from: {file_path}")
             return ddl_context
         except Exception as e:
             logger.error(f"Could not read DDL context file '{file_path}': {e}")
-            exit(1) # Arrête l'exécution en cas d'erreur de lecture
+            sys.exit(1) # Arrête l'exécution en cas d'erreur de lecture
 
     def _load_server_configuration(self, file_path: Path):
         """
@@ -111,14 +113,14 @@ class PGAutoExplainAnalyzer:
         try:
             if not file_path.is_file():
                 logger.error(f"Server configuration file not found: '{file_path}'. It is required if a context folder is active.")
-                exit(1) # Arrête l'exécution si le fichier n'existe pas
+                sys.exit(1) # Arrête l'exécution si le fichier n'existe pas
             with open(file_path, "r", encoding="utf-8") as config_file:
                 config_content = config_file.read()
             logger.info(f"Loaded server configuration from: {file_path}")
             return config_content
         except Exception as e:
             logger.error(f"Could not read server configuration file '{file_path}': {e}")
-            exit(1) # Arrête l'exécution en cas d'erreur de lecture
+            sys.exit(1) # Arrête l'exécution en cas d'erreur de lecture
 
     def _load_infra_context(self, file_path: Path):
         """
@@ -128,14 +130,14 @@ class PGAutoExplainAnalyzer:
         try:
             if not file_path.is_file():
                 logger.error(f"Infrastructure context file not found: '{file_path}'. It is required if a context folder is active.")
-                exit(1) # Arrête l'exécution si le fichier n'existe pas
+                sys.exit(1) # Arrête l'exécution si le fichier n'existe pas
             with open(file_path, "r", encoding="utf-8") as infra_file:
                 infra_context = infra_file.read()
             logger.info(f"Loaded infrastructure context from: {file_path}")
             return infra_context
         except Exception as e:
             logger.error(f"Could not read infrastructure context file '{file_path}': {e}")
-            exit(1) # Arrête l'exécution en cas d'erreur de lecture
+            sys.exit(1) # Arrête l'exécution en cas d'erreur de lecture
 
     def _load_prompts(self):
         current_prompts = {}
@@ -160,13 +162,13 @@ class PGAutoExplainAnalyzer:
 
             if not current_prompts:
                 logger.error(f"Failed to load prompts from: {lang_file_path}. Exiting.")
-                exit(1)
+                sys.exit(1)
         except FileNotFoundError:
             logger.error(f"Prompts file not found: {lang_file_path}")
-            exit(1)
+            sys.exit(1)
         except Exception as e:
             logger.error(f"Error reading prompts file: {e}")
-            exit(1)
+            sys.exit(1)
         return current_prompts
 
     def _parse_optimization_file(self, file_path):
@@ -354,16 +356,14 @@ class PGAutoExplainAnalyzer:
         log_files = []
         report_filename = None
         
-        if self.args.directory_mode:
+        if self.directory_mode_active: # Utilise le nouveau flag
             directory = Path(self.args.log_filename)
-            if not directory.is_dir():
-                logger.error(f"Specified directory does not exist: {self.args.log_filename}")
-                exit(1)
+            # La vérification de l'existence du répertoire est maintenant faite dans parse_cli_arguments
 
             log_files = list(directory.glob("*.log")) + list(directory.glob("*.gz")) + list(directory.glob("*.zip"))
             if not log_files:
                 logger.error(f"No .log, .gz or .zip files found in directory: {self.args.log_filename}")
-                exit(1)
+                sys.exit(1) # Utiliser sys.exit(1) pour quitter proprement
 
             logger.info(f"Processing directory: {self.args.log_filename}")
             logger.info(f"Found files: {[str(f) for f in log_files]}")
@@ -375,9 +375,7 @@ class PGAutoExplainAnalyzer:
 
         else: # Single file mode
             log_file_path = Path(self.args.log_filename)
-            if not log_file_path.is_file():
-                logger.error(f"Specified log file does not exist: {self.args.log_filename}")
-                exit(1)
+            # La vérification de l'existence du fichier est maintenant faite dans parse_cli_arguments
             log_files = [log_file_path]
 
             report_filename = self.args.report_filename if self.args.report_filename else f"{self.args.log_filename}_report.html"
@@ -392,7 +390,7 @@ class PGAutoExplainAnalyzer:
             context_base_path = Path(self.args.context_folder)
             logger.info(f"Using specified context folder: {context_base_path}")
         elif self.args.log_filename: # Determine default context folder if log_filename is provided
-            if self.args.directory_mode:
+            if self.directory_mode_active: # Utilise le nouveau flag
                 context_base_path = Path(self.args.log_filename) / "CONTEXT"
                 logger.info(f"Using default context folder for directory mode: {context_base_path}")
             else:
@@ -473,7 +471,7 @@ class PGAutoExplainAnalyzer:
 
 def parse_cli_arguments():
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
-    parser.add_argument("log_filename", nargs="?", help="Path to the PostgreSQL log file")
+    parser.add_argument("log_filename", nargs="?", help="Path to the PostgreSQL log file or directory containing log files.") # Updated help text
     parser.add_argument("-m", "--model", default=DEFAULT_MODEL,
                         help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})")
     parser.add_argument("-l", "--limit-ai-calls", type=int, default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
@@ -494,8 +492,6 @@ def parse_cli_arguments():
                         help="Add a custom prompt to the default AI prompt (optional)")
     parser.add_argument("-r", "--report-filename", type=str, default=None,
                         help="Override the HTML report filename (optional)")
-    parser.add_argument("-d","--directory-mode", action="store_true", default=False,
-                        help="Process all .log and .zip files in the directory specified as the main positional argument")
     parser.add_argument("--target-query-mode", action="store_true", default=False,
                         help="Enables target query mode for analysis (default: false)")
     parser.add_argument("--context-folder", "-cf", type=str, default=None,
@@ -506,6 +502,26 @@ def parse_cli_arguments():
 
     if unknown_args:
         logger.warning(f"Unrecognized arguments: {unknown_args}. These will be ignored.")
+
+    # New logic for path validation and directory mode detection
+    if not args.log_filename:
+        parser.error("The 'log_filename' argument is required. Please provide a path to a log file or a directory.")
+
+    log_path = Path(args.log_filename)
+
+    if not log_path.exists():
+        logger.error(f"Erreur: Le chemin spécifié '{args.log_filename}' n'existe pas.")
+        sys.exit(1)
+
+    args.directory_mode_active = log_path.is_dir()
+
+    if args.directory_mode_active:
+        logger.info(f"L'exécution est en mode répertoire pour le chemin : {args.log_filename}")
+    else:
+        if not log_path.is_file(): # If it's not a directory, it must be a file
+            logger.error(f"Erreur: Le chemin spécifié '{args.log_filename}' n'est ni un fichier ni un répertoire valide.")
+            sys.exit(1)
+        logger.info(f"L'exécution est en mode fichier unique pour le chemin : {args.log_filename}")
 
     return args
 
