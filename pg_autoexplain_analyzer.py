@@ -54,6 +54,7 @@ class PGAutoExplainAnalyzer:
         self.custom_prompt = args.custom_prompt
         self.ddl_context = None # Chargé dans run()
         self.server_configuration_context = None # Chargé dans run()
+        self.infra_context = None # Nouveau: Chargé dans run()
         self.target_query_mode = args.target_query_mode
         self.context_folder = args.context_folder # Nouveau paramètre renommé
 
@@ -117,6 +118,23 @@ class PGAutoExplainAnalyzer:
             return config_content
         except Exception as e:
             logger.error(f"Could not read server configuration file '{file_path}': {e}")
+            exit(1) # Arrête l'exécution en cas d'erreur de lecture
+
+    def _load_infra_context(self, file_path: Path):
+        """
+        Charge le contenu d'un fichier d'infrastructure.
+        Arrête l'exécution si le fichier n'existe pas ou ne peut pas être lu.
+        """
+        try:
+            if not file_path.is_file():
+                logger.error(f"Infrastructure context file not found: '{file_path}'. It is required if a context folder is active.")
+                exit(1) # Arrête l'exécution si le fichier n'existe pas
+            with open(file_path, "r", encoding="utf-8") as infra_file:
+                infra_context = infra_file.read()
+            logger.info(f"Loaded infrastructure context from: {file_path}")
+            return infra_context
+        except Exception as e:
+            logger.error(f"Could not read infrastructure context file '{file_path}': {e}")
             exit(1) # Arrête l'exécution en cas d'erreur de lecture
 
     def _load_prompts(self):
@@ -287,7 +305,8 @@ class PGAutoExplainAnalyzer:
                 parsed_result["execution_plan"],
                 custom_prompt=full_custom_prompt, # Passer le prompt combiné
                 ddl_context=self.ddl_context,
-                server_config_context=self.server_configuration_context # Passer le contexte de configuration du serveur
+                server_config_context=self.server_configuration_context, # Passer le contexte de configuration du serveur
+                infra_context=self.infra_context # Passer le nouveau contexte d'infrastructure
             )
             if ai_hints_result is None:
                 ai_hints = "AI analysis failed or timed out."
@@ -396,10 +415,11 @@ class PGAutoExplainAnalyzer:
                 # Load general optimizations (SERVER.txt, EVENTS.txt)
                 self._load_general_optimizations()
 
-                # Load DDL.txt and CONFIG.txt from the context folder
+                # Load DDL.txt, CONFIG.txt, and INFRA.txt from the context folder
                 # These calls will exit if the files are not found or unreadable, as per the requirement.
                 self.ddl_context = self._load_ddl_context(self.optimization_base_path / "DDL.txt")
                 self.server_configuration_context = self._load_server_configuration(self.optimization_base_path / "CONFIG.txt")
+                self.infra_context = self._load_infra_context(self.optimization_base_path / "INFRA.txt") # Nouveau: Chargement de INFRA.txt
 
         if self.skip_ai_analysis:
             logger.info("Skipping AI Analysis")
@@ -417,6 +437,8 @@ class PGAutoExplainAnalyzer:
                 logger.info(f"DDL context loaded from file: {self.optimization_base_path / 'DDL.txt'}")
             if self.server_configuration_context:
                 logger.info(f"Server configuration context loaded from file: {self.optimization_base_path / 'CONFIG.txt'}")
+            if self.infra_context: # Nouveau: Log pour INFRA.txt
+                logger.info(f"Infrastructure context loaded from file: {self.optimization_base_path / 'INFRA.txt'}")
             # Log for context folder
             if self.optimization_base_path:
                 logger.info(f"Optimization context loaded from folder: {self.optimization_base_path}")
@@ -470,11 +492,6 @@ def parse_cli_arguments():
                         help="Perform AI analysis only for queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times. All queries will still be included in the report.")
     parser.add_argument("-c", "--custom-prompt", type=str, default=None,
                         help="Add a custom prompt to the default AI prompt (optional)")
-    # Suppression des paramètres CLI pour les fichiers de contexte DDL et de configuration serveur
-    # parser.add_argument("--sql-context-file", type=str, default=None,
-    #                     help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
-    # parser.add_argument("--server-config-file", type=str, default=None,
-    #                     help="Specify a file containing the full server configuration to be used as AI context (optional)")
     parser.add_argument("-r", "--report-filename", type=str, default=None,
                         help="Override the HTML report filename (optional)")
     parser.add_argument("-d","--directory-mode", action="store_true", default=False,

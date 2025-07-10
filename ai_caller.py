@@ -125,13 +125,15 @@ class AiCaller:
         logger.info("Calling AI Model for plan analysis...")
         return sleep_and_retry(self._rate_limited_perform_ai_call)(prompt)
 
-    def call_ai_for_plan_analysis(self, plan, custom_prompt=None, ddl_context=None, server_config_context=None):
+    def call_ai_for_plan_analysis(self, plan, custom_prompt=None, ddl_context=None, server_config_context=None, infra_context=None):
         static_prompt = self.prompts.get('PLAN_ANALYSIS', '')
         full_prompt = static_prompt
         if ddl_context:
             full_prompt += "\n\nDDL context:\n" + ddl_context
         if server_config_context: # Ajout du contexte de configuration du serveur
             full_prompt += "\n\nServer Configuration context:\n" + server_config_context
+        if infra_context: # Ajout du contexte d'infrastructure
+            full_prompt += "\n\nInfrastructure context:\n" + infra_context
         if custom_prompt:
             full_prompt += "\n\n" + custom_prompt
         full_prompt += "\n\n" + plan
