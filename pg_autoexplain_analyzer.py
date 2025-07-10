@@ -52,9 +52,8 @@ class PGAutoExplainAnalyzer:
         self.only_seq_scan_ai_analysis = args.only_seq_scan_ai_analysis
         self.filter_strings = args.filter
         self.custom_prompt = args.custom_prompt
-        self.ddl_context = self._load_ddl_context(args.sql_context_file)
-        self.server_config_file = args.server_config_file
-        self.server_configuration_context = self._load_server_configuration(args.server_config_file)
+        self.ddl_context = None # Chargé dans run()
+        self.server_configuration_context = None # Chargé dans run()
         self.target_query_mode = args.target_query_mode
         self.context_folder = args.context_folder # Nouveau paramètre renommé
 
@@ -86,36 +85,39 @@ class PGAutoExplainAnalyzer:
         # New data structure for daily query statistics
         self.daily_query_stats = defaultdict(lambda: {"total_queries": 0, "cumulated_time": 0.0, "queries_by_code": defaultdict(float)})
 
-    def _load_ddl_context(self, sql_context_file):
-        if sql_context_file:
-            try:
-                with open(sql_context_file, "r", encoding="utf-8") as ddl_file:
-                    ddl_context = ddl_file.read()
-                logger.info(f"Loaded DDL context from: {sql_context_file}")
-                return ddl_context
-            except Exception as e:
-                logger.error(f"Could not read DDL context file '{sql_context_file}': {e}")
-        return None
+    def _load_ddl_context(self, file_path: Path):
+        """
+        Charge le contenu d'un fichier DDL.
+        Arrête l'exécution si le fichier n'existe pas ou ne peut pas être lu.
+        """
+        try:
+            if not file_path.is_file():
+                logger.error(f"DDL context file not found: '{file_path}'. It is required if a context folder is active.")
+                exit(1) # Arrête l'exécution si le fichier n'existe pas
+            with open(file_path, "r", encoding="utf-8") as ddl_file:
+                ddl_context = ddl_file.read()
+            logger.info(f"Loaded DDL context from: {file_path}")
+            return ddl_context
+        except Exception as e:
+            logger.error(f"Could not read DDL context file '{file_path}': {e}")
+            exit(1) # Arrête l'exécution en cas d'erreur de lecture
 
-    def _load_server_configuration(self, server_config_file):
+    def _load_server_configuration(self, file_path: Path):
         """
         Charge le contenu d'un fichier de configuration de serveur.
         Arrête l'exécution si le fichier n'existe pas ou ne peut pas être lu.
         """
-        if server_config_file:
-            try:
-                config_path = Path(server_config_file)
-                if not config_path.is_file():
-                    logger.error(f"Server configuration file not found: '{server_config_file}'")
-                    exit(1) # Arrête l'exécution
-                with open(config_path, "r", encoding="utf-8") as config_file:
-                    config_content = config_file.read()
-                logger.info(f"Loaded server configuration from: {server_config_file}")
-                return config_content
-            except Exception as e:
-                logger.error(f"Could not read server configuration file '{server_config_file}': {e}")
-                exit(1) # Arrête l'exécution
-        return None
+        try:
+            if not file_path.is_file():
+                logger.error(f"Server configuration file not found: '{file_path}'. It is required if a context folder is active.")
+                exit(1) # Arrête l'exécution si le fichier n'existe pas
+            with open(file_path, "r", encoding="utf-8") as config_file:
+                config_content = config_file.read()
+            logger.info(f"Loaded server configuration from: {file_path}")
+            return config_content
+        except Exception as e:
+            logger.error(f"Could not read server configuration file '{file_path}': {e}")
+            exit(1) # Arrête l'exécution en cas d'erreur de lecture
 
     def _load_prompts(self):
         current_prompts = {}
@@ -382,16 +384,22 @@ class PGAutoExplainAnalyzer:
         
         self.optimization_base_path = context_base_path # Assign to instance variable
 
-        # Validate and load general optimizations
+        # Validate and load general optimizations and other context files
         if self.optimization_base_path:
             if not self.optimization_base_path.exists():
-                logger.warning(f"Le chemin spécifié pour le dossier de contexte n'existe pas : {self.optimization_base_path}. Aucune optimisation ne sera chargée.")
+                logger.warning(f"Le chemin spécifié pour le dossier de contexte n'existe pas : {self.optimization_base_path}. Aucune optimisation ni fichier de contexte ne sera chargé.")
                 self.optimization_base_path = None # Clear it if it doesn't exist
             elif not self.optimization_base_path.is_dir():
-                logger.warning(f"Le chemin spécifié pour le dossier de contexte n'est pas un répertoire : {self.optimization_base_path}. Les optimisations ne seront pas chargées.")
+                logger.warning(f"Le chemin spécifié pour le dossier de contexte n'est pas un répertoire : {self.optimization_base_path}. Les optimisations et fichiers de contexte ne seront pas chargés.")
                 self.optimization_base_path = None # Clear it if it's not a directory
             else:
-                self._load_general_optimizations() # Load SERVER.txt and EVENTS.txt
+                # Load general optimizations (SERVER.txt, EVENTS.txt)
+                self._load_general_optimizations()
+
+                # Load DDL.txt and CONFIG.txt from the context folder
+                # These calls will exit if the files are not found or unreadable, as per the requirement.
+                self.ddl_context = self._load_ddl_context(self.optimization_base_path / "DDL.txt")
+                self.server_configuration_context = self._load_server_configuration(self.optimization_base_path / "CONFIG.txt")
 
         if self.skip_ai_analysis:
             logger.info("Skipping AI Analysis")
@@ -404,10 +412,11 @@ class PGAutoExplainAnalyzer:
             logger.info(f"AI Analysis only for Seq Scan queries : {self.only_seq_scan_ai_analysis}")
             if self.custom_prompt:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
+            # Updated log messages for DDL and server config context
             if self.ddl_context:
-                logger.info(f"DDL context loaded from file: {self.args.sql_context_file}")
+                logger.info(f"DDL context loaded from file: {self.optimization_base_path / 'DDL.txt'}")
             if self.server_configuration_context:
-                logger.info(f"Server configuration context loaded from file: {self.args.server_config_file}")
+                logger.info(f"Server configuration context loaded from file: {self.optimization_base_path / 'CONFIG.txt'}")
             # Log for context folder
             if self.optimization_base_path:
                 logger.info(f"Optimization context loaded from folder: {self.optimization_base_path}")
@@ -461,17 +470,18 @@ def parse_cli_arguments():
                         help="Perform AI analysis only for queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times. All queries will still be included in the report.")
     parser.add_argument("-c", "--custom-prompt", type=str, default=None,
                         help="Add a custom prompt to the default AI prompt (optional)")
-    parser.add_argument("--sql-context-file", type=str, default=None,
-                        help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
-    parser.add_argument("--server-config-file", type=str, default=None,
-                        help="Specify a file containing the full server configuration to be used as AI context (optional)")
+    # Suppression des paramètres CLI pour les fichiers de contexte DDL et de configuration serveur
+    # parser.add_argument("--sql-context-file", type=str, default=None,
+    #                     help="Specify a DDL SQL file whose content will be added to the prompt (optional)")
+    # parser.add_argument("--server-config-file", type=str, default=None,
+    #                     help="Specify a file containing the full server configuration to be used as AI context (optional)")
     parser.add_argument("-r", "--report-filename", type=str, default=None,
                         help="Override the HTML report filename (optional)")
     parser.add_argument("-d","--directory-mode", action="store_true", default=False,
                         help="Process all .log and .zip files in the directory specified as the main positional argument")
     parser.add_argument("--target-query-mode", action="store_true", default=False,
                         help="Enables target query mode for analysis (default: false)")
-    parser.add_argument("--context-folder", "-cf", type=str, default=None, # Nouveau nom et raccourci
+    parser.add_argument("--context-folder", "-cf", type=str, default=None,
                         help="Path to a directory containing optimization context files (SERVER.txt, EVENTS.txt, query-specific .txt files). Overrides the default 'CONTEXT' subfolder behavior.")
 
 
