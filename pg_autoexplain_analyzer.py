@@ -468,6 +468,8 @@ class PGAutoExplainAnalyzer:
             self.event_optimizations      # Passer les optimisations événements pré-chargées
         )
 
+        self.ai_caller.show_stats()
+
 
 def parse_cli_arguments():
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
@@ -496,7 +498,6 @@ def parse_cli_arguments():
                         help="Enables target query mode for analysis (default: false)")
     parser.add_argument("--context-folder", "-cf", type=str, default=None,
                         help="Path to a directory containing optimization context files (SERVER.txt, EVENTS.txt, query-specific .txt files). Overrides the default 'CONTEXT' subfolder behavior.")
-
 
     args, unknown_args = parser.parse_known_args()
 
@@ -530,11 +531,6 @@ def main():
     args = parse_cli_arguments()
     analyzer = PGAutoExplainAnalyzer(args)
     analyzer.run()
-
-    logger.info(f"Total input tokens processed: {analyzer.ai_caller.total_input_tokens}")
-    logger.info(f"Total output tokens processed: {analyzer.ai_caller.total_output_tokens}")
-    logger.info(f"Estimated total cost: ${analyzer.ai_caller.total_cost:.4f}")
-
 
 if __name__ == "__main__":
     main()
