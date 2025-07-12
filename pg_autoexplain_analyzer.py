@@ -137,13 +137,12 @@ class PGAutoExplainAnalyzer:
             if applied_optimizations_context:
                 full_custom_prompt = applied_optimizations_context + (f"\n{full_custom_prompt}" if full_custom_prompt else "")
 
-            ai_hints_result = self.ai_caller.call_ai_for_plan_analysis(
-                log_entry["execution_plan"],
-                custom_prompt=full_custom_prompt, # Pass the combined prompt
-                ddl_context=self.context_loader.ddl_context,
-                server_config_context=self.context_loader.server_configuration_context, # Pass the server configuration context
-                infra_context=self.context_loader.infra_context # Pass the new infrastructure context
+            full_prompt = self.context_loader.get_full_analysis_prompt(
+                plan=log_entry["execution_plan"],
+                custom_prompt=full_custom_prompt,
+                lang=self.language
             )
+            ai_hints_result = self.ai_caller.call_ai_provider(full_prompt)
             if ai_hints_result is None:
                 ai_hints = "AI analysis failed or timed out."
             else:

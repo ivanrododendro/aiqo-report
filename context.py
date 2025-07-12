@@ -159,3 +159,25 @@ class ContextLoader:
             if self.query_optimizations_cache[query_code]:
                 logger.debug(f"Optimisations de requête chargées pour {query_code[:6]} depuis : {file_path}")
         return self.query_optimizations_cache.get(query_code, [])
+
+    def get_full_analysis_prompt(self, plan: str, custom_prompt: str = None, lang: str = "en") -> str:
+        """
+        Constructs the full prompt for AI analysis by combining static prompts,
+        various contexts, custom prompts, and the execution plan.
+        """
+        static_prompt = self.prompts.get('PLAN_ANALYSIS', '')
+        full_prompt = static_prompt
+
+        if self.ddl_context:
+            full_prompt += "\n\nDDL context:\n" + self.ddl_context
+        if self.server_configuration_context:
+            full_prompt += "\n\nServer Configuration context:\n" + self.server_configuration_context
+        if self.infra_context:
+            full_prompt += "\n\nInfrastructure context:\n" + self.infra_context
+        if custom_prompt:
+            full_prompt += "\n\n" + custom_prompt
+        
+        full_prompt += "\n\n" + plan
+        full_prompt += f"\n\nPlease provide the analysis in {lang}."
+        
+        return full_prompt
