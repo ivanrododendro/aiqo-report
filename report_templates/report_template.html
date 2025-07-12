@@ -139,6 +139,10 @@
                                 <script>document.getElementById("duration-{{ day | replace('.', '-') }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
                                 .toFormat("h'h'm'm's's'");</script>
                             </p>
+                            <!-- Execution Time Over Time Chart -->
+                            <div class="mb-3">
+                                <canvas id="execTimeChart-{{ app_id }}" height="120"></canvas>
+                            </div>
                             {% if query_optimizations[report.code] %}
                                 <p>
                                     <strong>Optimisations déjà appliquées :</strong>
@@ -173,6 +177,62 @@
                                             };
                                         }
                                     }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+
+                                    // --- Execution Time Over Time Chart ---
+                                    // Find all executions of this query code across all days
+                                    const allExecutions = [];
+                                    {% for d, reps in reports_by_day.items() %}
+                                        {% for r in reps %}
+                                            {% if r.code == report.code %}
+                                                allExecutions.push({
+                                                    timestamp: "{{ r.query_timestamp }}",
+                                                    duration: {{ r.duration|int }}
+                                                });
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                    // Sort by timestamp
+                                    allExecutions.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+                                    // Prepare data
+                                    const labels = allExecutions.map(e => e.timestamp);
+                                    const data = allExecutions.map(e => e.duration);
+                                    // Draw chart
+                                    const chartId = "execTimeChart-{{ app_id }}";
+                                    const ctx = document.getElementById(chartId).getContext('2d');
+                                    if (window["execTimeChartObj_{{ app_id }}"]) {
+                                        window["execTimeChartObj_{{ app_id }}"].destroy();
+                                    }
+                                    window["execTimeChartObj_{{ app_id }}"] = new Chart(ctx, {
+                                        type: 'line',
+                                        data: {
+                                            labels: labels,
+                                            datasets: [{
+                                                label: 'Execution Time (ms)',
+                                                data: data,
+                                                borderColor: 'rgba(75, 192, 192, 1)',
+                                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                                fill: false,
+                                                tension: 0.1,
+                                                pointRadius: 3
+                                            }]
+                                        },
+                                        options: {
+                                            responsive: true,
+                                            plugins: {
+                                                legend: { display: false }
+                                            },
+                                            scales: {
+                                                x: {
+                                                    title: { display: true, text: 'Timestamp' },
+                                                    ticks: { autoSkip: true, maxTicksLimit: 10 }
+                                                },
+                                                y: {
+                                                    title: { display: true, text: 'Execution Time (ms)' },
+                                                    beginAtZero: true
+                                                }
+                                            }
+                                        }
+                                    });
                                 });
                             </script>
                         </div>
