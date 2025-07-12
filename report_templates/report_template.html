@@ -123,7 +123,7 @@
                 {% set app_id = 'app-' ~ day | replace('.', '-') ~ '-' ~ i %} {# Ensure app_id is also safe for dots #}
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="heading-{{ app_id }}">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app_id }}" aria-expanded="false" aria-controls="collapse-{{ app_id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app_id }}" aria-expanded="false" aria-controls="collapse-{{ app_id }}" data-query-code="{{ report.code }}">
                             <span title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}</span>
                             {% if report.seq_scan_indicator %}
                             <i class="bi bi-database-exclamation icon ms-2" title="La requête contient un Seq Scan"></i>
@@ -234,6 +234,38 @@
                                             }
                                         }
                                     });
+
+                                    // --- Click handler: navigate to the execution represented by the clicked point ---
+                                    document.getElementById(chartId).onclick = function(evt) {
+                                        const chart = window["execTimeChartObj_{{ app_id }}"];
+                                        const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+                                        if (!points.length) return;
+
+                                        const idx = points[0].index;
+                                        const timestamp = chart.data.labels[idx];
+                                        // Extract day part 'YYYY.MM.DD'
+                                        const day = timestamp.split(' ')[0];
+
+                                        // Activate the corresponding day tab
+                                        const tabId = `tab-${day.replace(/\./g, '-')}-tab`;
+                                        const tabEl = document.getElementById(tabId);
+                                        if (tabEl) {
+                                            const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
+                                            tabInstance.show();
+
+                                            // After the tab pane is visible, scroll to & expand the right accordion item
+                                            setTimeout(() => {
+                                                const selector = `#tab-${day.replace(/\./g, '-')} .accordion-button[data-query-code='{{ report.code }}']`;
+                                                const btn = document.querySelector(selector);
+                                                if (btn) {
+                                                    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                    if (btn.classList.contains('collapsed')) {
+                                                        btn.click();
+                                                    }
+                                                }
+                                            }, 200);
+                                        }
+                                    };
                                 });
                             </script>
                         </div>
