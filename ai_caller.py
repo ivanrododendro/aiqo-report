@@ -157,3 +157,15 @@ class AiCaller:
         # Call ChatGPT API with the concatenated hints
         return self.call_ai_provider(prompt)
 
+    def show_stats(self):
+        """Logs the final statistics of AI API usage."""
+        if self.call_count > 0:
+            logger.info("--- AI Usage Statistics ---")
+            logger.info(f"Total AI calls made: {self.call_count}")
+            logger.info(f"Total input tokens processed: {self.total_input_tokens}")
+            logger.info(f"Total output tokens processed: {self.total_output_tokens}")
+            logger.info(f"Estimated total cost: ${self.total_cost:.4f}")
+            logger.info("---------------------------")
+        else:
+            logger.info("No AI calls were made during this run.")
+
