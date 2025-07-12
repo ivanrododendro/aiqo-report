@@ -18,7 +18,7 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
