@@ -195,7 +195,8 @@
                                     allExecutions.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
                                     // Prepare data
                                     const labels = allExecutions.map(e => e.timestamp);
-                                    const data = allExecutions.map(e => e.duration);
+                                    // Convert duration from ms to minutes for the chart
+                                    const data = allExecutions.map(e => e.duration / 60000);
                                     // Draw chart
                                     const chartId = "execTimeChart-{{ app_id }}";
                                     const ctx = document.getElementById(chartId).getContext('2d');
@@ -207,7 +208,7 @@
                                         data: {
                                             labels: labels,
                                             datasets: [{
-                                                label: 'Execution Time (ms)',
+                                                label: 'Execution Time (min)',
                                                 data: data,
                                                 borderColor: 'rgba(75, 192, 192, 1)',
                                                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -227,7 +228,7 @@
                                                     ticks: { autoSkip: true, maxTicksLimit: 10 }
                                                 },
                                                 y: {
-                                                    title: { display: true, text: 'Execution Time (ms)' },
+                                                    title: { display: true, text: 'Execution Time (min)' },
                                                     beginAtZero: true
                                                 }
                                             }
