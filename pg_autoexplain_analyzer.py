@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 
 import argparse
-import hashlib
 import logging
-import re
 import sys # Import sys for exit
 from collections import defaultdict
 from pathlib import Path
-
-import sqlparse
 
 # Import classes and necessary constants from their new modules
 from ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT, DEFAULT_MODEL_TEMPERATURE
 from log_parser import LogParser
 from report_generator import ReportGenerator, QUERY_NAME_LIMIT
+from sql_utils import SQLUtils # Import the new SQLUtils class
 
 DEFAULT_LANG = "fr" # Default language for output, not for prompt file selection
 DEFAULT_MODEL = "gemini-2.5-flash"
@@ -22,23 +19,6 @@ DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-
-def normalize_sql(sql):
-    # Formater le SQL avec sqlparse
-    formatted_sql = sqlparse.format(sql, strip_comments=True, reindent=True, strip_whitespace=True)
-
-    # Remplacer les constantes numériques et les chaînes de caractères par '?'
-    formatted_sql = re.sub(r'\b\d+\b', '?', formatted_sql)  # Nombres
-    formatted_sql = re.sub(r"'[^']*'", '?', formatted_sql)  # Chaînes de caractères
-
-    return formatted_sql
-
-
-def get_query_code(query):
-    normalized_query = normalize_sql(query)
-    value_str = str(normalized_query).encode('utf-8')
-    return hashlib.sha256(value_str).hexdigest().upper()
 
 
 class PGAutoExplainAnalyzer:
@@ -223,7 +203,7 @@ class PGAutoExplainAnalyzer:
         query_name = parsed_result["query_name"]
         job_name = parsed_result["job_name"]
         query_text = parsed_result["query_text"]
-        query_code = get_query_code(query_text)
+        query_code = SQLUtils.get_query_code(query_text)
 
         title = job_name + " " + query_name
         execution_plan = parsed_result["execution_plan"]
