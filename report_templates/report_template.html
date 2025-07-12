@@ -139,10 +139,6 @@
                                 <script>document.getElementById("duration-{{ day | replace('.', '-') }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
                                 .toFormat("h'h'm'm's's'");</script>
                             </p>
-                            <!-- Execution Time Over Time Chart -->
-                            <div class="mb-3">
-                                <canvas id="execTimeChart-{{ app_id }}" height="120"></canvas>
-                            </div>
                             {% if query_optimizations[report.code] %}
                                 <p>
                                     <strong>Optimisations déjà appliquées :</strong>
@@ -165,6 +161,10 @@
                             <div id="{{ app_id }}">
                                 <pev2 :plan-source="plan" :plan-query="query"
                                       style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
+                            </div>
+                            <!-- Execution Time Over Time Chart -->
+                            <div class="mb-3">
+                                <canvas id="execTimeChart-{{ app_id }}" height="120"></canvas>
                             </div>
                             <script>
                                 // Changed from jQuery .on() to vanilla JS addEventListener
