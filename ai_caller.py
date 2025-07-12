@@ -142,20 +142,6 @@ class AiCaller:
         self.call_count += 1
         return self.call_ai_provider(full_prompt)
 
-    def call_ai_for_final_analysis(self, reports):
-        logger.info("Creating final analysis...")
-
-        # Concatenate only actual chatgpt_hints, excluding "skipped" messages
-        all_hints = "\n\n".join([report["chatgpt_hints"] for report in reports if report["chatgpt_hints"] and not report["chatgpt_hints"].startswith("AI analysis skipped")])
-
-        # Prepare the prompt for identifying most frequent optimization hints
-        prompt_template = self.prompts.get('FINAL_ANALYSIS', '')
-        prompt = prompt_template.format(all_hints=all_hints)
-        # Add language instruction to the prompt
-        prompt += f"\n\nPlease provide the analysis in {self.lang}."
-        self.call_count += 1
-        # Call ChatGPT API with the concatenated hints
-        return self.call_ai_provider(prompt)
 
     def show_stats(self):
         """Logs the final statistics of AI API usage."""
