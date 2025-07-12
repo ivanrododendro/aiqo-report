@@ -160,24 +160,46 @@ class ContextLoader:
                 logger.debug(f"Optimisations de requête chargées pour {query_code[:6]} depuis : {file_path}")
         return self.query_optimizations_cache.get(query_code, [])
 
-    def get_full_analysis_prompt(self, plan: str, custom_prompt: str = None, lang: str = "en") -> str:
+    def build_full_prompt_with_optimizations(self, plan: str, query_code: str, custom_prompt: str = None, lang: str = "en") -> str:
         """
         Constructs the full prompt for AI analysis by combining static prompts,
-        various contexts, custom prompts, and the execution plan.
+        various contexts, applied optimizations, custom prompts, and the execution plan.
         """
         static_prompt = self.prompts.get('PLAN_ANALYSIS', '')
         full_prompt = static_prompt
 
+        # Add DDL, server config, and infra context
         if self.ddl_context:
             full_prompt += "\n\nDDL context:\n" + self.ddl_context
         if self.server_configuration_context:
             full_prompt += "\n\nServer Configuration context:\n" + self.server_configuration_context
         if self.infra_context:
             full_prompt += "\n\nInfrastructure context:\n" + self.infra_context
-        if custom_prompt:
-            full_prompt += "\n\n" + custom_prompt
-        
+
+        # Add applied optimizations context
+        applied_optimizations_context = ""
+        current_query_opts = self.get_query_optimizations(query_code)
+        if current_query_opts or self.server_optimizations:
+            applied_optimizations_context += "The following optimizations have already been applied to the system or this specific query:\n"
+            if self.server_optimizations:
+                applied_optimizations_context += "  - Server-wide optimizations:\n"
+                for opt in self.server_optimizations:
+                    applied_optimizations_context += f"    - {opt['date']}: {opt['text']}\n"
+            if current_query_opts:
+                applied_optimizations_context += "  - Query-specific optimizations for this query:\n"
+                for opt in current_query_opts:
+                    applied_optimizations_context += f"    - {opt['date']}: {opt['text']}\n"
+            applied_optimizations_context += "\n"
+
+        # Combine applied optimizations and custom prompt
+        full_custom_prompt = custom_prompt if custom_prompt else ""
+        if applied_optimizations_context:
+            full_custom_prompt = applied_optimizations_context + (f"\n{full_custom_prompt}" if full_custom_prompt else "")
+
+        if full_custom_prompt:
+            full_prompt += "\n\n" + full_custom_prompt
+
         full_prompt += "\n\n" + plan
         full_prompt += f"\n\nPlease provide the analysis in {lang}."
-        
+
         return full_prompt

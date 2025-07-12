@@ -113,33 +113,12 @@ class PGAutoExplainAnalyzer:
             should_perform_ai_call = False
             logger.info("Skipping AI analysis for query without Seq Scan (only_seq_scan_ai_analysis is true)")
 
-        # Prepare context of already applied optimizations for AI
-        applied_optimizations_context = ""
-        current_query_opts = self.context_loader.get_query_optimizations(query_code)
-
-        # Build the context string for AI
-        if current_query_opts or self.context_loader.server_optimizations:
-            applied_optimizations_context += "The following optimizations have already been applied to the system or this specific query:\n"
-            if self.context_loader.server_optimizations:
-                applied_optimizations_context += "  - Server-wide optimizations:\n"
-                for opt in self.context_loader.server_optimizations:
-                    applied_optimizations_context += f"    - {opt['date']}: {opt['text']}\n"
-            if current_query_opts:
-                applied_optimizations_context += "  - Query-specific optimizations for this query:\n"
-                for opt in current_query_opts:
-                    applied_optimizations_context += f"    - {opt['date']}: {opt['text']}\n"
-            applied_optimizations_context += "\n" # Add a newline for separation
-
         # 5. Perform AI call if all conditions allow
         if should_perform_ai_call:
-            # Combine custom_prompt and applied_optimizations_context
-            full_custom_prompt = self.custom_prompt if self.custom_prompt else ""
-            if applied_optimizations_context:
-                full_custom_prompt = applied_optimizations_context + (f"\n{full_custom_prompt}" if full_custom_prompt else "")
-
-            full_prompt = self.context_loader.get_full_analysis_prompt(
+            full_prompt = self.context_loader.build_full_prompt_with_optimizations(
                 plan=log_entry["execution_plan"],
-                custom_prompt=full_custom_prompt,
+                query_code=query_code,
+                custom_prompt=self.custom_prompt,
                 lang=self.language
             )
             ai_hints_result = self.ai_caller.call_ai_provider(full_prompt)
