@@ -144,10 +144,10 @@ class ContextLoader:
                 self._load_general_optimizations()
 
                 # Load DDL.txt, CONFIG.txt, and INFRA.txt from the context folder
-                # These calls will exit if the files are not found or unreadable, as per the requirement.
-                self.ddl_context = self._load_file_content(self.optimization_base_path / "DDL.txt", "DDL context", required=True)
-                self.server_configuration_context = self._load_file_content(self.optimization_base_path / "CONFIG.txt", "Server configuration context", required=True)
-                self.infra_context = self._load_file_content(self.optimization_base_path / "INFRA.txt", "Infrastructure context", required=True)
+                # These context files are now optional.
+                self.ddl_context = self._load_file_content(self.optimization_base_path / "DDL.txt", "DDL context", required=False)
+                self.server_configuration_context = self._load_file_content(self.optimization_base_path / "CONFIG.txt", "Server configuration context", required=False)
+                self.infra_context = self._load_file_content(self.optimization_base_path / "INFRA.txt", "Infrastructure context", required=False)
 
     def get_query_optimizations(self, query_code: str):
         """Retrieves or loads query-specific optimizations for a given query code."""
