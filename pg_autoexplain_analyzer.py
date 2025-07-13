@@ -69,6 +69,10 @@ class PGAutoExplainAnalyzer:
         query_text = log_entry["query_text"]
         query_code = SQLUtils.get_query_code(query_text)
 
+        # Always load query-specific optimizations into the cache, regardless of AI analysis
+        # This ensures they are available for the report display.
+        self.context_loader.get_query_optimizations(query_code)
+
         title = job_name + " " + query_name
         execution_plan = log_entry["execution_plan"]
         timestamp = log_entry["timestamp"]
