@@ -151,13 +151,17 @@ class ContextLoader:
 
     def get_query_optimizations(self, query_code: str):
         """Retrieves or loads query-specific optimizations for a given query code."""
+        logger.info("Query code : " + query_code)
+
         if not self.optimization_base_path or not self.optimization_base_path.is_dir():
             return []
+
         if query_code not in self.query_optimizations_cache:
             file_path = self.optimization_base_path / f"{query_code[:6]}.txt"
             self.query_optimizations_cache[query_code] = self._parse_optimization_file(file_path)
             if self.query_optimizations_cache[query_code]:
                 logger.info(f"Optimisations de requête chargées pour {query_code[:6]} depuis : {file_path}")
+
         return self.query_optimizations_cache.get(query_code, [])
 
     def build_full_prompt_with_optimizations(self, plan: str, query_code: str, custom_prompt: str = None, lang: str = "en") -> str:

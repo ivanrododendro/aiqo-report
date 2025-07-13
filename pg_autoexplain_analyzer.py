@@ -78,10 +78,6 @@ class PGAutoExplainAnalyzer:
         seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
         duration = log_entry["duration"]
 
-        # Ensure query optimizations are loaded and logged regardless of AI analysis
-        # get_query_optimizations handles internal caching, so this is efficient.
-        self.context_loader.get_query_optimizations(query_code)
-
         should_perform_ai_call = True # Flag to control if AI call should be made
 
         # 1. Check if AI analysis is globally skipped
