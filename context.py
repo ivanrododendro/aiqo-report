@@ -206,4 +206,7 @@ class ContextLoader:
         full_prompt += "\n\n" + plan
         full_prompt += f"\n\nPlease provide the analysis in {lang}."
 
+        # DEBUG – log the complete prompt that will be sent to the AI provider
+        logger.debug("Full prompt built for query %s:\n%s", query_code, full_prompt)
+
         return full_prompt
