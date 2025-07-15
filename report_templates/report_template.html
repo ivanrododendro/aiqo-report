@@ -194,7 +194,8 @@
                                     // Sort by timestamp
                                     allExecutions.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
                                     // Prepare data
-                                    const labels = allExecutions.map(e => e.timestamp);
+                                    // Use only the date portion (YYYY.MM.DD) on the X-axis
+                                    const labels = allExecutions.map(e => e.timestamp.split(' ')[0]);
                                     // Convert duration from ms to minutes for the chart
                                     const data = allExecutions.map(e => e.duration / 60000);
                                     // Draw chart
@@ -270,9 +271,8 @@
                                         if (!points.length) return;
 
                                         const idx = points[0].index;
-                                        const timestamp = chart.data.labels[idx];
-                                        // Extract day part 'YYYY.MM.DD'
-                                        const day = timestamp.split(' ')[0];
+                                        // Label already holds the date (YYYY.MM.DD)
+                                        const day = chart.data.labels[idx];
 
                                         // Activate the corresponding day tab
                                         const tabId = `tab-${day.replace(/\./g, '-')}-tab`;
