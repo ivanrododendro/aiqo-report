@@ -1,5 +1,7 @@
 import logging
 import re
+import logging
+import re
 import litellm
 from ratelimit import limits, sleep_and_retry
 
@@ -7,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_AI_CALL_TIMEOUT = 90
-DEFAULT_MODEL_TEMPERATURE = 0.5
 
 FREE_TIER_RATE_LIMITS = {
     "gpt-4o": (10, 60),
@@ -22,9 +23,8 @@ FREE_TIER_RATE_LIMITS = {
 }
 
 class AiCaller:
-    def __init__(self, model, temperature, ai_call_timeout, lang, prompts):
+    def __init__(self, model, ai_call_timeout, lang, prompts):
         self.model = model
-        self.temperature = temperature
         self.ai_call_timeout = ai_call_timeout
         self.lang = lang
         self.prompts = prompts
@@ -83,7 +83,6 @@ class AiCaller:
             response = litellm.completion(
                 model=effective_model,
                 messages=messages,
-                temperature=self.temperature,
                 request_timeout=self.ai_call_timeout
             )
             

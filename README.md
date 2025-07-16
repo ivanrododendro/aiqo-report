@@ -104,7 +104,6 @@ python pg-autoexplain-ai-analysis.py path/to/postgresql.log [options]
 *   `-l, --limit-ai-calls`: Maximum number of AI calls to make. Use `-1` for unlimited (default: `-1`).
 *   `--ai-call-timeout`: Timeout for AI API calls in seconds (default: `90`).
 *   `--language`: Language for prompts and output (default: `fr`). Must have a corresponding `prompts_<lang>.txt` file.
-*   `--temperature`: Temperature for the AI model (default: `0.5`).
 *   `-s, --skip_ai_analysis`: Skip AI analysis and only generate the HTML report.
 *   `-o, --only-seq-scan-ai-analysis`: Only perform AI analysis for queries with Seq Scan.
 *   `-f, --filter`: Restrict AI analysis to queries containing the specified string (can be used multiple times).

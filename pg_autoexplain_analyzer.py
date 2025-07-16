@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 # Import classes and necessary constants from their new modules
-from ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT, DEFAULT_MODEL_TEMPERATURE
+from ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT
 from log_parser import LogParser
 from report_generator import ReportGenerator, QUERY_NAME_LIMIT
 from sql_utils import SQLUtils # Import the new SQLUtils class
@@ -30,7 +30,6 @@ class PGAutoExplainAnalyzer:
         self.limit_ai_calls = args.limit_ai_calls
         self.ai_call_timeout = args.ai_call_timeout
         self.language = args.language
-        self.temperature = args.temperature
         self.only_seq_scan_ai_analysis = args.only_seq_scan_ai_analysis
         self.filter_strings = args.filter
         self.custom_prompt = args.custom_prompt
@@ -46,7 +45,6 @@ class PGAutoExplainAnalyzer:
 
         self.ai_caller = AiCaller(
             model=self.model,
-            temperature=self.temperature,
             ai_call_timeout=self.ai_call_timeout,
             lang=self.language,
             prompts={} # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
@@ -210,7 +208,6 @@ class PGAutoExplainAnalyzer:
             logger.info(f"Maximum AI calls: {self.limit_ai_calls if self.limit_ai_calls != -1 else 'Unlimited'}")
             logger.info(f"AI API call timeout: {self.ai_call_timeout} seconds")
             logger.info(f"Language for AI output: {self.language}")
-            logger.info(f"Model temperature : {self.temperature}")
             logger.info(f"AI Analysis only for Seq Scan queries : {self.only_seq_scan_ai_analysis}")
             if self.custom_prompt:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
@@ -266,8 +263,6 @@ def parse_cli_arguments():
                         help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})")
     parser.add_argument("--language", default=DEFAULT_LANG,
                         help=f"Language for AI output (default: ${DEFAULT_LANG})")
-    parser.add_argument("--temperature", type=float, default=DEFAULT_MODEL_TEMPERATURE,
-                        help=f"Temperature for the AI model (default: ${DEFAULT_MODEL_TEMPERATURE})")
     parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
                         help="Skips the AI analysis and only generates the HTML report (default: false)")
     parser.add_argument("-o", "--only-seq-scan-ai-analysis", action="store_true",
