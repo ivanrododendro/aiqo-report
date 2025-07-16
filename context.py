@@ -15,9 +15,11 @@ class ContextLoader:
         self.server_optimizations = []
         self.event_optimizations = []
         self.query_optimizations_cache = {}
-        self.prompts = {} # Initialized here, loaded by _load_prompts()
+        self.system_prompt = None
+        self.format_prompt = None
+        self.plan_analysis_prompt = None # Stores the content previously referred to as 'PLAN_ANALYSIS'
 
-        self._load_prompts() # Prompts are always loaded relative to the script path
+        self._load_ai_instruction_prompts() # Load main AI instruction prompts
 
     def _load_file_content(self, file_path: Path, context_name: str, required: bool = False):
         """Helper to load content from a file."""
@@ -37,37 +39,20 @@ class ContextLoader:
             logger.error(f"Could not read {context_name} file '{file_path}': {e}")
             sys.exit(1)
 
-    def _load_prompts(self):
-        """Loads prompts from the prompts.txt file."""
-        prompts_file_path = self.script_base_path / 'prompts/prompts.txt'
-        current_prompt = None
-        current_content = []
+    def _load_ai_instruction_prompts(self):
+        """Loads the system, format, and main plan analysis prompts."""
+        system_file_path = self.script_base_path / 'prompts/SYSTEM.txt'
+        format_file_path = self.script_base_path / 'prompts/FORMAT.txt'
+        plan_analysis_file_path = self.script_base_path / 'prompts/prompts.txt' # Old prompts.txt now contains the main analysis prompt content
 
-        try:
-            with open(prompts_file_path, 'r', encoding='utf-8') as file:
-                for line in file:
-                    line = line.strip()
-                    if line.startswith('[') and line.endswith(']'):
-                        if current_prompt:
-                            self.prompts[current_prompt] = '\n'.join(current_content).strip()
-                        current_prompt = line[1:-1]
-                        current_content = []
-                    else:
-                        current_content.append(line)
+        self.system_prompt = self._load_file_content(system_file_path, "System prompt", required=True)
+        self.format_prompt = self._load_file_content(format_file_path, "Format prompt", required=True)
+        self.plan_analysis_prompt = self._load_file_content(plan_analysis_file_path, "Plan analysis prompt", required=True)
 
-            if current_prompt:
-                self.prompts[current_prompt] = '\n'.join(current_content).strip()
-
-            if not self.prompts:
-                logger.error(f"Failed to load prompts from: {prompts_file_path}. Exiting.")
-                sys.exit(1)
-            logger.info(f"Loaded prompts from: {prompts_file_path}")
-        except FileNotFoundError:
-            logger.error(f"Prompts file not found: {prompts_file_path}")
+        if not (self.system_prompt and self.format_prompt and self.plan_analysis_prompt):
+            logger.error("Failed to load all required AI instruction prompts. Exiting.")
             sys.exit(1)
-        except Exception as e:
-            logger.error(f"Error reading prompts file: {e}")
-            sys.exit(1)
+        logger.info("Loaded system, format, and plan analysis prompts.")
 
     def _parse_optimization_file(self, file_path: Path):
         """Helper to read and parse an optimization file."""
@@ -166,11 +151,21 @@ class ContextLoader:
 
     def build_full_prompt_with_optimizations(self, plan: str, query_code: str, custom_prompt: str = None, lang: str = "en") -> str:
         """
-        Constructs the full prompt for AI analysis by combining static prompts,
-        various contexts, applied optimizations, custom prompts, and the execution plan.
+        Constructs the full prompt for AI analysis by combining system/format prompts,
+        the main analysis prompt, various contexts, applied optimizations, custom prompts,
+        and the execution plan.
         """
-        static_prompt = self.prompts.get('PLAN_ANALYSIS', '')
-        full_prompt = static_prompt
+        full_prompt = ""
+
+        # Add System and Format prompts with tags
+        if self.system_prompt:
+            full_prompt += f">>> SYSTEM\n{self.system_prompt}\n<<< SYSTEM\n\n"
+        if self.format_prompt:
+            full_prompt += f">>> FORMAT\n{self.format_prompt}\n<<< FORMAT\n\n"
+
+        # Add the main plan analysis prompt content
+        if self.plan_analysis_prompt:
+            full_prompt += self.plan_analysis_prompt
 
         # Add DDL, server config, and infra context
         if self.ddl_context:
