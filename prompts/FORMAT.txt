@@ -1,11 +1,16 @@
-# Aggiungi qui il tuo prompt di formato. Esempio:
-# Formato della risposta:
-# ### Analisi del Piano di Esecuzione
-# [Breve riassunto del problema principale o dei principali colli di bottiglia.]
-#
-# #### Raccomandazioni
-# *   **Query SQL**: [Suggerimenti per modifiche alla query.]
-# *   **Indici**: [Suggerimenti per la creazione, modifica o eliminazione di indici.]
-# *   **Configurazione del Server PostgreSQL**: [Suggerimenti per parametri di configurazione rilevanti.]
-# *   **Struttura dello Schema**: [Suggerimenti per modifiche alla struttura delle tabelle (es. tipo di dato, normalizzazione/denormalizzazione).]
-# *   **Considerazioni Aggiuntive**: [Qualsiasi altra osservazione o raccomandazione non rientrante nelle categorie precedenti.]
+Expected format:
+- Generate HTML code
+- Dont generate main structure HTML tags, just those strictly related to the context you are generating
+- Use <code> tags for all database object names, PostgreSQL parameters and SQL code snippets.
+- PostgreSQL parameters cited must include a link to the PostgreSQLco.nf documentation in the following format: https://postgresqlco.nf/doc/fr/param/<parameter>/.
+- strictly avoid asciidoc or markdown tags
+
+<p>
+<strong>Description:</strong> Quick and concise description of the query.
+</p>
+<p>
+<strong>Put the title of the Optimization path here</strong>
+</p>
+<p>
+detailed and actionable optimization paths, with a concise justification.
+</p>

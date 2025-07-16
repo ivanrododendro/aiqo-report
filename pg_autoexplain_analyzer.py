@@ -49,7 +49,7 @@ class PGAutoExplainAnalyzer:
             temperature=self.temperature,
             ai_call_timeout=self.ai_call_timeout,
             lang=self.language,
-            prompts=self.context_loader.prompts # Get prompts from ContextLoader
+            prompts={} # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
         )
         self.log_parser = LogParser()
         # Pass the base path of the current script to ReportGenerator
