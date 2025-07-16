@@ -17,9 +17,8 @@ class ContextLoader:
         self.query_optimizations_cache = {}
         self.system_prompt = None
         self.format_prompt = None
-        self.plan_analysis_prompt = None # Stores the content previously referred to as 'PLAN_ANALYSIS'
 
-        self._load_ai_instruction_prompts() # Load main AI instruction prompts
+        self._load_ai_instruction_prompts() # Load AI instruction prompts
 
     def _load_file_content(self, file_path: Path, context_name: str, required: bool = False):
         """Helper to load content from a file."""
@@ -43,16 +42,14 @@ class ContextLoader:
         """Loads the system, format, and main plan analysis prompts."""
         system_file_path = self.script_base_path / 'prompts/SYSTEM.txt'
         format_file_path = self.script_base_path / 'prompts/FORMAT.txt'
-        plan_analysis_file_path = self.script_base_path / 'prompts/prompts.txt' # Old prompts.txt now contains the main analysis prompt content
 
         self.system_prompt = self._load_file_content(system_file_path, "System prompt", required=True)
         self.format_prompt = self._load_file_content(format_file_path, "Format prompt", required=True)
-        self.plan_analysis_prompt = self._load_file_content(plan_analysis_file_path, "Plan analysis prompt", required=True)
 
-        if not (self.system_prompt and self.format_prompt and self.plan_analysis_prompt):
+        if not (self.system_prompt and self.format_prompt):
             logger.error("Failed to load all required AI instruction prompts. Exiting.")
             sys.exit(1)
-        logger.info("Loaded system, format, and plan analysis prompts.")
+        logger.info("Loaded system and format prompts.")
 
     def _parse_optimization_file(self, file_path: Path):
         """Helper to read and parse an optimization file."""
@@ -164,8 +161,6 @@ class ContextLoader:
             full_prompt += f">>> FORMAT\n{self.format_prompt}\n<<< FORMAT\n\n"
 
         # Add the main plan analysis prompt content
-        if self.plan_analysis_prompt:
-            full_prompt += self.plan_analysis_prompt
 
         # Add DDL, server config, and infra context
         if self.ddl_context:
