@@ -166,7 +166,7 @@ class ContextLoader:
         if self.ddl_context:
             full_prompt += f">>> DDL\n{self.ddl_context}\n<<< DDL\n\n"
         if self.server_configuration_context:
-            full_prompt += f">>> CONFIG\n{self.server_configuration_context}\n<<< CONFIG\n\n"
+            full_prompt += f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
         if self.infra_context:
             full_prompt += f">>> INFRA\n{self.infra_context}\n<<< INFRA\n\n"
 
@@ -192,7 +192,7 @@ class ContextLoader:
 
         # Add combined custom prompt and applied optimizations with tags
         if full_custom_prompt:
-            full_prompt += f">>> CONTEXT\n{full_custom_prompt}\n<<< CONTEXT\n\n"
+            full_prompt += f">>> SERVER OPTIMIZATIONS\n{full_custom_prompt}\n<<< SERVER OPTIMIZATIONS\n\n"
 
         full_prompt += "\n\n" + plan
         full_prompt += f"\n\nPlease provide the analysis in {lang}."
