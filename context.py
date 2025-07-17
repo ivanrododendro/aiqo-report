@@ -162,13 +162,13 @@ class ContextLoader:
 
         # Add the main plan analysis prompt content
 
-        # Add DDL, server config, and infra context
+        # Add DDL, server config, and infra context with tags
         if self.ddl_context:
-            full_prompt += "\n\nDDL context:\n" + self.ddl_context
+            full_prompt += f">>> DDL\n{self.ddl_context}\n<<< DDL\n\n"
         if self.server_configuration_context:
-            full_prompt += "\n\nServer Configuration context:\n" + self.server_configuration_context
+            full_prompt += f">>> CONFIG\n{self.server_configuration_context}\n<<< CONFIG\n\n"
         if self.infra_context:
-            full_prompt += "\n\nInfrastructure context:\n" + self.infra_context
+            full_prompt += f">>> INFRA\n{self.infra_context}\n<<< INFRA\n\n"
 
         # Add applied optimizations context
         applied_optimizations_context = ""
@@ -190,8 +190,9 @@ class ContextLoader:
         if applied_optimizations_context:
             full_custom_prompt = applied_optimizations_context + (f"\n{full_custom_prompt}" if full_custom_prompt else "")
 
+        # Add combined custom prompt and applied optimizations with tags
         if full_custom_prompt:
-            full_prompt += "\n\n" + full_custom_prompt
+            full_prompt += f">>> CONTEXT\n{full_custom_prompt}\n<<< CONTEXT\n\n"
 
         full_prompt += "\n\n" + plan
         full_prompt += f"\n\nPlease provide the analysis in {lang}."
