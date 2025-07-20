@@ -246,7 +246,10 @@ class PGAutoExplainAnalyzer:
             self.daily_query_stats,
             self.context_loader.query_optimizations_cache, # Pass the query optimizations cache from ContextLoader
             self.context_loader.server_optimizations,    # Pass pre-loaded server optimizations from ContextLoader
-            self.context_loader.event_optimizations      # Pass pre-loaded event optimizations from ContextLoader
+            self.context_loader.event_optimizations,      # Pass pre-loaded event optimizations from ContextLoader
+            self.context_loader.ddl_context,
+            self.context_loader.server_configuration_context,
+            self.context_loader.infra_context
         )
 
         self.ai_caller.show_stats()

@@ -99,6 +99,9 @@
     const queryOptimizations = {{ query_optimizations | tojson | safe }};
     const serverOptimizations = {{ server_optimizations | tojson | safe }};
     const eventOptimizations = {{ event_optimizations | tojson | safe }};
+    const ddlContext = {{ ddl_context | tojson | safe }};
+    const serverConfigContext = {{ server_config_context | tojson | safe }};
+    const infraContext = {{ infra_context | tojson | safe }};
 </script>
 <h1 class="mb-4">{{ title }}</h1>
 <ul class="nav nav-tabs" id="dailyTabs" role="tablist">
@@ -377,6 +380,67 @@
             </div>
         </div>
     </div>
+
+    <!-- New Accordion for DDL Context -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingDdlContextCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ddlContextCollapse" aria-expanded="false" aria-controls="ddlContextCollapse">
+                <h3>Contexte DDL</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="ddlContextCollapse" aria-labelledby="headingDdlContextCollapse" data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="card card-body">
+                    {% if ddl_context %}
+                        <pre><code>{{ ddl_context | safe }}</code></pre>
+                    {% else %}
+                        <p>Aucun contexte DDL disponible.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Accordion for Server Configuration Context -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingServerConfigContextCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#serverConfigContextCollapse" aria-expanded="false" aria-controls="serverConfigContextCollapse">
+                <h3>Contexte de Configuration Serveur</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="serverConfigContextCollapse" aria-labelledby="headingServerConfigContextCollapse" data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="card card-body">
+                    {% if server_config_context %}
+                        <pre><code>{{ server_config_context | safe }}</code></pre>
+                    {% else %}
+                        <p>Aucun contexte de configuration serveur disponible.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Accordion for Infrastructure Context -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingInfraContextCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#infraContextCollapse" aria-expanded="false" aria-controls="infraContextCollapse">
+                <h3>Contexte d'Infrastructure</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="infraContextCollapse" aria-labelledby="headingInfraContextCollapse" data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="card card-body">
+                    {% if infra_context %}
+                        <pre><code>{{ infra_context | safe }}</code></pre>
+                    {% else %}
+                        <p>Aucun contexte d'infrastructure disponible.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
