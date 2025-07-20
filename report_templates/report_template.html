@@ -104,6 +104,7 @@
     const infraContext = {{ infra_context | tojson | safe }};
 </script>
 <h1 class="mb-4">{{ title }}</h1>
+<p class="text-muted">Rapport généré le : {{ report_creation_timestamp }}</p>
 <ul class="nav nav-tabs" id="dailyTabs" role="tablist">
     {% for day, reports in reports_by_day.items()|sort %}
     <li class="nav-item" role="presentation">

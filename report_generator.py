@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-import json # Import json to dump the daily_query_stats
+import json
+from datetime import datetime # Import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,8 @@ class ReportGenerator:
             event_optimizations=event_optimizations,
             ddl_context=ddl_context,
             server_config_context=server_config_context,
-            infra_context=infra_context
+            infra_context=infra_context,
+            report_creation_timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S") # Add creation timestamp
         )
         Path(output_path).write_text(html_report, encoding="utf-8")
 
