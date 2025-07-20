@@ -104,7 +104,7 @@
 <ul class="nav nav-tabs" id="dailyTabs" role="tablist">
     {% for day, reports in reports_by_day.items()|sort %}
     <li class="nav-item" role="presentation">
-        <a class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ day | replace('.', '-') }}-tab" data-bs-toggle="tab" href="#tab-{{ day | replace('.', '-') }}" role="tab" aria-controls="tab-{{ day | replace('.', '-') }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+        <a class="nav-link {% if loop.last %}active{% endif %}" id="tab-{{ day | replace('.', '-') }}-tab" data-bs-toggle="tab" href="#tab-{{ day | replace('.', '-') }}" role="tab" aria-controls="tab-{{ day | replace('.', '-') }}" aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
             {{ day }}
         </a>
     </li>
@@ -113,7 +113,7 @@
 
 <div class="tab-content" id="dailyTabContent">
     {% for day, reports in reports_by_day.items()|sort %}
-    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ day | replace('.', '-') }}" role="tabpanel" aria-labelledby="tab-{{ day | replace('.', '-') }}-tab">
+    <div class="tab-pane fade {% if loop.last %}show active{% endif %}" id="tab-{{ day | replace('.', '-') }}" role="tabpanel" aria-labelledby="tab-{{ day | replace('.', '-') }}-tab">
         <div class="card card-body mt-3">
 
             <h5 class="mt-4">Détail des requêtes individuelles pour le {{ day }}</h5>
@@ -757,11 +757,12 @@
         });
 
         // Manually trigger for the initially active tab on page load
-        const initialActiveTab = document.querySelector('#dailyTabs .nav-link.active');
-        if (initialActiveTab) {
-            const initialTargetTabPaneId = initialActiveTab.getAttribute('href').substring(1);
-            const initialDay = initialTargetTabPaneId.replace('tab-', '').replace(/-/g, '.');
-            updateDailyTabContent(initialDay);
+        // Find the active tab and trigger its content update
+        const activeTabElement = document.querySelector('#dailyTabs .nav-link.active');
+        if (activeTabElement) {
+            const targetPaneId = activeTabElement.getAttribute('href').substring(1);
+            const day = targetPaneId.replace('tab-', '').replace(/-/g, '.');
+            updateDailyTabContent(day);
         }
     });
 </script>
