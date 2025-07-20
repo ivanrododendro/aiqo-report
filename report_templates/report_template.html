@@ -381,8 +381,11 @@
             </div>
         </div>
     </div>
+</div> {# This closes the accordionGlobalSynthesis div #}
 
-    <h2>Contexte</h2>
+<h2>Contexte</h2>
+
+<div class="accordion" id="accordionContextDetails"> {# NEW ACCORDION CONTAINER for contexts #}
     <!-- New Accordion for DDL Context -->
     <div class="accordion-item">
         <h2 class="accordion-header" id="headingDdlContextCollapse">
@@ -390,7 +393,7 @@
                 <h3>Contexte DDL</h3>
             </button>
         </h2>
-        <div class="accordion-collapse collapse" id="ddlContextCollapse" aria-labelledby="headingDdlContextCollapse" data-bs-parent="#accordionGlobalSynthesis">
+        <div class="accordion-collapse collapse" id="ddlContextCollapse" aria-labelledby="headingDdlContextCollapse" data-bs-parent="#accordionContextDetails"> {# Updated data-bs-parent #}
             <div class="accordion-body">
                 <div class="card card-body">
                     {% if ddl_context %}
@@ -410,7 +413,7 @@
                 <h3>Contexte de Configuration Serveur</h3>
             </button>
         </h2>
-        <div class="accordion-collapse collapse" id="serverConfigContextCollapse" aria-labelledby="headingServerConfigContextCollapse" data-bs-parent="#accordionGlobalSynthesis">
+        <div class="accordion-collapse collapse" id="serverConfigContextCollapse" aria-labelledby="headingServerConfigContextCollapse" data-bs-parent="#accordionContextDetails"> {# Updated data-bs-parent #}
             <div class="accordion-body">
                 <div class="card card-body">
                     {% if server_config_context %}
@@ -430,7 +433,7 @@
                 <h3>Contexte d'Infrastructure</h3>
             </button>
         </h2>
-        <div class="accordion-collapse collapse" id="infraContextCollapse" aria-labelledby="headingInfraContextCollapse" data-bs-parent="#accordionGlobalSynthesis">
+        <div class="accordion-collapse collapse" id="infraContextCollapse" aria-labelledby="headingInfraContextCollapse" data-bs-parent="#accordionContextDetails"> {# Updated data-bs-parent #}
             <div class="accordion-body">
                 <div class="card card-body">
                     {% if infra_context %}
@@ -442,8 +445,7 @@
             </div>
         </div>
     </div>
-
-</div>
+</div> {# NEW CLOSING ACCORDION CONTAINER #}
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
