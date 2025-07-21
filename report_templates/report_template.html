@@ -331,7 +331,7 @@
                         </thead>
                         <tbody>
                         {% for stat in query_stats %} {# This is now globalQueryStats in JS, but query_stats in Jinja #}
-                        <tr scope='row'>
+                        <tr scope='row' class="global-query-row" data-query-code="{{ stat.code }}" style="cursor:pointer;">
                             <td>[{{ stat.code[:6] }}] {{ stat.name[:QUERY_NAME_LIMIT] }}</td>
                             <td id='cumulated-time-{{ stat.code }}'>{{ stat.cumulated_time }}</td>
                             <script>document.getElementById('cumulated-time-{{ stat.code }}').innerHTML = Duration.fromMillis(
@@ -718,6 +718,44 @@
             const day = targetPaneId.replace('tab-', '').replace(/-/g, '.');
             updateDailyTabContent(day);
         }
+
+        // --- Click handler for Global Synthesis Table rows ---
+        document.querySelectorAll('.global-query-row').forEach(row => {
+            row.addEventListener('click', function () {
+                const code = this.getAttribute('data-query-code');
+                if (!code) return;
+
+                // Find the earliest day containing this query code
+                let targetDay = null;
+                for (const day of allDays) {
+                    const dayStats = dailyQueryStats[day];
+                    if (dayStats?.queries_by_code?.[code] != null) {
+                        targetDay = day;
+                        break;
+                    }
+                }
+                if (!targetDay) return;
+
+                const tabId = `tab-${targetDay.replace(/\./g, '-')}-tab`;
+                const tabEl = document.getElementById(tabId);
+                if (tabEl) {
+                    const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
+                    tabInstance.show();
+
+                    // After the tab pane is visible, scroll to & expand the first accordion item for this query
+                    setTimeout(() => {
+                        const selector = `#tab-${targetDay.replace(/\./g, '-')} .accordion-button[data-query-code='${code}']`;
+                        const btn = document.querySelector(selector);
+                        if (btn) {
+                            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            if (btn.classList.contains('collapsed')) {
+                                btn.click();
+                            }
+                        }
+                    }, 200);
+                }
+            });
+        });
     });
 </script>
 </body>
