@@ -17,8 +17,8 @@ DEFAULT_LANG = "fr" # Default language for output, not for prompt file selection
 DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging (default to INFO, can be overridden by CLI)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -281,6 +281,8 @@ def parse_cli_arguments():
                         help="Enables target query mode for analysis (default: false)")
     parser.add_argument("--context-folder", "-cf", type=str, default=None,
                         help="Path to a directory containing optimization context files (SERVER.txt, EVENTS.txt, query-specific .txt files). Overrides the default 'CONTEXT' subfolder behavior.")
+    parser.add_argument("-d", "--debug", action="store_true",
+                        help="Enable debug logging (default: false)")
 
     args, unknown_args = parser.parse_known_args()
 
@@ -312,6 +314,16 @@ def parse_cli_arguments():
 
 def main():
     args = parse_cli_arguments()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logging.getLogger("ai_caller").setLevel(logging.DEBUG)
+        logging.getLogger("context").setLevel(logging.DEBUG)
+        logging.getLogger("log_parser").setLevel(logging.DEBUG)
+        logging.getLogger("report_generator").setLevel(logging.DEBUG)
+        logging.getLogger("sql_utils").setLevel(logging.DEBUG)
+        logger.debug("Debug logging enabled.")
+
     analyzer = PGAutoExplainAnalyzer(args)
     analyzer.run()
 
