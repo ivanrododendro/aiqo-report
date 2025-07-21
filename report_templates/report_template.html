@@ -682,6 +682,8 @@
             if (tabEl) {
                 const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
                 tabInstance.show();
+                // Scroll to the top smoothly after switching tab
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         };
 
