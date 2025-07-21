@@ -579,7 +579,7 @@
         });
 
         const ctx2 = document.getElementById('dailyCumulatedTimeChart').getContext('2d');
-        new Chart(ctx2, {
+        const dailyCumulatedTimeChartObj = new Chart(ctx2, {
             type: 'line', // Default type for the first dataset
             data: {
                 labels: allDays, // Use the expanded allDays here too
@@ -666,6 +666,24 @@
                 }
             }
         });
+
+        // --- Click handler: navigate to the day represented by the clicked point/bar ---
+        document.getElementById('dailyCumulatedTimeChart').onclick = function(evt) {
+            const chart = dailyCumulatedTimeChartObj;
+            const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+            if (!points.length) return;
+
+            const idx = points[0].index;
+            const day = chart.data.labels[idx];
+
+            // Activate the corresponding day tab
+            const tabId = `tab-${day.replace(/\./g, '-')}-tab`;
+            const tabEl = document.getElementById(tabId);
+            if (tabEl) {
+                const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
+                tabInstance.show();
+            }
+        };
 
         // --- New Logic for Daily Tab Content Population ---
 
