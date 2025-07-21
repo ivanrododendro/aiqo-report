@@ -16,7 +16,7 @@ class ReportGenerator:
         )
         self.template = self.env.get_template("report_templates/report_template.html")
 
-    def generate_report(self, output_path, title, model, query_stats, reports_by_day, daily_query_stats, query_optimizations, server_optimizations, event_optimizations, ddl_context, server_config_context, infra_context):
+    def generate_report(self, output_path, title, model, query_stats, reports_by_day, daily_query_stats, query_optimizations, server_optimizations, event_optimizations, ddl_context, server_config_context, infra_context, skip_ai_analysis):
         logger.info(f"Generating HTML report in {output_path}")
 
         # Convert defaultdicts to regular dicts for JSON serialization
@@ -42,6 +42,7 @@ class ReportGenerator:
             ddl_context=ddl_context,
             server_config_context=server_config_context,
             infra_context=infra_context,
+            skip_ai_analysis=skip_ai_analysis, # Pass the flag to the template
             report_creation_timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S") # Add creation timestamp
         )
         Path(output_path).write_text(html_report, encoding="utf-8")

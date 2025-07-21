@@ -383,6 +383,7 @@
     </div>
 </div> {# This closes the accordionGlobalSynthesis div #}
 
+{% if not skip_ai_analysis %}
 <h2>Contexte</h2>
 
 <div class="accordion" id="accordionContextDetails"> {# NEW ACCORDION CONTAINER for contexts #}
@@ -446,6 +447,7 @@
         </div>
     </div>
 </div> {# NEW CLOSING ACCORDION CONTAINER #}
+{% endif %}
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

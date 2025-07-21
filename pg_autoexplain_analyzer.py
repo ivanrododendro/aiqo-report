@@ -249,7 +249,8 @@ class PGAutoExplainAnalyzer:
             self.context_loader.event_optimizations,      # Pass pre-loaded event optimizations from ContextLoader
             self.context_loader.ddl_context,
             self.context_loader.server_configuration_context,
-            self.context_loader.infra_context
+            self.context_loader.infra_context,
+            self.skip_ai_analysis # Pass the skip_ai_analysis flag
         )
 
         self.ai_caller.show_stats()
