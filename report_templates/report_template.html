@@ -347,24 +347,6 @@
     </div>
 
     <div class="accordion-item">
-        <h2 class="accordion-header" id="headingDailyQueryDurationChartCollapse">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dailyQueryDurationChartCollapse" aria-expanded="false" aria-controls="dailyQueryDurationChartCollapse">
-                <h3>Tendances quotidiennes de la durée des requêtes</h3>
-            </button>
-        </h2>
-        <div class="accordion-collapse collapse" id="dailyQueryDurationChartCollapse" aria-labelledby="headingDailyQueryDurationChartCollapse" data-bs-parent="#accordionGlobalSynthesis">
-            <div class="accordion-body">
-                <div class="card card-body">
-                    <canvas id="dailyQueryDurationChart"></canvas>
-                </div>
-                <div class="card card-body">
-                    <div id="queryOptimizationLegend"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-item">
         <h2 class="accordion-header" id="headingDailyCumulatedTimeChartCollapse">
             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dailyCumulatedTimeChartCollapse" aria-expanded="false" aria-controls="dailyCumulatedTimeChartCollapse">
                 <h3>Tendances quotidiennes du temps cumulé et du nombre de requêtes</h3>
@@ -561,104 +543,6 @@
         eventOptimizations.forEach(opt => {
             addOptimization(cumulatedTimeChartAnnotations, genericOptimizationLegendEntries, opt, "Événement", 'rgba(0, 128, 0, 0.8)'); // Green
         });
-
-
-        const ctx = document.getElementById('dailyQueryDurationChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: allDays,
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Daily Cumulated Query Duration by Query Code (Minutes)'
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    if (context.dataset.yAxisID === 'yAxisRightTotalQueries') {
-                                        label += context.parsed.y.toFixed(0); // Total queries are integers
-                                    } else {
-                                        label += context.parsed.y.toFixed(2) + ' min';
-                                    }
-                                }
-                                return label;
-                            }
-                        }
-                    },
-                    legend: {
-                        onClick: (e, legendItem, legend) => {
-                            const chart = legend.chart;
-                            const datasetIndex = legendItem.datasetIndex;
-
-                            // Check if the clicked item is already the only visible one
-                            const isAlreadySolo = chart.data.datasets.every((dataset, i) =>
-                                i === datasetIndex ? !dataset.hidden : dataset.hidden
-                            );
-
-                            if (isAlreadySolo) {
-                                // If already solo, make all visible again
-                                chart.data.datasets.forEach(dataset => {
-                                    dataset.hidden = false;
-                                });
-                            } else {
-                                // Solo the clicked dataset
-                                chart.data.datasets.forEach((dataset, i) => {
-                                    dataset.hidden = (i !== datasetIndex);
-                                });
-                            }
-                            chart.update(); // Update the chart to trigger rescale
-                        }
-                    },
-                    annotation: { // Add annotation plugin configuration here
-                        annotations: queryChartAnnotations // Apply query-specific annotations here
-                    }
-                },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Date'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'Duration (Minutes)'
-                        },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // After chart creation, populate the optimization legend
-        const queryLegendContainer = document.getElementById('queryOptimizationLegend');
-        if (queryOptimizationLegendEntries.length > 0) {
-            let legendHtml = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
-            // Sort legend entries by ID (alphabetical) for better readability
-            queryOptimizationLegendEntries.sort((a, b) => a.id.localeCompare(b.id)).forEach(entry => {
-                legendHtml += `<li><strong>${entry.id}</strong>`;
-                if (entry.queryCode) {
-                    legendHtml += ` [${entry.queryCode.substring(0, 6)}]`;
-                }
-                legendHtml += `: <code>${entry.text}</code></li>`;
-            });
-            legendHtml += '</ul>';
-            queryLegendContainer.innerHTML = legendHtml;
-        } else {
-            queryLegendContainer.innerHTML = '<p>Aucune optimisation enregistrée.</p>';
-        }
 
         // After chart creation, populate the optimization legend
         const genericLegendContainer = document.getElementById('genericOptimizationLegend'); // Renamed from legendContainer
