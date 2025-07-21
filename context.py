@@ -133,7 +133,7 @@ class ContextLoader:
 
     def get_query_optimizations(self, query_code: str):
         """Retrieves or loads query-specific optimizations for a given query code."""
-        logger.info("Query code : " + query_code)
+        logger.info("Query code : " + query_code[:6]) # Log only the first 6 characters
 
         if not self.optimization_base_path or not self.optimization_base_path.is_dir():
             return []
