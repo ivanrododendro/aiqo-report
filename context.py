@@ -139,7 +139,8 @@ class ContextLoader:
             return []
 
         if query_code not in self.query_optimizations_cache:
-            file_path = self.optimization_base_path / f"{query_code[:6]}.txt"
+            query_folder_path = self.optimization_base_path / "QUERIES"
+            file_path = query_folder_path / f"{query_code[:6]}.txt"
             self.query_optimizations_cache[query_code] = self._parse_optimization_file(file_path)
             if self.query_optimizations_cache[query_code]:
                 logger.info(f"Optimisations de requête chargées pour {query_code[:6]} depuis : {file_path}")
