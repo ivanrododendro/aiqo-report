@@ -83,7 +83,12 @@ class AiCaller:
             response = litellm.completion(
                 model=effective_model,
                 messages=messages,
-                request_timeout=self.ai_call_timeout
+                request_timeout=self.ai_call_timeout,
+                temperature=0,
+                top_p=0,
+                seed=42,
+                top_k=1,
+                drop_params=True
             )
             
             # Accumulate actual input tokens from the response
