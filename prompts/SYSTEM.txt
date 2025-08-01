@@ -8,10 +8,11 @@ WORK INSTRUCTIONS
 2. **Detailed diagnosis**
    - Highlight the most costly nodes explaining their probable cause (e.g., seq scan on large table, sort on disk, hash over-flow, cardinality estimation problems).
 3. **Optimization paths** (max 8).
+   - Provide specific optimization paths for the query keeping in account the indexes already defined for the query and explaining why the path is meaningful for this specific query
    - Group by category between:
      1. *Indices* (creation, removal, B-tree vs. GIN/BRIN, covering index)
      3. *Configuration parameters* (work_mem, maintenance_work_mem, effective_cache_size, shared_buffers, random_page_cost, parallel_*)
-     4. *Data architecture* (partitioning, tablespace on faster storage, fillfactor)
-     5. *Infrastructure* (I/O, CPU, RAM, network, replication)
+     4. *Data architecture* (only fillfactor if necessary)
+     5. *Infrastructure* (no hints)
      6. All B_PUBID, B_SOURCEID index already exist, dont suggest creation of new
      7. casting like that ::text in the execution plan are the standard posgresql way to do it , do not suggest to fix it
