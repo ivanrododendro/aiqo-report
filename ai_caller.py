@@ -80,16 +80,26 @@ class AiCaller:
             return ai_hints
 
         try:
-            response = litellm.completion(
-                model=effective_model,
-                messages=messages,
-                request_timeout=self.ai_call_timeout,
-                temperature=0,
-                top_p=0,
-                seed=42,
-                top_k=1,
-                drop_params=True
-            )
+            # Retrieve model information to check the provider
+            model_info = litellm.get_model_info(effective_model)
+            is_openai_model = model_info.get('litellm_provider') == 'openai' if model_info else False
+
+            # Set parameters conditionally based on the provider
+            response_params = {
+                "model": effective_model,
+                "messages": messages,
+                "request_timeout": self.ai_call_timeout,
+                "temperature": 0,
+                "top_p": 0,
+                "seed": 42,
+                "drop_params": True
+            }
+
+            # Only set top_k if not an OpenAI model
+            if not is_openai_model:
+                response_params["top_k"] = 1
+
+            response = litellm.completion(**response_params)
             
             # Accumulate actual input tokens from the response
             if response.usage and hasattr(response.usage, 'prompt_tokens') and response.usage.prompt_tokens is not None:
