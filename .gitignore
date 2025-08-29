@@ -8,3 +8,4 @@ api_keys.txt
 /.aider.tags.cache.v4/cache.db-shm
 /.aider.tags.cache.v4/cache.db-wal
 .aider*
+__pycache__/
