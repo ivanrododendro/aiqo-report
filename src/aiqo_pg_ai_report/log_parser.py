@@ -6,6 +6,7 @@ import zipfile
 
 logger = logging.getLogger(__name__)
 
+
 def parse_log_entry(log_entry_text):
     duration_ms = None
     first_line = log_entry_text.splitlines()[0]
@@ -15,7 +16,7 @@ def parse_log_entry(log_entry_text):
             duration_ms = float(duration_match.group(1))
         except ValueError:
             logger.warning(f"Could not parse duration from line: {first_line}")
-            duration_ms = None # Ensure it's None if parsing fails
+            duration_ms = None  # Ensure it's None if parsing fails
 
     # Extract the timestamp from the first 23 characters of the log entry
     timestamp = log_entry_text[:23].strip()
@@ -63,7 +64,7 @@ def parse_log_entry(log_entry_text):
         "job_name": job_name,
         "query_text": "\n".join(query_lines).strip(),
         "execution_plan": "\n".join(plan_lines).strip(),
-        "duration" : duration_ms
+        "duration": duration_ms,
     }
 
 
@@ -85,37 +86,38 @@ class LogParser:
         pass
 
     def _process_plain_text_file(self, file_obj, log_file_path):
-        logger.info(f'Processing plain text file {file_obj.name} from {log_file_path}')
+        logger.info(f"Processing plain text file {file_obj.name} from {log_file_path}")
         line_number = 0
         for line in file_obj:
             line_number += 1
-            if 'plan:' in line:
+            if "plan:" in line:
                 try:
                     # Pass the file_obj (iterator) and the current line
                     log_entry_text = extract_plan_starting_at_line(file_obj, line)
                     yield parse_log_entry(log_entry_text)
                 except ValueError as e:
-                    logger.warning(f"Skipping log entry at line {line_number} in {log_file_path} due to parsing error: {e}")
+                    logger.warning(
+                        f"Skipping log entry at line {line_number} in {log_file_path} due to parsing error: {e}"
+                    )
                     continue
                 except Exception as e:
                     logger.error(f"Unexpected error processing log entry at line {line_number} in {log_file_path}: {e}")
                     continue
 
     def parse_log_file(self, log_file_path):
-        if str(log_file_path).endswith('.gz'):
-            logger.info(f'Uncompressing and parsing gzip file: {log_file_path}')
-            with gzip.open(log_file_path, 'rt', encoding='utf-8') as f:
+        if str(log_file_path).endswith(".gz"):
+            logger.info(f"Uncompressing and parsing gzip file: {log_file_path}")
+            with gzip.open(log_file_path, "rt", encoding="utf-8") as f:
                 yield from self._process_plain_text_file(f, log_file_path)
-        elif str(log_file_path).endswith('.zip'):
-            logger.info(f'Uncompressing and parsing zip file: {log_file_path}')
-            with zipfile.ZipFile(log_file_path, 'r') as zip_ref:
+        elif str(log_file_path).endswith(".zip"):
+            logger.info(f"Uncompressing and parsing zip file: {log_file_path}")
+            with zipfile.ZipFile(log_file_path, "r") as zip_ref:
                 for file_name in zip_ref.namelist():
                     with zip_ref.open(file_name) as raw_f:
                         # Wrap the raw bytes file with TextIOWrapper for UTF-8 decoding
-                        f = io.TextIOWrapper(raw_f, encoding='utf-8', errors='replace')
+                        f = io.TextIOWrapper(raw_f, encoding="utf-8", errors="replace")
                         yield from self._process_plain_text_file(f, log_file_path)
         else:
-            logger.info(f'Parsing plain text log file: {log_file_path}')
-            with open(log_file_path, 'r', encoding='utf-8') as f:
+            logger.info(f"Parsing plain text log file: {log_file_path}")
+            with open(log_file_path, "r", encoding="utf-8") as f:
                 yield from self._process_plain_text_file(f, log_file_path)
-

@@ -2,7 +2,7 @@
 
 import argparse
 import logging
-import sys # Import sys for exit
+import sys  # Import sys for exit
 from collections import defaultdict
 from pathlib import Path
 
@@ -10,15 +10,15 @@ from pathlib import Path
 from ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT
 from log_parser import LogParser
 from report_generator import ReportGenerator, QUERY_NAME_LIMIT
-from sql_utils import SQLUtils # Import the new SQLUtils class
-from context import ContextLoader # Import the new ContextLoader class
+from sql_utils import SQLUtils  # Import the new SQLUtils class
+from context import ContextLoader  # Import the new ContextLoader class
 
-DEFAULT_LANG = "fr" # Default language for output, not for prompt file selection
+DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selection
 DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 
 # Configure logging (default to INFO, can be overridden by CLI)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -34,20 +34,19 @@ class PGAutoExplainAnalyzer:
         self.filter_strings = args.filter
         self.custom_prompt = args.custom_prompt
         self.target_query_mode = args.target_query_mode
-        self.context_folder = args.context_folder # Nouveau paramètre renommé
-        self.directory_mode_active = args.directory_mode_active # Nouveau: flag pour le mode répertoire
+        self.context_folder = args.context_folder  # Nouveau paramètre renommé
+        self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
 
         # Initialize ContextLoader which handles loading prompts and all context/optimization files
         self.context_loader = ContextLoader(
-            script_base_path=Path(__file__).parent,
-            context_folder_cli_arg=self.context_folder
+            script_base_path=Path(__file__).parent, context_folder_cli_arg=self.context_folder
         )
 
         self.ai_caller = AiCaller(
             model=self.model,
             ai_call_timeout=self.ai_call_timeout,
             lang=self.language,
-            prompts={} # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
+            prompts={},  # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
         )
         self.log_parser = LogParser()
         # Pass the base path of the current script to ReportGenerator
@@ -57,9 +56,9 @@ class PGAutoExplainAnalyzer:
         self.reports_by_day = defaultdict(list)
         self.all_query_stats_dict = {}
         # New data structure for daily query statistics
-        self.daily_query_stats = defaultdict(lambda: {"total_queries": 0, "cumulated_time": 0.0, "queries_by_code": defaultdict(float)})
-
-
+        self.daily_query_stats = defaultdict(
+            lambda: {"total_queries": 0, "cumulated_time": 0.0, "queries_by_code": defaultdict(float)}
+        )
 
     def _process_parsed_log_entry(self, log_entry):
         query_name = log_entry["query_name"]
@@ -74,13 +73,13 @@ class PGAutoExplainAnalyzer:
         title = job_name + " " + query_name
         execution_plan = log_entry["execution_plan"]
         timestamp = log_entry["timestamp"]
-        day = timestamp[:10] # Extract YYYY-MM-DD
+        day = timestamp[:10]  # Extract YYYY-MM-DD
         query = query_text
-        ai_hints = "" # Initialize to empty string
-        seq_scan_indicator = (execution_plan.find("Seq Scan") != -1)
+        ai_hints = ""  # Initialize to empty string
+        seq_scan_indicator = execution_plan.find("Seq Scan") != -1
         duration = log_entry["duration"]
 
-        should_perform_ai_call = True # Flag to control if AI call should be made
+        should_perform_ai_call = True  # Flag to control if AI call should be made
 
         # 1. Check if AI analysis is globally skipped
         if self.skip_ai_analysis:
@@ -92,16 +91,20 @@ class PGAutoExplainAnalyzer:
         if should_perform_ai_call and self.filter_strings:
             match_found = False
             for filter_str in self.filter_strings:
-                if (filter_str.lower() in job_name.lower() or
-                    filter_str.lower() in query_name.lower() or
-                    filter_str.lower() in query_text.lower() or
-                    filter_str.lower() in query_code.lower()):
+                if (
+                    filter_str.lower() in job_name.lower()
+                    or filter_str.lower() in query_name.lower()
+                    or filter_str.lower() in query_text.lower()
+                    or filter_str.lower() in query_code.lower()
+                ):
                     match_found = True
                     break
             if not match_found:
                 ai_hints = "AI analysis skipped due to filter criteria."
                 should_perform_ai_call = False
-                logger.info(f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria.")
+                logger.info(
+                    f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria."
+                )
 
         # 3. Check max AI calls limit (if not already skipped)
         if should_perform_ai_call and self.limit_ai_calls != -1 and (self.ai_caller.call_count >= self.limit_ai_calls):
@@ -121,7 +124,7 @@ class PGAutoExplainAnalyzer:
                 plan=log_entry["execution_plan"],
                 query_code=query_code,
                 custom_prompt=self.custom_prompt,
-                lang=self.language
+                lang=self.language,
             )
             ai_hints_result = self.ai_caller.call_ai_provider(full_prompt)
             if ai_hints_result is None:
@@ -140,7 +143,7 @@ class PGAutoExplainAnalyzer:
             "code": query_code,
             "day": day,
             "seq_scan_indicator": seq_scan_indicator,
-            "duration" : duration
+            "duration": duration,
         }
 
         self.all_reports.append(report)
@@ -152,7 +155,7 @@ class PGAutoExplainAnalyzer:
                 "code": query_code,
                 "name": report["query_name"],
                 "count": 1,
-                "cumulated_time": duration
+                "cumulated_time": duration,
             }
         else:
             self.all_query_stats_dict[query_code]["count"] += 1
@@ -163,36 +166,37 @@ class PGAutoExplainAnalyzer:
         self.daily_query_stats[day]["cumulated_time"] += duration
         self.daily_query_stats[day]["queries_by_code"][query_code] += duration
 
-
     def run(self):
         # Rate limit variables are now handled within AiCaller, so these global assignments are removed.
 
         log_files = []
         report_filename = None
-        
-        if self.directory_mode_active: # Utilise le nouveau flag
+
+        if self.directory_mode_active:  # Utilise le nouveau flag
             directory = Path(self.args.log_filename)
             # La vérification de l'existence du répertoire est maintenant faite dans parse_cli_arguments
 
             log_files = list(directory.glob("*.log")) + list(directory.glob("*.gz")) + list(directory.glob("*.zip"))
             if not log_files:
                 logger.error(f"No .log, .gz or .zip files found in directory: {self.args.log_filename}")
-                sys.exit(1) # Utiliser sys.exit(1) pour quitter proprement
+                sys.exit(1)  # Utiliser sys.exit(1) pour quitter proprement
 
             logger.info(f"Processing directory: {self.args.log_filename}")
             logger.info(f"Found files: {[str(f) for f in log_files]}")
-            
+
             if self.args.report_filename:
                 report_filename = self.args.report_filename
             else:
                 report_filename = str(directory / f"{directory.name}_report.html")
 
-        else: # Single file mode
+        else:  # Single file mode
             log_file_path = Path(self.args.log_filename)
             # La vérification de l'existence du fichier est maintenant faite dans parse_cli_arguments
             log_files = [log_file_path]
 
-            report_filename = self.args.report_filename if self.args.report_filename else f"{self.args.log_filename}_report.html"
+            report_filename = (
+                self.args.report_filename if self.args.report_filename else f"{self.args.log_filename}_report.html"
+            )
             logger.info(f"Processing PostgreSQL log file {self.args.log_filename}")
 
         resolved_report_filename = Path(report_filename).resolve()
@@ -215,18 +219,24 @@ class PGAutoExplainAnalyzer:
             if self.context_loader.ddl_context:
                 logger.info(f"DDL context loaded from file: {self.context_loader.optimization_base_path / 'DDL.txt'}")
             if self.context_loader.server_configuration_context:
-                logger.info(f"Server configuration context loaded from file: {self.context_loader.optimization_base_path / 'CONFIG.txt'}")
+                logger.info(
+                    f"Server configuration context loaded from file: {self.context_loader.optimization_base_path / 'CONFIG.txt'}"
+                )
             if self.context_loader.infra_context:
-                logger.info(f"Infrastructure context loaded from file: {self.context_loader.optimization_base_path / 'INFRA.txt'}")
+                logger.info(
+                    f"Infrastructure context loaded from file: {self.context_loader.optimization_base_path / 'INFRA.txt'}"
+                )
             # Log for context folder
             if self.context_loader.optimization_base_path:
                 logger.info(f"Optimization context loaded from folder: {self.context_loader.optimization_base_path}")
-        
+
         if self.target_query_mode:
             logger.info("Target Query Mode is ENABLED.")
 
         if self.filter_strings:
-            logger.info(f"AI analysis will be filtered by: {', '.join(self.filter_strings)}. All queries will still be included in the report.")
+            logger.info(
+                f"AI analysis will be filtered by: {', '.join(self.filter_strings)}. All queries will still be included in the report."
+            )
 
         for log_file in log_files:
             for parsed_entry in self.log_parser.parse_log_file(log_file):
@@ -234,7 +244,11 @@ class PGAutoExplainAnalyzer:
 
         # Convert query_stats dict to sorted list for the report
         query_stats_list = sorted(self.all_query_stats_dict.values(), key=lambda x: x["cumulated_time"], reverse=True)
-        report_title = "PostgreSQL Auto Explain Report" if self.skip_ai_analysis else f"PostgreSQL Auto Explain AI Report ({self.model}) "
+        report_title = (
+            "PostgreSQL Auto Explain Report"
+            if self.skip_ai_analysis
+            else f"PostgreSQL Auto Explain AI Report ({self.model}) "
+        )
 
         # Passer les optimisations collectées au générateur de rapport
         self.report_generator.generate_report(
@@ -244,13 +258,13 @@ class PGAutoExplainAnalyzer:
             query_stats_list,
             self.reports_by_day,
             self.daily_query_stats,
-            self.context_loader.query_optimizations_cache, # Pass the query optimizations cache from ContextLoader
-            self.context_loader.server_optimizations,    # Pass pre-loaded server optimizations from ContextLoader
-            self.context_loader.event_optimizations,      # Pass pre-loaded event optimizations from ContextLoader
+            self.context_loader.query_optimizations_cache,  # Pass the query optimizations cache from ContextLoader
+            self.context_loader.server_optimizations,  # Pass pre-loaded server optimizations from ContextLoader
+            self.context_loader.event_optimizations,  # Pass pre-loaded event optimizations from ContextLoader
             self.context_loader.ddl_context,
             self.context_loader.server_configuration_context,
             self.context_loader.infra_context,
-            self.skip_ai_analysis # Pass the skip_ai_analysis flag
+            self.skip_ai_analysis,  # Pass the skip_ai_analysis flag
         )
 
         self.ai_caller.show_stats()
@@ -258,31 +272,64 @@ class PGAutoExplainAnalyzer:
 
 def parse_cli_arguments():
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
-    parser.add_argument("log_filename", nargs="?", help="Path to the PostgreSQL log file or directory containing log files.") # Updated help text
-    parser.add_argument("-m", "--model", default=DEFAULT_MODEL,
-                        help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})")
-    parser.add_argument("-l", "--limit-ai-calls", type=int, default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
-                        help=f"Maximum number of AI calls to make. Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})")
-    parser.add_argument( "--ai-call-timeout", type=int, default=DEFAULT_AI_CALL_TIMEOUT,
-                        help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})")
-    parser.add_argument("--language", default=DEFAULT_LANG,
-                        help=f"Language for AI output (default: ${DEFAULT_LANG})")
-    parser.add_argument("-s", "--skip_ai_analysis", action="store_true",
-                        help="Skips the AI analysis and only generates the HTML report (default: false)")
-    parser.add_argument("-o", "--only-seq-scan-ai-analysis", action="store_true",
-                        help="Enables AI Analysis only for queries with Seq Scan (default: false)")
-    parser.add_argument("-f", "--filter", action="append",
-                        help="Perform AI analysis only for queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times. All queries will still be included in the report.")
-    parser.add_argument("-c", "--custom-prompt", type=str, default=None,
-                        help="Add a custom prompt to the default AI prompt (optional)")
-    parser.add_argument("-r", "--report-filename", type=str, default=None,
-                        help="Override the HTML report filename (optional)")
-    parser.add_argument("--target-query-mode", action="store_true", default=False,
-                        help="Enables target query mode for analysis (default: false)")
-    parser.add_argument("--context-folder", "-cf", type=str, default=None,
-                        help="Path to a directory containing optimization context files (SERVER.txt, EVENTS.txt, query-specific .txt files). Overrides the default 'CONTEXT' subfolder behavior.")
-    parser.add_argument("-d", "--debug", action="store_true",
-                        help="Enable debug logging (default: false)")
+    parser.add_argument(
+        "log_filename", nargs="?", help="Path to the PostgreSQL log file or directory containing log files."
+    )  # Updated help text
+    parser.add_argument(
+        "-m", "--model", default=DEFAULT_MODEL, help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})"
+    )
+    parser.add_argument(
+        "-l",
+        "--limit-ai-calls",
+        type=int,
+        default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
+        help=f"Maximum number of AI calls to make. Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})",
+    )
+    parser.add_argument(
+        "--ai-call-timeout",
+        type=int,
+        default=DEFAULT_AI_CALL_TIMEOUT,
+        help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})",
+    )
+    parser.add_argument("--language", default=DEFAULT_LANG, help=f"Language for AI output (default: ${DEFAULT_LANG})")
+    parser.add_argument(
+        "-s",
+        "--skip_ai_analysis",
+        action="store_true",
+        help="Skips the AI analysis and only generates the HTML report (default: false)",
+    )
+    parser.add_argument(
+        "-o",
+        "--only-seq-scan-ai-analysis",
+        action="store_true",
+        help="Enables AI Analysis only for queries with Seq Scan (default: false)",
+    )
+    parser.add_argument(
+        "-f",
+        "--filter",
+        action="append",
+        help="Perform AI analysis only for queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times. All queries will still be included in the report.",
+    )
+    parser.add_argument(
+        "-c", "--custom-prompt", type=str, default=None, help="Add a custom prompt to the default AI prompt (optional)"
+    )
+    parser.add_argument(
+        "-r", "--report-filename", type=str, default=None, help="Override the HTML report filename (optional)"
+    )
+    parser.add_argument(
+        "--target-query-mode",
+        action="store_true",
+        default=False,
+        help="Enables target query mode for analysis (default: false)",
+    )
+    parser.add_argument(
+        "--context-folder",
+        "-cf",
+        type=str,
+        default=None,
+        help="Path to a directory containing optimization context files (SERVER.txt, EVENTS.txt, query-specific .txt files). Overrides the default 'CONTEXT' subfolder behavior.",
+    )
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging (default: false)")
 
     args, unknown_args = parser.parse_known_args()
 
@@ -304,8 +351,10 @@ def parse_cli_arguments():
     if args.directory_mode_active:
         logger.info(f"L'exécution est en mode répertoire pour le chemin : {args.log_filename}")
     else:
-        if not log_path.is_file(): # If it's not a directory, it must be a file
-            logger.error(f"Erreur: Le chemin spécifié '{args.log_filename}' n'est ni un fichier ni un répertoire valide.")
+        if not log_path.is_file():  # If it's not a directory, it must be a file
+            logger.error(
+                f"Erreur: Le chemin spécifié '{args.log_filename}' n'est ni un fichier ni un répertoire valide."
+            )
             sys.exit(1)
         logger.info(f"L'exécution est en mode fichier unique pour le chemin : {args.log_filename}")
 
@@ -326,6 +375,7 @@ def main():
 
     analyzer = PGAutoExplainAnalyzer(args)
     analyzer.run()
+
 
 if __name__ == "__main__":
     main()
