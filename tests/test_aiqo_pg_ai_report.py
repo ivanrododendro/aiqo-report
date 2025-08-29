@@ -1,5 +1,5 @@
 import pytest
-from pg_autoexplain_ai_analysis import normalize_sql
+from aiqo_pg_ai_report import normalize_sql
 
 
 def test_normalize_sql_simple_query():
