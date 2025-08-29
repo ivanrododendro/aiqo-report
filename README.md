@@ -24,10 +24,6 @@ This tool automates the analysis of PostgreSQL `auto_explain` log files using AI
 
 This tool requires Python 3.8+ and the following dependencies:
 
-```bash
-pip install litellm sqlparse ratelimit
-```
-
 Other dependencies (such as requests, tiktoken, etc.) are handled by LiteLLM as needed.
 
 ### API Keys and LiteLLM Configuration
