@@ -29,10 +29,16 @@ mypy = "^1.4.1"
 [tool.black]
 line-length = 120
 target-version = ['py38']
+exclude = '''
+(
+  /(\.venv|\.git|\.mypy_cache|\.pytest_cache|dist|build)/
+)
+'''
 
 [tool.flake8]
 max-line-length = 120
 ignore = ["E203", "W503"]
+exclude = [".venv", ".git", "__pycache__", "build", "dist"]
 
 [tool.mypy]
 strict = true
