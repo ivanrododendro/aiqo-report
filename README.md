@@ -70,23 +70,25 @@ After modifying `postgresql.conf`, restart your PostgreSQL server for the change
 
 ## Context Files & Location
 
-The tool can be provided with additional context to enhance the AI's understanding and the relevance of its suggestions. These contexts include:
+The tool can be provided with additional context to enhance the AI's understanding and the relevance of its suggestions. Contexts are loaded in a specific order: if a custom `--context-folder` is specified, the tool will first look for context files within that folder. If a file is not found in the custom folder, or if no custom folder is provided, the tool will fall back to its internal default contexts (where applicable).
 
-*   **AI Instruction Prompts**: Default system and format prompts are located in `src/aiqo_pg_ai_report/prompts/`.
+The available context types include:
+
+*   **AI Instruction Prompts**: These define the AI's behavior and desired output format.
+    *   **Default Locations**: `SYSTEM.txt`, `FORMAT.txt`, and `target-query-prompts.txt` have default implementations located in `src/aiqo_pg_ai_report/prompts/`.
     *   `SYSTEM.txt`: Defines the AI's persona and general instructions.
     *   `FORMAT.txt`: Specifies the desired output format for the AI's analysis.
     *   `target-query-prompts.txt`: Contains specific prompts for analyzing individual queries.
-*   **Optimization Contexts**:
-    *   `DDL Context`: Database schema definitions.
-    *   `Server Configuration Context`: Details about your PostgreSQL server settings.
-    *   `Infrastructure Context`: Information about the underlying hardware and environment.
-    *   `Server Optimizations`: General server-level optimization rules.
-    *   `Event Optimizations`: Optimizations related to specific database events.
-    *   `Query Optimizations`: Specific query-level optimization rules.
 
-You can create a custom context folder containing these files. The tool will then load these custom files, overriding the defaults if present.
+*   **Additional Contexts (User-Provided)**: For the following contexts, the tool *does not provide default files*. They must be supplied by the user within a custom `--context-folder` to be active.
+    *   `DDL Context` (`ddl_context.sql`): Database schema definitions.
+    *   `Server Configuration Context` (`server_configuration.txt`): Details about your PostgreSQL server settings.
+    *   `Infrastructure Context` (`infra_context.txt`): Information about the underlying hardware and environment.
+    *   `Server Optimizations` (`server_optimizations.txt`): General server-level optimization rules.
+    *   `Event Optimizations` (`event_optimizations.txt`): Optimizations related to specific database events.
+    *   `Query Optimizations` (`query_optimizations.txt`): Specific query-level optimization rules.
 
-Example structure for a custom context folder (`my_custom_contexts/`):
+To use custom contexts, create a folder (e.g., `my_custom_contexts/`) and place your context files within it according to the following structure:
 
 ```
 my_custom_contexts/
@@ -103,7 +105,13 @@ my_custom_contexts/
     └── target-query-prompts.txt
 ```
 
-To use a custom context folder, specify its path with the `--context-folder` argument.
+To specify your custom context folder, use the `--context-folder` argument. For example:
+
+```bash
+poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
+    --context-folder "./my_custom_contexts" \
+    /path/to/your/postgresql.log
+```
 
 ## Usage
 
