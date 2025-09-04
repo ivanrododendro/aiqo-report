@@ -81,28 +81,26 @@ The available context types include:
     *   `target-query-prompts.txt`: Contains specific prompts for analyzing individual queries.
 
 *   **Additional Contexts (User-Provided)**: For the following contexts, the tool *does not provide default files*. They must be supplied by the user within a custom `--context-folder` to be active.
-    *   `DDL Context` (`ddl_context.sql`): Database schema definitions.
-    *   `Server Configuration Context` (`server_configuration.txt`): Details about your PostgreSQL server settings.
-    *   `Infrastructure Context` (`infra_context.txt`): Information about the underlying hardware and environment.
-    *   `Server Optimizations` (`server_optimizations.txt`): General server-level optimization rules.
-    *   `Event Optimizations` (`event_optimizations.txt`): Optimizations related to specific database events.
-    *   `Query Optimizations` (`query_optimizations.txt`): Specific query-level optimization rules.
+    *   `DDL Context` (`DDL.txt`): Database schema definitions.
+    *   `Server Configuration Context` (`CONFIG.txt`): Details about your PostgreSQL server settings.
+    *   `Infrastructure Context` (`INFRA.txt`): Information about the underlying hardware and environment.
+    *   `Server Optimizations` (`SERVER.txt`): General server-level optimization rules.
+    *   `Event Optimizations` (`EVENTS.txt`): Optimizations related to specific database events.
+    *   `Query Optimizations` (`QUERIES/<query_code_prefix>.txt`): Specific query-level optimization rules, where `<query_code_prefix>` refers to the first 6 characters of the normalized query hash.
 
 To use custom contexts, create a folder (e.g., `my_custom_contexts/`) and place your context files within it according to the following structure:
 
 ```
 my_custom_contexts/
-├── ddl_context.sql
-├── infra_context.txt
-├── server_configuration.txt
-├── optimizations/
-│   ├── server_optimizations.txt
-│   ├── event_optimizations.txt
-│   └── query_optimizations.txt
-└── prompts/
-    ├── SYSTEM.txt
-    ├── FORMAT.txt
-    └── target-query-prompts.txt
+├── DDL.txt
+├── CONFIG.txt
+├── INFRA.txt
+├── SERVER.txt
+├── EVENTS.txt
+└── QUERIES/
+    ├── <query_code_prefix_1>.txt
+    ├── <query_code_prefix_2>.txt
+    └── ...
 ```
 
 To specify your custom context folder, use the `--context-folder` argument. For example:
@@ -200,7 +198,7 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
 *   **`--context-folder <PATH>`** (`-cf`):
     *   Path to a directory containing context files (DDL, server config, optimizations, custom prompts).
     *   Example: `--context-folder /home/user/my_db_contexts`
-    *   Default: `None` (uses internal default prompts and contexts)
+    *   Default: A CONTEXT folder in the same directory containing the file being analyzed
 
 *   **`--debug`** (`-d`):
     *   Enable debug logging.
