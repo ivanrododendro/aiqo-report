@@ -10,6 +10,7 @@ The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed
 *   **Customizable AI Models**: Supports various AI providers and models (e.g., GPT-4o, Gemini 1.5 Flash, O1) via `litellm`.
 *   **Flexible Contextualization**: Allows users to provide DDL, server configuration, infrastructure details, and custom prompts to enhance AI analysis accuracy.
 *   **Targeted Analysis**: Option to focus AI analysis specifically on queries performing sequential scans.
+*   **Query Code Tracking**: Generates a unique "query code" (hash) for each normalized SQL query, enabling consistent tracking and application of query-specific optimizations across different log executions.
 *   **Query Filtering**: Filter log entries based on specific strings to analyze only relevant queries.
 *   **Multilingual Output**: Supports generating reports in different languages.
 
@@ -86,7 +87,7 @@ The available context types include:
     *   `Infrastructure Context` (`INFRA.txt`): Information about the underlying hardware and environment.
     *   `Server Optimizations` (`SERVER.txt`): General server-level optimization rules.
     *   `Event Optimizations` (`EVENTS.txt`): Optimizations related to specific database events.
-    *   `Query Optimizations` (`QUERIES/<query_code_prefix>.txt`): Specific query-level optimization rules, where `<query_code_prefix>` refers to the first 6 characters of the normalized query hash.
+    *   `Query Optimizations` (`QUERIES/<query_code_prefix>.txt`): Specific query-level optimization rules, where `<query_code_prefix>` refers to the first 6 characters of the query code (normalized query hash). These files provide context for optimizations that have already been applied to a particular query.
 
 To use custom contexts, create a folder (e.g., `my_custom_contexts/`) and place your context files within it according to the following structure:
 
@@ -176,8 +177,8 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
     *   Default: `False`
 
 *   **`--filter <STRING>`** (`-f`):
-    *   Filter log entries. Only log entries containing the specified string will be processed. Can be specified multiple times. Case-sensitive.
-    *   Example: `--filter "public.users"`
+    *   Filter log entries. Only log entries containing the specified string in the query name, job name, SQL text, or query code will be processed for AI analysis. All queries will still be included in the report. Can be specified multiple times. Case-sensitive.
+    *   Example: `--filter "public.users"` or `--filter "2a3b4c"` (to filter by a query code)
     *   Default: `None` (no filter)
 
 *   **`--custom-prompt <PROMPT>`** (`-c`):
