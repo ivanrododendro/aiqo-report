@@ -13,6 +13,7 @@ The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed
 *   **Query Code Tracking**: Generates a unique "query code" (hash) for each normalized SQL query, enabling consistent tracking and application of query-specific optimizations across different log executions.
 *   **Query Filtering**: Filter log entries based on specific strings to analyze only relevant queries.
 *   **Multilingual Output**: Supports generating reports in different languages.
+*   **Reproducible Outputs**: When using ChatGPT models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
 
 ## Dependencies & Requirements
 
