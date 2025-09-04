@@ -142,42 +142,62 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
     *   The full path to the PostgreSQL `auto_explain` log file to be analyzed.
     *   Example: `/var/log/postgresql/postgresql-2023-01-01.log`
 
-*   **`--model <MODEL>`**:
+*   **`--model <MODEL>`** (`-m`):
     *   Specify the AI model to use for analysis (e.g., `gpt-4o`, `gemini-1.5-pro`, `o1-mini`).
     *   Default: `gemini-2.5-flash`
 
-*   **`--language <LANG>`**:
-    *   Set the output language for the generated report and AI analysis.
-    *   Default: `fr` (French)
-    *   Example: `--language en` for English output.
-
-*   **`--context-folder <PATH>`**:
-    *   Specify a custom directory containing context files (DDL, server config, optimizations, custom prompts).
-    *   Example: `--context-folder /home/user/my_db_contexts`
-
-*   **`--custom-prompt <PROMPT>`**:
-    *   Provide an additional custom prompt or instruction to the AI for its analysis. This prompt will be appended to the standard prompts.
-    *   Example: `--custom-prompt "Pay special attention to JOIN operations."`
-
-*   **`--only-seq-scan-ai-analysis`**:
-    *   If set, the AI analysis will only be performed on queries that are identified as performing sequential scans. This helps focus the AI's efforts on specific performance issues.
-    *   This is a flag, no value needed.
-
-*   **`--filter <STRING>`**:
-    *   Filter log entries. Only log entries containing the specified string will be processed. Case-sensitive.
-    *   Example: `--filter "public.users"`
-
-*   **`--skip-ai-analysis`**:
-    *   If set, the AI analysis step will be skipped entirely. A report will still be generated, but without AI-driven insights.
-    *   This is a flag, no value needed.
-
-*   **`--limit-ai-calls <NUMBER>`**:
+*   **`--limit-ai-calls <NUMBER>`** (`-l`):
     *   Limits the maximum number of AI calls made during the analysis. Use `-1` for unlimited calls.
     *   Default: `-1` (unlimited)
 
 *   **`--ai-call-timeout <SECONDS>`**:
     *   Sets the timeout duration for each individual AI call in seconds.
     *   Default: `90` seconds
+
+*   **`--language <LANG>`**:
+    *   Set the output language for the generated report and AI analysis.
+    *   Default: `fr` (French)
+    *   Example: `--language en` for English output.
+
+*   **`--skip-ai-analysis`** (`-s`):
+    *   If set, the AI analysis step will be skipped entirely. A report will still be generated, but without AI-driven insights.
+    *   This is a flag, no value needed.
+    *   Default: `False`
+
+*   **`--only-seq-scan-ai-analysis`** (`-o`):
+    *   If set, the AI analysis will only be performed on queries that are identified as performing sequential scans. This helps focus the AI's efforts on specific performance issues.
+    *   This is a flag, no value needed.
+    *   Default: `False`
+
+*   **`--filter <STRING>`** (`-f`):
+    *   Filter log entries. Only log entries containing the specified string will be processed. Can be specified multiple times. Case-sensitive.
+    *   Example: `--filter "public.users"`
+    *   Default: `None` (no filter)
+
+*   **`--custom-prompt <PROMPT>`** (`-c`):
+    *   Provide an additional custom prompt or instruction to the AI for its analysis. This prompt will be appended to the standard prompts.
+    *   Example: `--custom-prompt "Pay special attention to JOIN operations."`
+    *   Default: `None`
+
+*   **`--report-filename <PATH>`** (`-r`):
+    *   Override the HTML report filename.
+    *   Example: `--report-filename my_custom_report.html`
+    *   Default: Automatically generated based on log filename
+
+*   **`--target-query-mode`**:
+    *   Enables target query mode for analysis.
+    *   This is a flag, no value needed.
+    *   Default: `False`
+
+*   **`--context-folder <PATH>`** (`-cf`):
+    *   Path to a directory containing context files (DDL, server config, optimizations, custom prompts).
+    *   Example: `--context-folder /home/user/my_db_contexts`
+    *   Default: `None` (uses internal default prompts and contexts)
+
+*   **`--debug`** (`-d`):
+    *   Enable debug logging.
+    *   This is a flag, no value needed.
+    *   Default: `False`
 
 ## Output Report
 
