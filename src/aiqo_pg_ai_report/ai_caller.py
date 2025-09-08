@@ -21,7 +21,7 @@ FREE_TIER_RATE_LIMITS = {
 
 
 class AiCaller:
-    def __init__(self, model, ai_call_timeout, lang, prompts):
+    def __init__(self, model, ai_call_timeout, lang, prompts, debug):
         self.model = model
         self.ai_call_timeout = ai_call_timeout
         self.lang = lang
@@ -31,6 +31,11 @@ class AiCaller:
         self.total_cost = 0.0
         self.call_count = 0
         self.token_limit = self._get_model_token_limit()
+        self.debug = debug
+
+        if debug:
+            litellm._turn_on_debug()
+            logger.info("LiteLLM debug mode enabled.")
 
         # Determine rate limits based on the model
         self.calls_per_period, self.period_seconds = FREE_TIER_RATE_LIMITS.get(

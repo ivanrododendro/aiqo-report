@@ -37,6 +37,7 @@ class PGAutoExplainAnalyzer:
         self.context_folder = args.context_folder  # Nouveau paramètre renommé
         self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
 
+
         # Initialize ContextLoader which handles loading prompts and all context/optimization files
         self.context_loader = ContextLoader(
             script_base_path=Path(__file__).parent, context_folder_cli_arg=self.context_folder
@@ -47,6 +48,7 @@ class PGAutoExplainAnalyzer:
             ai_call_timeout=self.ai_call_timeout,
             lang=self.language,
             prompts={},  # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
+            debug=args.debug
         )
         self.log_parser = LogParser()
         # Pass the base path of the current script to ReportGenerator
