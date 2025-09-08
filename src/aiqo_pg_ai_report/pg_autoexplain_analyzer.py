@@ -9,7 +9,7 @@ from pathlib import Path
 # Import classes and necessary constants from their new modules
 from ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT
 from log_parser import LogParser
-from report_generator import ReportGenerator, QUERY_NAME_LIMIT
+from report_generator import ReportGenerator
 from sql_utils import SQLUtils  # Import the new SQLUtils class
 from context import ContextLoader  # Import the new ContextLoader class
 
