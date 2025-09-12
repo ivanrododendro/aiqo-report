@@ -68,6 +68,8 @@ log_directory = 'pg_log' # Directory for log files
 log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log' # Log file naming convention
 ```
 
+> **_NOTE:_** Please note : when this parameter is on, per-plan-node timing occurs for all statements executed, whether or not they run long enough to actually get logged. This can have an extremely negative impact on performance. Turning off auto_explain.log_timing ameliorates the performance cost, at the price of obtaining less information. See https://www.postgresql.org/docs/current/auto-explain.html
+
 After modifying `postgresql.conf`, restart your PostgreSQL server for the changes to take effect. The tool expects standard text-based PostgreSQL log files.
 
 ## Context Files & Location
