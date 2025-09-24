@@ -183,17 +183,27 @@
                                     }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
 
                                     // --- Execution Time Over Time Chart ---
-                                    // Find all executions of this query code across all days
+                                    // Costruisci allExecutions includendo anche i giorni senza esecuzione per questa query
                                     const allExecutions = [];
                                     {% for d, reps in reports_by_day.items() %}
+                                        {% set found = False %}
                                         {% for r in reps %}
                                             {% if r.code == report.code %}
                                                 allExecutions.push({
                                                     timestamp: "{{ r.query_timestamp }}",
                                                     duration: {{ r.duration|int }}
                                                 });
+                                                {% set found = True %}
                                             {% endif %}
                                         {% endfor %}
+                                        {% if not found %}
+                                            // Se nessuna esecuzione per questa query in questo giorno, aggiungi null
+                                            // Prendi il primo timestamp del giorno (o crea uno fittizio se necessario)
+                                            allExecutions.push({
+                                                timestamp: "{{ d }}",
+                                                duration: null
+                                            });
+                                        {% endif %}
                                     {% endfor %}
                                     // Sort by timestamp
                                     allExecutions.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -201,7 +211,7 @@
                                     // Use only the date portion (YYYY.MM.DD) on the X-axis
                                     const labels = allExecutions.map(e => e.timestamp.split(' ')[0]);
                                     // Convert duration from ms to minutes for the chart
-                                    const data = allExecutions.map(e => e.duration / 60000);
+                                    const data = allExecutions.map(e => e.duration !== null ? e.duration / 60000 : null);
                                     // Draw chart
                                     const chartId = "execTimeChart-{{ app_id }}";
                                     const ctx = document.getElementById(chartId).getContext('2d');
@@ -244,6 +254,7 @@
                                                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                                                 fill: false,
                                                 tension: 0.1,
+                                                spanGaps: true,
                                                 pointRadius: 3
                                             }]
                                         },
