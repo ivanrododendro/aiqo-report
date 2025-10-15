@@ -191,7 +191,9 @@
                                             {% if r.code == report.code %}
                                                 allExecutions.push({
                                                     timestamp: "{{ r.query_timestamp }}",
-                                                    duration: {{ r.duration|int }}
+                                                    duration: {{ r.duration|int }},
+                                                    cost: {{ r.cost|default(None)|tojson }},
+                                                    rows: {{ r.rows|default(None)|tojson }}
                                                 });
                                                 {% set found = True %}
                                             {% endif %}
@@ -201,7 +203,9 @@
                                             // Prendi il primo timestamp del giorno (o crea uno fittizio se necessario)
                                             allExecutions.push({
                                                 timestamp: "{{ d }}",
-                                                duration: null
+                                                duration: null,
+                                                cost: null,
+                                                rows: null
                                             });
                                         {% endif %}
                                     {% endfor %}
@@ -212,6 +216,9 @@
                                     const labels = allExecutions.map(e => e.timestamp.split(' ')[0]);
                                     // Convert duration from ms to minutes for the chart
                                     const data = allExecutions.map(e => e.duration !== null ? e.duration / 60000 : null);
+                                    // Additional series: cost and rows
+                                    const dataCost = allExecutions.map(e => e.cost !== null ? e.cost : null);
+                                    const dataRows = allExecutions.map(e => e.rows !== null ? e.rows : null);
                                     // Draw chart
                                     const chartId = "execTimeChart-{{ app_id }}";
                                     const ctx = document.getElementById(chartId).getContext('2d');
@@ -278,16 +285,41 @@
                                         type: 'line',
                                         data: {
                                             labels: labels,
-                                            datasets: [{
-                                                label: 'Execution Time (min)',
-                                                data: data,
-                                                borderColor: 'rgba(75, 192, 192, 1)',
-                                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                                fill: false,
-                                                tension: 0.1,
-                                                spanGaps: true,
-                                                pointRadius: 3
-                                            }]
+                                            datasets: [
+                                                {
+                                                    label: 'Execution Time (min)',
+                                                    data: data,
+                                                    borderColor: 'rgba(75, 192, 192, 1)',
+                                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                                    fill: false,
+                                                    tension: 0.1,
+                                                    spanGaps: true,
+                                                    pointRadius: 3,
+                                                    yAxisID: 'y'
+                                                },
+                                                {
+                                                    label: 'Cost',
+                                                    data: dataCost,
+                                                    borderColor: 'rgba(255, 159, 64, 1)',
+                                                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                                                    fill: false,
+                                                    tension: 0.1,
+                                                    spanGaps: true,
+                                                    pointRadius: 3,
+                                                    yAxisID: 'yCost'
+                                                },
+                                                {
+                                                    label: 'Rows',
+                                                    data: dataRows,
+                                                    borderColor: 'rgba(54, 162, 235, 1)',
+                                                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                                    fill: false,
+                                                    tension: 0.1,
+                                                    spanGaps: true,
+                                                    pointRadius: 3,
+                                                    yAxisID: 'yRows'
+                                                }
+                                            ]
                                         },
                                         options: {
                                             responsive: true,
@@ -305,6 +337,21 @@
                                                 y: {
                                                     title: { display: true, text: 'Execution Time (min)' },
                                                     beginAtZero: true
+                                                },
+                                                yCost: {
+                                                    type: 'linear',
+                                                    position: 'right',
+                                                    title: { display: true, text: 'Cost' },
+                                                    beginAtZero: true,
+                                                    grid: { drawOnChartArea: false }
+                                                },
+                                                yRows: {
+                                                    type: 'linear',
+                                                    position: 'right',
+                                                    offset: true,
+                                                    title: { display: true, text: 'Rows' },
+                                                    beginAtZero: true,
+                                                    grid: { drawOnChartArea: false }
                                                 }
                                             }
                                         }
