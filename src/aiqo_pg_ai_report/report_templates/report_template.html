@@ -216,13 +216,43 @@
                                     const labels = allExecutions.map(e => e.timestamp.split(' ')[0]);
                                     // Convert duration from ms to minutes for the chart
                                     const data = allExecutions.map(e => e.duration !== null ? e.duration / 60000 : null);
-                                    // Additional series: cost and rows
-                                    const dataCost = allExecutions.map(e => e.cost !== null ? e.cost : null);
-                                    const dataRows = allExecutions.map(e => e.rows !== null ? e.rows : null);
+                                    // Additional series: cost and rows (coerce to numbers)
+                                    function parseCostVal(val) {
+                                        if (val === null || val === undefined) return null;
+                                        if (typeof val === 'number' && isFinite(val)) return val;
+                                        if (typeof val === 'string') {
+                                            const trimmed = val.trim();
+                                            // Match "a..b" range, take b (total cost)
+                                            const rangeMatch = trimmed.match(/^(\d+(?:\.\d+)?)\.\.(\d+(?:\.\d+)?)/);
+                                            if (rangeMatch) return parseFloat(rangeMatch[2]);
+                                            const n = parseFloat(trimmed.replace(/[^0-9.-]/g, ''));
+                                            return Number.isFinite(n) ? n : null;
+                                        }
+                                        return null;
+                                    }
+                                    function parseRowsVal(val) {
+                                        if (val === null || val === undefined) return null;
+                                        if (typeof val === 'number' && isFinite(val)) return val;
+                                        if (typeof val === 'string') {
+                                            const n = parseInt(val.replace(/[^0-9-]/g, ''), 10);
+                                            return Number.isFinite(n) ? n : null;
+                                        }
+                                        return null;
+                                    }
+                                    const dataCost = allExecutions.map((e, idx) => {
+                                        const parsed = parseCostVal(e.cost);
+                                        if (parsed === null) console.debug(`DEBUG parseCost null at idx ${idx}`, e.cost, e);
+                                        return parsed;
+                                    });
+                                    const dataRows = allExecutions.map((e, idx) => {
+                                        const parsed = parseRowsVal(e.rows);
+                                        if (parsed === null) console.debug(`DEBUG parseRows null at idx ${idx}`, e.rows, e);
+                                        return parsed;
+                                    });
                                     // Debug logs to verify extracted values
                                     console.log("DEBUG allExecutions ({{ report.code }})", allExecutions);
-                                    console.log("DEBUG dataCost ({{ report.code }})", dataCost);
-                                    console.log("DEBUG dataRows ({{ report.code }})", dataRows);
+                                    console.log("DEBUG parsed dataCost ({{ report.code }})", dataCost);
+                                    console.log("DEBUG parsed dataRows ({{ report.code }})", dataRows);
                                     // Draw chart
                                     const chartId = "execTimeChart-{{ app_id }}";
                                     const ctx = document.getElementById(chartId).getContext('2d');
