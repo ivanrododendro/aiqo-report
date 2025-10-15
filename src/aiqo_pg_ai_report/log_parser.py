@@ -82,6 +82,7 @@ def parse_log_entry(log_entry_text):
             except ValueError:
                 logger.warning(f"Could not parse rows value from line: {first_cost_line}")
 
+    logger.debug(f"Parsed plan line metrics: cost={total_cost}, rows={rows}")
     return {
         "timestamp": timestamp,
         "query_name": query_name,
