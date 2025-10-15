@@ -18,6 +18,9 @@ def test_parse_log_entry_basic():
     assert result["query_name"] == "-- QueryName"
     assert "SELECT * FROM users" in result["query_text"]
     assert "Seq Scan on users" in result["execution_plan"]
+    assert result["startup_cost"] == 0.00
+    assert result["cost"] == 1.01
+    assert result["rows"] == 1
 
 
 def test_parse_log_entry_missing_duration():
@@ -33,6 +36,9 @@ def test_parse_log_entry_missing_duration():
     assert result["timestamp"] == "2023-09-06 12:34:56.789"
     assert "SELECT * FROM users" in result["query_text"]
     assert "Seq Scan on users" in result["execution_plan"]
+    assert result["startup_cost"] == 0.00
+    assert result["cost"] == 1.01
+    assert result["rows"] == 1
 
 
 def test_parse_log_entry_no_plan():

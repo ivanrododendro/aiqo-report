@@ -58,6 +58,30 @@ def parse_log_entry(log_entry_text):
     if not plan_lines:
         raise ValueError("No execution plan found in the log entry.")
 
+    # Extract startup_cost, total cost and rows from the first plan line containing 'cost='
+    startup_cost = None
+    total_cost = None
+    rows = None
+    first_cost_line = None
+    for pline in plan_lines:
+        if "cost=" in pline:
+            first_cost_line = pline
+            break
+    if first_cost_line:
+        cost_match = re.search(r"cost=(\d+(?:\.\d+)?)\.\.(\d+(?:\.\d+)?)", first_cost_line)
+        if cost_match:
+            try:
+                startup_cost = float(cost_match.group(1))
+                total_cost = float(cost_match.group(2))
+            except ValueError:
+                logger.warning(f"Could not parse cost values from line: {first_cost_line}")
+        rows_match = re.search(r"rows=(\d+)", first_cost_line)
+        if rows_match:
+            try:
+                rows = int(rows_match.group(1))
+            except ValueError:
+                logger.warning(f"Could not parse rows value from line: {first_cost_line}")
+
     return {
         "timestamp": timestamp,
         "query_name": query_name,
@@ -65,6 +89,9 @@ def parse_log_entry(log_entry_text):
         "query_text": "\n".join(query_lines).strip(),
         "execution_plan": "\n".join(plan_lines).strip(),
         "duration": duration_ms,
+        "startup_cost": startup_cost,
+        "cost": total_cost,
+        "rows": rows,
     }
 
 
