@@ -219,6 +219,10 @@
                                     // Additional series: cost and rows
                                     const dataCost = allExecutions.map(e => e.cost !== null ? e.cost : null);
                                     const dataRows = allExecutions.map(e => e.rows !== null ? e.rows : null);
+                                    // Debug logs to verify extracted values
+                                    console.log("DEBUG allExecutions ({{ report.code }})", allExecutions);
+                                    console.log("DEBUG dataCost ({{ report.code }})", dataCost);
+                                    console.log("DEBUG dataRows ({{ report.code }})", dataRows);
                                     // Draw chart
                                     const chartId = "execTimeChart-{{ app_id }}";
                                     const ctx = document.getElementById(chartId).getContext('2d');
