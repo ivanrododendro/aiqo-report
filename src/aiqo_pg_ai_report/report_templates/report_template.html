@@ -184,7 +184,9 @@
 
                                     // --- Execution Time Over Time Chart ---
                                     // Costruisci allExecutions includendo anche i giorni senza esecuzione per questa query
+
                                     const allExecutions = [];
+
                                     {% for d, reps in reports_by_day.items() %}
                                         {% set found = False %}
                                         {% for r in reps %}
