@@ -385,7 +385,18 @@
                                             scales: {
                                                 x: {
                                                     title: { display: true, text: 'Timestamp' },
-                                                    ticks: { autoSkip: true, maxTicksLimit: 10 }
+                                                    ticks: {
+                                                        autoSkip: true,
+                                                        maxTicksLimit: 10,
+                                                        font: (ctx) => {
+                                                            const selectedDay = "{{ day }}";
+                                                            const lbl = ctx.tick && (ctx.tick.value ?? ctx.tick.label);
+                                                            if (lbl === selectedDay) {
+                                                                return { weight: 'bold' };
+                                                            }
+                                                            return {};
+                                                        }
+                                                    }
                                                 },
                                                 y: {
                                                     title: { display: true, text: 'Execution Time (min)' },
