@@ -170,6 +170,16 @@
                             <div class="mb-3">
                                 <canvas id="execTimeChart-{{ app_id }}" height="120"></canvas>
                             </div>
+                            {% if server_optimizations %}
+                            <p>
+                                <strong>Optimisations serveur :</strong>
+                                <ul id="server-opt-list-{{ app_id }}">
+                                    {% for opt in server_optimizations %}
+                                    <li data-opt-date="{{ opt.date }}"><strong class="server-opt-label"></strong> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
+                                    {% endfor %}
+                                </ul>
+                            </p>
+                            {% endif %}
                             <script>
                                 // Changed from jQuery .on() to vanilla JS addEventListener
                                 document.getElementById('collapse-{{ app_id }}').addEventListener('shown.bs.collapse', function () {
@@ -259,41 +269,79 @@
                                     const chartId = "execTimeChart-{{ app_id }}";
                                     const ctx = document.getElementById(chartId).getContext('2d');
 
-                                    // Build query-optimization annotations and label numbers in the list
+                                    // Build query- and server-optimization annotations and label numbers in the lists
                                     const individualAnnotations = [];
                                     (function () {
-                                        const listEl = document.querySelector('#opt-list-{{ app_id }}');
-                                        if (!listEl) return;
-                                        const items = Array.from(listEl.querySelectorAll('li[data-opt-date]'));
-                                        items.forEach((li, idx) => {
-                                            const number = (idx + 1).toString();
-                                            const badge = li.querySelector('.opt-letter');
-                                            if (badge) badge.textContent = `${number} `;
-                                            const datePart = (li.dataset.optDate || '').split(' ')[0];
-                                            const idxOnScale = labels.indexOf(datePart);
-                                            if (idxOnScale !== -1) {
-                                                individualAnnotations.push({
-                                                    type: 'line',
-                                                    scaleID: 'x',
-                                                    value: idxOnScale,
-                                                    borderColor: 'rgba(255, 0, 0, 0.8)',
-                                                    borderWidth: 2,
-                                                    drawTime: 'afterDatasetsDraw',
-                                                    label: {
-                                                        content: number,
-                                                        display: true,
-                                                        position: 'top',
-                                                        font: { size: 12, weight: 'bold' },
-                                                        backgroundColor: 'rgba(255, 0, 0, 0.7)',
-                                                        color: 'white',
-                                                        rotation: 0,
-                                                        yAdjust: -10
-                                                    }
-                                                });
-                                            } else {
-                                                console.warn('Annotation date not matching labels (detail chart):', datePart, labels);
-                                            }
-                                        });
+                                        // Query-specific optimizations (red), numbers start at 1
+                                        const qListEl = document.querySelector('#opt-list-{{ app_id }}');
+                                        if (qListEl) {
+                                            const qItems = Array.from(qListEl.querySelectorAll('li[data-opt-date]'));
+                                            qItems.forEach((li, idx) => {
+                                                const number = (idx + 1).toString();
+                                                const badge = li.querySelector('.opt-letter');
+                                                if (badge) badge.textContent = `${number} `;
+                                                const datePart = (li.dataset.optDate || '').split(' ')[0];
+                                                const idxOnScale = labels.indexOf(datePart);
+                                                if (idxOnScale !== -1) {
+                                                    individualAnnotations.push({
+                                                        type: 'line',
+                                                        scaleID: 'x',
+                                                        value: idxOnScale,
+                                                        borderColor: 'rgba(255, 0, 0, 0.8)',
+                                                        borderWidth: 2,
+                                                        drawTime: 'afterDatasetsDraw',
+                                                        label: {
+                                                            content: number,
+                                                            display: true,
+                                                            position: 'top',
+                                                            font: { size: 12, weight: 'bold' },
+                                                            backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                                                            color: 'white',
+                                                            rotation: 0,
+                                                            yAdjust: -10
+                                                        }
+                                                    });
+                                                } else {
+                                                    console.warn('Annotation date not matching labels (detail chart, query opt):', datePart, labels);
+                                                }
+                                            });
+                                        }
+
+                                        // Server optimizations (blue), numbers start at 1 with 'S' prefix in list and chart
+                                        const sListEl = document.querySelector('#server-opt-list-{{ app_id }}');
+                                        if (sListEl) {
+                                            const sItems = Array.from(sListEl.querySelectorAll('li[data-opt-date]'));
+                                            sItems.forEach((li, idx) => {
+                                                const number = (idx + 1).toString();
+                                                const labelText = `S${number}`;
+                                                const badge = li.querySelector('.server-opt-label');
+                                                if (badge) badge.textContent = `${labelText} `;
+                                                const datePart = (li.dataset.optDate || '').split(' ')[0];
+                                                const idxOnScale = labels.indexOf(datePart);
+                                                if (idxOnScale !== -1) {
+                                                    individualAnnotations.push({
+                                                        type: 'line',
+                                                        scaleID: 'x',
+                                                        value: idxOnScale,
+                                                        borderColor: 'rgba(0, 0, 255, 0.8)',
+                                                        borderWidth: 2,
+                                                        drawTime: 'afterDatasetsDraw',
+                                                        label: {
+                                                            content: labelText,
+                                                            display: true,
+                                                            position: 'top',
+                                                            font: { size: 12, weight: 'bold' },
+                                                            backgroundColor: 'rgba(0, 0, 255, 0.7)',
+                                                            color: 'white',
+                                                            rotation: 0,
+                                                            yAdjust: -10
+                                                        }
+                                                    });
+                                                } else {
+                                                    console.warn('Annotation date not matching labels (detail chart, server opt):', datePart, labels);
+                                                }
+                                            });
+                                        }
                                     })();
 
                                     if (window["execTimeChartObj_{{ app_id }}"]) {
