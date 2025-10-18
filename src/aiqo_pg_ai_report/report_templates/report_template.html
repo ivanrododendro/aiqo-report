@@ -365,7 +365,7 @@
                                                         autoSkip: true,
                                                         maxTicksLimit: 10,
                                                         font: (ctx) => {
-                                                            const selectedDay = "{{ dok now ay }}";
+                                                            const selectedDay = "{{ day }}";
                                                             const lbl = ctx.tick && (ctx.tick.label);
                                                             if (lbl === selectedDay) {
                                                                 return { weight: 'bold' };
