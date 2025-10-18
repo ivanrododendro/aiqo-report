@@ -146,6 +146,8 @@ class PGAutoExplainAnalyzer:
             "day": day,
             "seq_scan_indicator": seq_scan_indicator,
             "duration": duration,
+            "cost": log_entry["cost"],
+            "rows": log_entry["rows"]
         }
 
         self.all_reports.append(report)
