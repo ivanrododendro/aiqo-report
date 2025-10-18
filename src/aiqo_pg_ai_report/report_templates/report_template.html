@@ -259,17 +259,16 @@
                                     const chartId = "execTimeChart-{{ app_id }}";
                                     const ctx = document.getElementById(chartId).getContext('2d');
 
-                                    // Build query-optimization annotations and label letters in the list
+                                    // Build query-optimization annotations and label numbers in the list
                                     const individualAnnotations = [];
                                     (function () {
-                                        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
                                         const listEl = document.querySelector('#opt-list-{{ app_id }}');
                                         if (!listEl) return;
                                         const items = Array.from(listEl.querySelectorAll('li[data-opt-date]'));
                                         items.forEach((li, idx) => {
-                                            const letter = alphabet[idx % alphabet.length];
+                                            const number = (idx + 1).toString();
                                             const badge = li.querySelector('.opt-letter');
-                                            if (badge) badge.textContent = `${letter} `;
+                                            if (badge) badge.textContent = `${number} `;
                                             const datePart = (li.dataset.optDate || '').split(' ')[0];
                                             const idxOnScale = labels.indexOf(datePart);
                                             if (idxOnScale !== -1) {
@@ -281,7 +280,7 @@
                                                     borderWidth: 2,
                                                     drawTime: 'afterDatasetsDraw',
                                                     label: {
-                                                        content: letter,
+                                                        content: number,
                                                         display: true,
                                                         position: 'top',
                                                         font: { size: 12, weight: 'bold' },
