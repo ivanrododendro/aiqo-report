@@ -62,98 +62,98 @@ class PGAutoExplainAnalyzer:
             lambda: {"total_queries": 0, "cumulated_time": 0.0, "queries_by_code": defaultdict(float)}
         )
 
-    def _process_parsed_log_entry(self, log_entry):
-        query_name = log_entry["query_name"]
-        job_name = log_entry["job_name"]
-        query_text = log_entry["query_text"]
-        query_code = SQLUtils.get_query_code(query_text)
-
-        # Always load query-specific optimizations into the cache, regardless of AI analysis
-        # This ensures they are available for the report display.
-        self.context_loader.get_query_optimizations(query_code)
-
-        title = job_name + " " + query_name
-        execution_plan = log_entry["execution_plan"]
-        timestamp = log_entry["timestamp"]
-        day = timestamp[:10]  # Extract YYYY-MM-DD
-        query = query_text
-        ai_hints = ""  # Initialize to empty string
-        seq_scan_indicator = execution_plan.find("Seq Scan") != -1
-        duration = log_entry["duration"]
-
-        should_perform_ai_call = True  # Flag to control if AI call should be made
-
-        # 1. Check if AI analysis is globally skipped
+    def _determine_ai_analysis_status(self, log_entry, query_code):
+        """
+        Détermine si l'analyse AI doit être effectuée et fournit un message de saut si elle est ignorée.
+        Retourne (should_perform_ai_call: bool, ai_hints_message: str).
+        """
         if self.skip_ai_analysis:
-            ai_hints = "AI analysis skipped (CLI flag --skip_ai_analysis)."
-            should_perform_ai_call = False
             logger.debug("Skipping AI analysis (skip_ai_analysis flag is true)")
+            return False, "AI analysis skipped (CLI flag --skip_ai_analysis)."
 
-        # 2. Check filter criteria (if not already skipped globally)
-        if should_perform_ai_call and self.filter_strings:
+        if self.limit_ai_calls != -1 and (self.ai_caller.call_count >= self.limit_ai_calls):
+            logger.warning("AI call limit reached. Skipping AI analysis for query")
+            return False, "AI analysis skipped (AI call limit reached)."
+
+        # Vérifie les critères de filtre
+        if self.filter_strings:
             match_found = False
             for filter_str in self.filter_strings:
                 if (
-                    filter_str.lower() in job_name.lower()
-                    or filter_str.lower() in query_name.lower()
-                    or filter_str.lower() in query_text.lower()
+                    filter_str.lower() in log_entry["job_name"].lower()
+                    or filter_str.lower() in log_entry["query_name"].lower()
+                    or filter_str.lower() in log_entry["query_text"].lower()
                     or filter_str.lower() in query_code.lower()
                 ):
                     match_found = True
                     break
             if not match_found:
-                ai_hints = "AI analysis skipped due to filter criteria."
-                should_perform_ai_call = False
                 logger.info(
                     f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria."
                 )
+                return False, "AI analysis skipped due to filter criteria."
 
-        # 3. Check max AI calls limit (if not already skipped)
-        if should_perform_ai_call and self.limit_ai_calls != -1 and (self.ai_caller.call_count >= self.limit_ai_calls):
-            ai_hints = "AI analysis skipped (AI call limit reached)."
-            should_perform_ai_call = False
-            logger.warning(f"AI call limit reached. Skipping AI analysis for query")
-
-        # 4. Check AI only for Seq Scan (if not already skipped)
-        if should_perform_ai_call and self.only_seq_scan_ai_analysis and not seq_scan_indicator:
-            ai_hints = "AI analysis skipped (only for Seq Scan queries)."
-            should_perform_ai_call = False
+        # Vérifie l'analyse AI uniquement pour les Seq Scan
+        seq_scan_indicator = log_entry["execution_plan"].find("Seq Scan") != -1
+        if self.only_seq_scan_ai_analysis and not seq_scan_indicator:
             logger.info("Skipping AI analysis for query without Seq Scan (only_seq_scan_ai_analysis is true)")
+            return False, "AI analysis skipped (only for Seq Scan queries)."
 
-        # 5. Perform AI call if all conditions allow
-        if should_perform_ai_call:
-            full_prompt = self.context_loader.build_full_prompt_with_optimizations(
-                plan=log_entry["execution_plan"],
-                query_code=query_code,
-                custom_prompt=self.custom_prompt,
-                lang=self.language,
-            )
-            ai_hints_result = self.ai_caller.call_ai_provider(full_prompt)
-            if ai_hints_result is None:
-                ai_hints = "AI analysis failed or timed out."
-            else:
-                ai_hints = ai_hints_result
+        return True, ""
 
-        report = {
-            "title": title,
+    def _perform_ai_call_and_get_hints(self, log_entry, query_code):
+        """
+        Effectue l'appel à l'API AI et retourne les indices ou un message d'échec.
+        """
+        full_prompt = self.context_loader.build_full_prompt_with_optimizations(
+            plan=log_entry["execution_plan"],
+            query_code=query_code,
+            custom_prompt=self.custom_prompt,
+            lang=self.language,
+        )
+        ai_hints_result = self.ai_caller.call_ai_provider(full_prompt)
+        if ai_hints_result is None:
+            return "AI analysis failed or timed out."
+        return ai_hints_result
+
+    def _create_report_entry(self, log_entry, query_code, ai_hints):
+        """
+        Crée une entrée de rapport à partir des données de log et des indices AI.
+        """
+        query_name = log_entry["query_name"]
+        job_name = log_entry["job_name"]
+        execution_plan = log_entry["execution_plan"]
+        timestamp = log_entry["timestamp"]
+        duration = log_entry["duration"]
+
+        return {
+            "title": job_name + " " + query_name,
             "chatgpt_hints": ai_hints,
             "plan": execution_plan,
-            "query_text": query,
+            "query_text": log_entry["query_text"],
             "query_timestamp": timestamp,
             "query_name": query_name,
             "job_name": job_name,
             "code": query_code,
-            "day": day,
-            "seq_scan_indicator": seq_scan_indicator,
+            "day": timestamp[:10],
+            "seq_scan_indicator": execution_plan.find("Seq Scan") != -1,
             "duration": duration,
             "cost": log_entry["cost"],
             "rows": log_entry["rows"]
         }
 
+    def _update_statistics(self, report):
+        """
+        Met à jour toutes les structures de données statistiques avec la nouvelle entrée de rapport.
+        """
         self.all_reports.append(report)
         self.reports_by_day[report["day"]].append(report)
 
-        # Update query_stats in-place (global stats across all days)
+        query_code = report["code"]
+        duration = report["duration"]
+        day = report["day"]
+
+        # Met à jour les statistiques globales
         if query_code not in self.all_query_stats_dict:
             self.all_query_stats_dict[query_code] = {
                 "code": query_code,
@@ -165,10 +165,27 @@ class PGAutoExplainAnalyzer:
             self.all_query_stats_dict[query_code]["count"] += 1
             self.all_query_stats_dict[query_code]["cumulated_time"] += duration
 
-        # Update new daily_query_stats data structure
+        # Met à jour les statistiques quotidiennes
         self.daily_query_stats[day]["total_queries"] += 1
         self.daily_query_stats[day]["cumulated_time"] += duration
         self.daily_query_stats[day]["queries_by_code"][query_code] += duration
+
+    def _process_parsed_log_entry(self, log_entry):
+        query_text = log_entry["query_text"]
+        query_code = SQLUtils.get_query_code(query_text)
+
+        # Charge toujours les optimisations spécifiques à la requête dans le cache, indépendamment de l'analyse AI.
+        # Cela garantit qu'elles sont disponibles pour l'affichage du rapport.
+        self.context_loader.get_query_optimizations(query_code)
+
+        should_perform_ai_call, ai_hints = self._determine_ai_analysis_status(log_entry, query_code)
+
+        if should_perform_ai_call:
+            ai_hints = self._perform_ai_call_and_get_hints(log_entry, query_code)
+        # else ai_hints contient déjà le message de saut
+
+        report = self._create_report_entry(log_entry, query_code, ai_hints)
+        self._update_statistics(report)
 
     def run(self):
         # Rate limit variables are now handled within AiCaller, so these global assignments are removed.
