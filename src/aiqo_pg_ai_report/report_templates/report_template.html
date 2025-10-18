@@ -147,9 +147,9 @@
                                 <p>
                                     <strong>Optimisations déjà appliquées :</strong>
                                     {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
-                                <ul>
+                                <ul id="opt-list-{{ app_id }}">
                                     {% for opt in query_optimizations[report.code] %}
-                                    <li> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
+                                    <li data-opt-date="{{ opt.date }}"><strong class="opt-letter"></strong> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
                                     {% endfor %}
                                 </ul>
                                 {% else %}
@@ -259,8 +259,38 @@
                                     const chartId = "execTimeChart-{{ app_id }}";
                                     const ctx = document.getElementById(chartId).getContext('2d');
 
-                                    // Annotations removed from query detail graph
+                                    // Build query-optimization annotations and label letters in the list
                                     const individualAnnotations = [];
+                                    (function () {
+                                        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                                        const listEl = document.querySelector('#opt-list-{{ app_id }}');
+                                        if (!listEl) return;
+                                        const items = Array.from(listEl.querySelectorAll('li[data-opt-date]'));
+                                        items.forEach((li, idx) => {
+                                            const letter = alphabet[idx % alphabet.length];
+                                            const badge = li.querySelector('.opt-letter');
+                                            if (badge) badge.textContent = `${letter} `;
+                                            const datePart = (li.dataset.optDate || '').split(' ')[0];
+                                            individualAnnotations.push({
+                                                type: 'line',
+                                                mode: 'vertical',
+                                                xMin: datePart,
+                                                xMax: datePart,
+                                                borderColor: 'rgba(255, 0, 0, 0.8)',
+                                                borderWidth: 2,
+                                                label: {
+                                                    content: letter,
+                                                    display: true,
+                                                    position: 'top',
+                                                    font: { size: 12, weight: 'bold' },
+                                                    backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                                                    color: 'white',
+                                                    rotation: 0,
+                                                    yAdjust: -10
+                                                }
+                                            });
+                                        });
+                                    })();
 
                                     if (window["execTimeChartObj_{{ app_id }}"]) {
                                         window["execTimeChartObj_{{ app_id }}"].destroy();
@@ -326,9 +356,7 @@
                                                         }
                                                     }
                                                 }, // Afficher la légende pour permettre le masquage/affichage
-                                                // Annotations disabled for query detail graph
-                                                // annotation: { annotations: individualAnnotations }
-                                                annotation: {}
+                                                annotation: { annotations: individualAnnotations }
                                             },
                                             scales: {
                                                 x: {
