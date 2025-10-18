@@ -390,7 +390,7 @@
                                                         maxTicksLimit: 10,
                                                         font: (ctx) => {
                                                             const selectedDay = "{{ day }}";
-                                                            const lbl = ctx.tick && (ctx.tick.value ?? ctx.tick.label);
+                                                            const lbl = ctx.tick && (ctx.tick.label);
                                                             if (lbl === selectedDay) {
                                                                 return { weight: 'bold' };
                                                             }
