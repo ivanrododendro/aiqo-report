@@ -361,7 +361,23 @@
                                         options: {
                                             responsive: true,
                                             plugins: {
-                                                legend: { display: true }, // Afficher la légende pour permettre le masquage/affichage
+                                                legend: {
+                                                    display: true,
+                                                    onClick: (e, legendItem, legend) => {
+                                                        const chart = legend.chart;
+                                                        // Utiliser le gestionnaire par défaut pour basculer la visibilité
+                                                        Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                                                        // Si on a cliqué sur la série "Rows", synchroniser la visibilité de l'axe yRows
+                                                        const ds = chart.data.datasets[legendItem.datasetIndex];
+                                                        if (ds && ds.yAxisID === 'yRows') {
+                                                            const isVisible = typeof chart.isDatasetVisible === 'function'
+                                                                ? chart.isDatasetVisible(legendItem.datasetIndex)
+                                                                : !ds.hidden;
+                                                            chart.options.scales.yRows.display = isVisible;
+                                                            chart.update();
+                                                        }
+                                                    }
+                                                }, // Afficher la légende pour permettre le masquage/affichage
                                                 annotation: {
                                                     annotations: individualAnnotations
                                                 }
@@ -385,6 +401,7 @@
                                                 yRows: {
                                                     type: 'linear',
                                                     position: 'right',
+                                                    display: false, // Afficher l'axe uniquement quand la série "Rows" est visible
                                                     offset: true,
                                                     title: { display: true, text: 'Rows' },
                                                     beginAtZero: true,
