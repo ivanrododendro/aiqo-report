@@ -272,6 +272,15 @@
                                     // Build query- and server-optimization annotations and label numbers in the lists
                                     const individualAnnotations = [];
                                     (function () {
+                                        function findLabelIndex(ls, dateStr) {
+                                            const base = dateStr;
+                                            const candidates = [base, base.replace(/\./g, '-'), base.replace(/-/g, '.')];
+                                            for (const c of candidates) {
+                                                const i = ls.indexOf(c);
+                                                if (i !== -1) return i;
+                                            }
+                                            return -1;
+                                        }
                                         // Query-specific optimizations (red), numbers start at 1
                                         const qListEl = document.querySelector('#opt-list-{{ app_id }}');
                                         if (qListEl) {
@@ -281,12 +290,13 @@
                                                 const badge = li.querySelector('.opt-letter');
                                                 if (badge) badge.textContent = `${number} `;
                                                 const datePart = (li.dataset.optDate || '').split(' ')[0];
-                                                const idxOnScale = labels.indexOf(datePart);
+                                                const idxOnScale = findLabelIndex(labels, datePart);
                                                 if (idxOnScale !== -1) {
+                                                    const labelVal = labels[idxOnScale];
                                                     individualAnnotations.push({
                                                         type: 'line',
                                                         scaleID: 'x',
-                                                        value: idxOnScale,
+                                                        value: labelVal,
                                                         borderColor: 'rgba(255, 0, 0, 0.8)',
                                                         borderWidth: 2,
                                                         drawTime: 'afterDatasetsDraw',
@@ -317,12 +327,13 @@
                                                 const badge = li.querySelector('.server-opt-label');
                                                 if (badge) badge.textContent = `${labelText} `;
                                                 const datePart = (li.dataset.optDate || '').split(' ')[0];
-                                                const idxOnScale = labels.indexOf(datePart);
+                                                const idxOnScale = findLabelIndex(labels, datePart);
                                                 if (idxOnScale !== -1) {
+                                                    const labelVal = labels[idxOnScale];
                                                     individualAnnotations.push({
                                                         type: 'line',
                                                         scaleID: 'x',
-                                                        value: idxOnScale,
+                                                        value: labelVal,
                                                         borderColor: 'rgba(0, 0, 255, 0.8)',
                                                         borderWidth: 2,
                                                         drawTime: 'afterDatasetsDraw',
