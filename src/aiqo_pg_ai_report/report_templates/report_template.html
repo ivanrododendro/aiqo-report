@@ -129,6 +129,9 @@
                     <h2 class="accordion-header" id="heading-{{ app_id }}">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app_id }}" aria-expanded="false" aria-controls="collapse-{{ app_id }}" data-query-code="{{ report.code }}">
                             <span title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}</span>
+                            {% if query_optimizations[report.code] %}
+                            <i class="bi bi-lightning icon ms-2" title="Optimisations disponibles"></i>
+                            {% endif %}
                             {% if report.seq_scan_indicator %}
                             <i class="bi bi-database-exclamation icon ms-2" title="La requête contient un Seq Scan"></i>
                             {% endif %}
