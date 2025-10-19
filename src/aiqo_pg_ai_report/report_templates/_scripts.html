@@ -63,7 +63,7 @@
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
         // Helper to add annotations and legend entries
-        function addOptimization(targetAnnotationsArray, targetLegendEntriesArray, opt, type, borderColor, queryCode = null) {
+        function addOptimization(targetAnnotationsArray, targetLegendEntriesArray, opt, type, borderColor, queryCode =  null) {
             const annotationId = alphabet[annotationCounter % alphabet.length];
             targetLegendEntriesArray.push({
                 id: annotationId,
@@ -345,5 +345,365 @@
                 }
             });
         });
+
+        // --- JavaScript code extracted from _main_content.html ---
+
+        // Initialize duration display for all query entries
+        {% for day, reports in reports_by_day.items()|sort %}
+        {% for report in reports %}
+        {% set i = loop.index0 %}
+        (function() {
+            const durationEl = document.getElementById("duration-{{ day | replace('.', '-') }}-{{ i }}");
+            if (durationEl) {
+                durationEl.innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}}).toFormat("h'h'm'm's's'");
+            }
+        })();
+        {% endfor %}
+        {% endfor %}
+
+        // Initialize cumulated time display for global query stats
+        {% for stat in query_stats %}
+        (function() {
+            const cumulatedTimeEl = document.getElementById('cumulated-time-{{ stat.code }}');
+            if (cumulatedTimeEl) {
+                cumulatedTimeEl.innerHTML = Duration.fromMillis({{ stat.cumulated_time }}).toFormat("h'h'm'm's's'");
+            }
+        })();
+        {% endfor %}
+
+        // Setup accordion collapse event handlers for each query detail
+        {% for day, reports in reports_by_day.items()|sort %}
+        {% for report in reports %}
+        {% set i = loop.index0 %}
+        {% set app_id = 'app-' ~ day | replace('.', '-') ~ '-' ~ i %}
+        (function() {
+            const collapseEl = document.getElementById('collapse-{{ app_id }}');
+            if (!collapseEl) return;
+
+            collapseEl.addEventListener('shown.bs.collapse', function () {
+                // Initialize Vue app for pev2 visualization
+                createApp({
+                    data() {
+                        return {
+                            plan: `{{ report.plan|safe }}`,
+                            query: `{{ report.query_text|safe }}`
+                        };
+                    }
+                }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+
+                // --- Execution Time Over Time Chart ---
+                const allExecutions = [];
+
+                {% for d, reps in reports_by_day.items() %}
+                    {% set found = False %}
+                    {% for r in reps %}
+                        {% if r.code == report.code %}
+                            allExecutions.push({
+                                timestamp: "{{ r.query_timestamp }}",
+                                duration: {{ r.duration|int }},
+                                cost: {{ r.cost|default(None)|tojson }},
+                                rows: {{ r.rows|default(None)|tojson }}
+                            });
+                            {% set found = True %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if not found %}
+                        allExecutions.push({
+                            timestamp: "{{ d }}",
+                            duration: null,
+                            cost: null,
+                            rows: null
+                        });
+                    {% endif %}
+                {% endfor %}
+
+                // Sort by timestamp
+                allExecutions.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+                // Prepare data
+                const labels = allExecutions.map(e => e.timestamp.split(' ')[0]);
+                const data = allExecutions.map(e => e.duration !== null ? e.duration / 60000 : null);
+
+                // Parse cost and rows values
+                function parseCostVal(val) {
+                    if (val === null || val === undefined) return null;
+                    if (typeof val === 'number' && isFinite(val)) return val;
+                    if (typeof val === 'string') {
+                        const trimmed = val.trim();
+                        const rangeMatch = trimmed.match(/^(\d+(?:\.\d+)?)\.\.(\d+(?:\.\d+)?)/);
+                        if (rangeMatch) return parseFloat(rangeMatch[2]);
+                        const n = parseFloat(trimmed.replace(/[^0-9.-]/g, ''));
+                        return Number.isFinite(n) ? n : null;
+                    }
+                    return null;
+                }
+
+                function parseRowsVal(val) {
+                    if (val === null || val === undefined) return null;
+                    if (typeof val === 'number' && isFinite(val)) return val;
+                    if (typeof val === 'string') {
+                        const n = parseInt(val.replace(/[^0-9-]/g, ''), 10);
+                        return Number.isFinite(n) ? n : null;
+                    }
+                    return null;
+                }
+
+                const dataCost = allExecutions.map((e, idx) => {
+                    const parsed = parseCostVal(e.cost);
+                    if (parsed === null) console.debug(`DEBUG parseCost null at idx ${idx}`, e.cost, e);
+                    return parsed;
+                });
+
+                const dataRows = allExecutions.map((e, idx) => {
+                    const parsed = parseRowsVal(e.rows);
+                    if (parsed === null) console.debug(`DEBUG parseRows null at idx ${idx}`, e.rows, e);
+                    return parsed;
+                });
+
+                console.log("DEBUG allExecutions ({{ report.code }})", allExecutions);
+                console.log("DEBUG parsed dataCost ({{ report.code }})", dataCost);
+                console.log("DEBUG parsed dataRows ({{ report.code }})", dataRows);
+
+                // Build query- and server-optimization annotations
+                const individualAnnotations = [];
+                (function () {
+                    function findLabelIndex(ls, dateStr) {
+                        const base = dateStr;
+                        const candidates = [base, base.replace(/\./g, '-'), base.replace(/-/g, '.')];
+                        for (const c of candidates) {
+                            const i = ls.indexOf(c);
+                            if (i !== -1) return i;
+                        }
+                        return -1;
+                    }
+
+                    // Query-specific optimizations (red)
+                    const qListEl = document.querySelector('#opt-list-{{ app_id }}');
+                    if (qListEl) {
+                        const qItems = Array.from(qListEl.querySelectorAll('li[data-opt-date]'));
+                        qItems.forEach((li, idx) => {
+                            const number = (idx + 1).toString();
+                            const badge = li.querySelector('.opt-letter');
+                            if (badge) badge.textContent = `${number} `;
+                            const datePart = (li.dataset.optDate || '').split(' ')[0];
+                            const idxOnScale = findLabelIndex(labels, datePart);
+                            if (idxOnScale !== -1) {
+                                individualAnnotations.push({
+                                    type: 'line',
+                                    xScaleID: 'x',
+                                    yScaleID: 'y',
+                                    xMin: idxOnScale,
+                                    xMax: idxOnScale,
+                                    yMin: 'min',
+                                    yMax: 'max',
+                                    borderColor: 'rgba(255, 0, 0, 0.8)',
+                                    borderWidth: 2,
+                                    label: {
+                                        content: number,
+                                        enabled: true,
+                                        display: true,
+                                        position: 'start',
+                                        font: { size: 14, weight: 'bold' },
+                                        backgroundColor: 'rgba(255, 0, 0, 0.9)',
+                                        color: 'white',
+                                        rotation: 0,
+                                        yAdjust: 10,
+                                        xAdjust: 0,
+                                        padding: 4,
+                                        borderRadius: 3
+                                    }
+                                });
+                            } else {
+                                console.warn('Annotation date not matching labels (detail chart, query opt):', datePart, labels);
+                            }
+                        });
+                    }
+
+                    // Server optimizations (blue)
+                    const sListEl = document.querySelector('#server-opt-list-{{ app_id }}');
+                    if (sListEl) {
+                        const sItems = Array.from(sListEl.querySelectorAll('li[data-opt-date]'));
+                        sItems.forEach((li, idx) => {
+                            const number = (idx + 1).toString();
+                            const labelText = `S${number}`;
+                            const badge = li.querySelector('.server-opt-label');
+                            if (badge) badge.textContent = `${labelText} `;
+                            const datePart = (li.dataset.optDate || '').split(' ')[0];
+                            const idxOnScale = findLabelIndex(labels, datePart);
+                            if (idxOnScale !== -1) {
+                                individualAnnotations.push({
+                                    type: 'line',
+                                    xScaleID: 'x',
+                                    yScaleID: 'y',
+                                    xMin: idxOnScale,
+                                    xMax: idxOnScale,
+                                    yMin: 'min',
+                                    yMax: 'max',
+                                    borderColor: 'rgba(0, 0, 255, 0.8)',
+                                    borderWidth: 2,
+                                    label: {
+                                        content: labelText,
+                                        enabled: true,
+                                        display: true,
+                                        position: 'start',
+                                        font: { size: 14, weight: 'bold' },
+                                        backgroundColor: 'rgba(0, 0, 255, 0.9)',
+                                        color: 'white',
+                                        rotation: 0,
+                                        yAdjust: 10,
+                                        xAdjust: 0,
+                                        padding: 4,
+                                        borderRadius: 3
+                                    }
+                                });
+                            } else {
+                                console.warn('Annotation date not matching labels (detail chart, server opt):', datePart, labels);
+                            }
+                        });
+                    }
+                })();
+
+                const annotations = individualAnnotations.reduce((acc, ann, idx) => { acc[`ann_${idx}`] = ann; return acc; }, {});
+
+                // Destroy existing chart if it exists
+                const chartId = "execTimeChart-{{ app_id }}";
+                if (window["execTimeChartObj_{{ app_id }}"]) {
+                    window["execTimeChartObj_{{ app_id }}"].destroy();
+                }
+
+                const ctx = document.getElementById(chartId).getContext('2d');
+                window["execTimeChartObj_{{ app_id }}"] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Execution Time (min)',
+                                data: data,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                fill: false,
+                                tension: 0.1,
+                                spanGaps: true,
+                                pointRadius: 3,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Cost',
+                                data: dataCost,
+                                borderColor: 'rgba(255, 159, 64, 1)',
+                                backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                                fill: false,
+                                tension: 0.1,
+                                spanGaps: true,
+                                pointRadius: 3,
+                                yAxisID: 'yCost'
+                            },
+                            {
+                                label: 'Rows',
+                                data: dataRows,
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                fill: false,
+                                tension: 0.1,
+                                spanGaps: true,
+                                pointRadius: 3,
+                                yAxisID: 'yRows',
+                                hidden: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                onClick: (e, legendItem, legend) => {
+                                    const chart = legend.chart;
+                                    Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                                    const ds = chart.data.datasets[legendItem.datasetIndex];
+                                    if (ds && ds.yAxisID === 'yRows') {
+                                        const isVisible = typeof chart.isDatasetVisible === 'function'
+                                            ? chart.isDatasetVisible(legendItem.datasetIndex)
+                                            : !ds.hidden;
+                                        chart.options.scales.yRows.display = isVisible;
+                                        chart.update();
+                                    }
+                                }
+                            },
+                            annotation: { annotations }
+                        },
+                        scales: {
+                            x: {
+                                type: 'category',
+                                title: { display: true, text: 'Timestamp' },
+                                ticks: {
+                                    autoSkip: true,
+                                    maxTicksLimit: 10,
+                                    font: (ctx) => {
+                                        const selectedDay = "{{ day }}";
+                                        const lbl = ctx.tick && (ctx.tick.label);
+                                        if (lbl === selectedDay) {
+                                            return { weight: 'bold' };
+                                        }
+                                        return {};
+                                    }
+                                }
+                            },
+                            y: {
+                                title: { display: true, text: 'Execution Time (min)' },
+                                beginAtZero: true
+                            },
+                            yCost: {
+                                type: 'linear',
+                                position: 'right',
+                                title: { display: true, text: 'Cost' },
+                                beginAtZero: true,
+                                grid: { drawOnChartArea: false }
+                            },
+                            yRows: {
+                                type: 'linear',
+                                position: 'right',
+                                display: false,
+                                offset: true,
+                                title: { display: true, text: 'Rows' },
+                                beginAtZero: true,
+                                grid: { drawOnChartArea: false }
+                            }
+                        }
+                    }
+                });
+
+                // Click handler for chart navigation
+                document.getElementById(chartId).onclick = function(evt) {
+                    const chart = window["execTimeChartObj_{{ app_id }}"];
+                    const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+                    if (!points.length) return;
+
+                    const idx = points[0].index;
+                    const day = chart.data.labels[idx];
+
+                    const tabId = `tab-${day.replace(/\./g, '-')}-tab`;
+                    const tabEl = document.getElementById(tabId);
+                    if (tabEl) {
+                        const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
+                        tabInstance.show();
+
+                        setTimeout(() => {
+                            const selector = `#tab-${day.replace(/\./g, '-')} .accordion-button[data-query-code='{{ report.code }}']`;
+                            const btn = document.querySelector(selector);
+                            if (btn) {
+                                btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                if (btn.classList.contains('collapsed')) {
+                                    btn.click();
+                                }
+                            }
+                        }, 200);
+                    }
+                };
+            });
+        })();
+        {% endfor %}
+        {% endfor %}
     });
 </script>
