@@ -124,7 +124,7 @@ class AiCaller:
                 and hasattr(response.usage, "completion_tokens")
                 and response.usage.completion_tokens is not None
             ):
-                self.total_output_tokens += response.usage.completion_tokens+--------------------)
+                self.total_output_tokens += response.usage.completion_tokens
 
             # Calculate and accumulate cost
             try:
