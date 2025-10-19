@@ -263,17 +263,17 @@
             const currentDayStats = dailyQueryStats[day];
 
             // Update total queries and cumulated time
-            const totalQueriesSpan = document.getElementById(`total-queries-${day.replace('.', '-')}`);
-            const cumulatedTimeSpan = document.getElementById(`cumulated-time-day-${day.replace('.', '-')}`);
+            const totalQueriesSpan = document.getElementById(`total-queries-${day.replace(/\./g, '-')}`);
+            const cumulatedTimeSpan = document.getElementById(`cumulated-time-day-${day.replace(/\./g, '-')}`);
             if (totalQueriesSpan && currentDayStats) {
                 totalQueriesSpan.innerHTML = currentDayStats.total_queries || 0;
             }
             if (cumulatedTimeSpan && currentDayStats) {
-                cumulatedTimeSpan.innerHTML = Duration.fromMillis(currentDayStats.cumulated_time || 0).to Format("h'h'm'm's's'");
+                cumulatedTimeSpan.innerHTML = Duration.fromMillis(currentDayStats.cumulated_time || 0).toFormat("h'h'm'm's's'");
             }
 
             // Update queries by code table
-            const queriesByCodeTableBody = document.getElementById(`queries-by-code-table-body-${day.replace('.', '-')}`);
+            const queriesByCodeTableBody = document.getElementById(`queries-by-code-table-body-${day.replace(/\./g, '-')}`);
             if (queriesByCodeTableBody && currentDayStats && currentDayStats.queries_by_code) {
                 const queriesByCode = currentDayStats.queries_by_code;
                 let tableBodyHtml = '';
