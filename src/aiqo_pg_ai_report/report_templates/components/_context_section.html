@@ -1,0 +1,28 @@
+{% from '_macros.html' import context_section %}
+
+{% if not metadata.skip_ai_analysis %}
+<h2>Contexte</h2>
+
+<div class="accordion" id="accordionContextDetails">
+    {{ context_section(
+        'ddlContextCollapse',
+        'Contexte DDL',
+        contexts.ddl,
+        'accordionContextDetails'
+    ) }}
+
+    {{ context_section(
+        'serverConfigContextCollapse',
+        'Contexte de Configuration Serveur',
+        contexts.server_config,
+        'accordionContextDetails'
+    ) }}
+
+    {{ context_section(
+        'infraContextCollapse',
+        "Contexte d'Infrastructure",
+        contexts.infra,
+        'accordionContextDetails'
+    ) }}
+</div>
+{% endif %}

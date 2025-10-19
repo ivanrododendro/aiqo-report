@@ -1,0 +1,127 @@
+{# Macro for creating accordion cards #}
+{% macro accordion_card(id, title, content, parent_id, expanded=false, icons=[]) %}
+<div class="accordion-item">
+    <h2 class="accordion-header" id="heading-{{ id }}">
+        <button class="accordion-button {% if not expanded %}collapsed{% endif %}" 
+                type="button" 
+                data-bs-toggle="collapse" 
+                data-bs-target="#collapse-{{ id }}" 
+                aria-expanded="{{ 'true' if expanded else 'false' }}" 
+                aria-controls="collapse-{{ id }}">
+            {{ title }}
+            {% for icon in icons %}
+            <i class="bi bi-{{ icon.name }} icon ms-2" title="{{ icon.title }}"></i>
+            {% endfor %}
+        </button>
+    </h2>
+    <div id="collapse-{{ id }}" 
+         class="accordion-collapse collapse {% if expanded %}show{% endif %}" 
+         aria-labelledby="heading-{{ id }}" 
+         data-bs-parent="#{{ parent_id }}">
+        <div class="accordion-body">
+            {{ content }}
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# Macro for statistics table #}
+{% macro stats_table(headers, rows, clickable=false, row_data_attr=none) %}
+<table class='table table-bordered table-striped table-hover'>
+    <thead>
+        <tr>
+            {% for header in headers %}
+            <th scope='col'>{{ header }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr {% if clickable %}class="clickable-row" style="cursor:pointer;"{% endif %}
+            {% if row_data_attr %}data-{{ row_data_attr.key }}="{{ row[row_data_attr.value] }}"{% endif %}>
+            {% for cell in row.cells %}
+            <td>{{ cell }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+{# Macro for optimization badge #}
+{% macro optimization_badge(type, icon_class, title) %}
+<i class="bi bi-{{ icon_class }} icon ms-2" title="{{ title }}"></i>
+{% endmacro %}
+
+{# Macro for chart container #}
+{% macro chart_container(chart_id, title=none, height="400px") %}
+<div class="card card-body">
+    {% if title %}
+    <h5>{{ title }}</h5>
+    {% endif %}
+    <div style="height: {{ height }};">
+        <canvas id="{{ chart_id }}"></canvas>
+    </div>
+</div>
+{% endmacro %}
+
+{# Macro for optimization list #}
+{% macro optimization_list(optimizations, list_id, label_class="opt-letter") %}
+<ul id="{{ list_id }}">
+    {% for opt in optimizations %}
+    <li data-opt-date="{{ opt.date }}">
+        <strong class="{{ label_class }}"></strong> {{ opt.date }} : 
+        {% if label_class == "server-opt-label" %}
+        <code>{{ opt.text|safe }}</code>
+        {% else %}
+        {{ opt.text|safe }}
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endmacro %}
+
+{# Macro for context section #}
+{% macro context_section(id, title, content, parent_id) %}
+<div class="accordion-item">
+    <h2 class="accordion-header" id="heading-{{ id }}">
+        <button class="accordion-button collapsed" 
+                type="button" 
+                data-bs-toggle="collapse" 
+                data-bs-target="#{{ id }}" 
+                aria-expanded="false" 
+                aria-controls="{{ id }}">
+            <h3>{{ title }}</h3>
+        </button>
+    </h2>
+    <div class="accordion-collapse collapse" 
+         id="{{ id }}" 
+         aria-labelledby="heading-{{ id }}" 
+         data-bs-parent="#{{ parent_id }}">
+        <div class="accordion-body">
+            <div class="card card-body">
+                {% if content %}
+                <pre><code>{{ content | safe }}</code></pre>
+                {% else %}
+                <p>Aucun contenu disponible.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{# Macro for tab navigation item #}
+{% macro tab_nav_item(day, is_active=false) %}
+<li class="nav-item" role="presentation">
+    <a class="nav-link {% if is_active %}active{% endif %}" 
+       id="tab-{{ day | safe_id }}-tab" 
+       data-bs-toggle="tab" 
+       href="#tab-{{ day | safe_id }}" 
+       role="tab" 
+       aria-controls="tab-{{ day | safe_id }}" 
+       aria-selected="{{ 'true' if is_active else 'false' }}">
+        {{ day }}
+    </a>
+</li>
+{% endmacro %}

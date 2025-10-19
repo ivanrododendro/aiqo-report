@@ -2,7 +2,9 @@ import logging
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 import json
-from datetime import datetime  # Import datetime
+from datetime import datetime
+
+from .report_data_processor import ReportDataProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +16,28 @@ class ReportGenerator:
         self.env = Environment(
             loader=FileSystemLoader(str(template_base_path)), autoescape=select_autoescape(["html", "xml"])
         )
+        self._setup_custom_filters()
         self.template = self.env.get_template("report_templates/report_template.html")
+        self.data_processor = ReportDataProcessor()
+
+    def _setup_custom_filters(self):
+        """Setup custom Jinja2 filters for common transformations."""
+
+        def safe_id(text):
+            """Convert text to safe HTML ID by replacing dots with dashes."""
+            return text.replace(".", "-")
+
+        def truncate_code(code, length=6):
+            """Truncate query code to specified length."""
+            return code[:length] if code else ""
+
+        def format_date(date_str):
+            """Format date string for display."""
+            return date_str
+
+        self.env.filters["safe_id"] = safe_id
+        self.env.filters["truncate_code"] = truncate_code
+        self.env.filters["format_date"] = format_date
 
     def generate_report(
         self,
@@ -34,30 +57,30 @@ class ReportGenerator:
     ):
         logger.info(f"Generating HTML report in {output_path}")
 
-        # Convert defaultdicts to regular dicts for JSON serialization
-        # Also convert inner defaultdicts
-        serializable_daily_query_stats = {}
-        for day, data in daily_query_stats.items():
-            serializable_daily_query_stats[day] = {
-                "total_queries": data["total_queries"],
-                "cumulated_time": data["cumulated_time"],
-                "queries_by_code": dict(data["queries_by_code"]),  # Convert inner defaultdict to dict
-            }
-
-        html_report = self.template.render(
+        # Use data processor to prepare all context data
+        context = self.data_processor.prepare_report_context(
             title=title,
             model=model,
             query_stats=query_stats,
             reports_by_day=reports_by_day,
-            QUERY_NAME_LIMIT=QUERY_NAME_LIMIT,
-            daily_query_stats_json=json.dumps(serializable_daily_query_stats),  # Pass as JSON string
+            daily_query_stats=daily_query_stats,
             query_optimizations=query_optimizations,
             server_optimizations=server_optimizations,
             event_optimizations=event_optimizations,
             ddl_context=ddl_context,
             server_config_context=server_config_context,
             infra_context=infra_context,
-            skip_ai_analysis=skip_ai_analysis,  # Pass the flag to the template
-            report_creation_timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Add creation timestamp
+            skip_ai_analysis=skip_ai_analysis,
         )
+
+        # Serialize context for JavaScript
+        context["context_json"] = json.dumps(
+            {
+                "statistics": context["statistics"],
+                "charts": context["charts"],
+                "optimizations": context["optimizations"],
+            }
+        )
+
+        html_report = self.template.render(**context)
         Path(output_path).write_text(html_report, encoding="utf-8")

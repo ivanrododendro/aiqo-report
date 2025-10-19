@@ -1,19 +1,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ title }}</title>
+<title>{{ metadata.title }}</title>
 <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
 <script>const {Duration} = luxon;</script>
 <script src="https://unpkg.com/vue@3.2.45/dist/vue.global.prod.js"></script>
 <script src="https://unpkg.com/pev2/dist/pev2.umd.js"></script>
 <link href="https://unpkg.com/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
-<!-- Removed jQuery and old Popper.js, replaced with Bootstrap 5 bundle -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
 <link rel="stylesheet" href="https://unpkg.com/pev2/dist/pev2.css"/>
-<!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<!-- Chart.js Annotations Plugin CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@latest/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
     .bi-database-exclamation {
@@ -28,20 +24,20 @@
 
     .nav-tabs {
         display: flex;
-        flex-direction: row; /* Onglets horizontaux */
-        border-bottom: 1px solid #dee2e6; /* Restaurer la bordure inférieure par défaut */
-        padding-left: 0; /* Supprimer le padding par default de l'UL */
-        margin-bottom: 0; /* Supprimer la marge par default de l'UL */
-        height: 120px; /* Hauteur suffisante pour les onglets pivotés */
-        align-items: flex-end; /* Aligner les onglets en bas de la barre */
+        flex-direction: row;
+        border-bottom: 1px solid #dee2e6;
+        padding-left: 0;
+        margin-bottom: 0;
+        height: 120px;
+        align-items: flex-end;
     }
 
     .nav-tabs .nav-item {
         margin-bottom: 0;
-        position: relative; /* Pour le positionnement absolu du nav-link */
-        width: 25px; /* Largeur de l'onglet (sa "tranche") */
-        height: 100%; /* Prend toute la hauteur disponible dans .nav-tabs */
-        margin-right: 2px; /* Espace entre les onglets */
+        position: relative;
+        width: 25px;
+        height: 100%;
+        margin-right: 2px;
     }
 
     .nav-tabs .nav-link {
@@ -51,40 +47,30 @@
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
         text-align: center;
-        padding: 0.5rem 0.75rem; /* Padding pour le texte */
+        padding: 0.5rem 0.75rem;
         color: #007bff;
         background-color: transparent;
-
-        white-space: nowrap; /* Empêcher le texte de passer à la ligne */
-        display: block; /* Nécessaire pour la transformation */
-        
-        /* Positionnement et rotation */
-        position: absolute; /* Positionner absolument dans le nav-item */
-        bottom: 0; /* Aligner en bas du nav-item */
-        left: 25px; /* Adjusted to compensate for rotation shift */
-        transform: rotate(-90deg); /* Pivoter */
-        transform-origin: bottom left; /* Pivoter autour du coin inférieur gauche */
-
-        /* Définir les dimensions originales du nav-link */
-        /* La largeur originale (ex: 100px) devient la HAUTEUR après rotation */
-        /* La hauteur originale (ex: 25px) devient la LARGEUR après rotation */
-        width: 100px; /* Largeur originale qui devient la HAUTEUR après rotation */
-        height: 25px; /* Hauteur originale qui devient la LARGEUR après rotation */
-        
-        /* Centrer le texte à l'intérieur de la boîte pivotée */
+        white-space: nowrap;
+        display: block;
+        position: absolute;
+        bottom: 0;
+        left: 25px;
+        transform: rotate(-90deg);
+        transform-origin: bottom left;
+        width: 100px;
+        height: 25px;
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
     .nav-tabs .nav-link.active {
-        border-color: #dee2e6 #dee2e6 #fff #dee2e6; /* L'onglet actif a une bordure inférieure blanche */
-        background-color: #e7f1ff; /* Light blue background for active tab */
-        color: #495057; /* Couleur du texte de l'onglet actif */
+        border-color: #dee2e6 #dee2e6 #fff #dee2e6;
+        background-color: #e7f1ff;
+        color: #495057;
     }
 
     .tab-content {
-        /* padding-top: 120px; /* Ajuster pour laisser de l'espace aux onglets plus hauts */ */
-        clear: both; /* S'assurer que le contenu commence en dessous des onglets */
+        clear: both;
     }
 </style>
