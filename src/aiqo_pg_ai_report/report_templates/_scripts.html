@@ -1,0 +1,349 @@
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Contenu de dailyQueryStats (équivalent reports_by_day) :", dailyQueryStats);
+
+        // Helper function to generate a random color
+        function getRandomColor() {
+            const r = Math.floor(Math.random() * 255);
+            const g = Math.floor(Math.random() * 255);
+            const b = Math.floor(Math.random() * 255);
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        // globalQueryStats is already defined globally
+        // dailyQueryStats is already defined globally
+        // queryOptimizations is already defined globally
+        // serverOptimizations is already defined globally
+        // eventOptimizations is already defined globally
+
+        // Collect all unique dates from both query stats and optimizations
+        let allDatesSet = new Set();
+        Object.keys(dailyQueryStats).forEach(date => allDatesSet.add(date));
+        for (const queryCode in queryOptimizations) {
+            if (queryOptimizations.hasOwnProperty(queryCode)) {
+                queryOptimizations[queryCode].forEach(opt => allDatesSet.add(opt.date));
+            }
+        }
+        // Add dates from server and event optimizations to the set
+        serverOptimizations.forEach(opt => allDatesSet.add(opt.date));
+        eventOptimizations.forEach(opt => allDatesSet.add(opt.date));
+
+        const allDays = Array.from(allDatesSet).sort(); // Sort all collected dates
+
+        const datasets = globalQueryStats.map(stat => { // Use globalQueryStats here
+            const data = allDays.map(day => {
+                const dayStats = dailyQueryStats[day];
+                // Use optional chaining for safer property access
+                const durationMs = dayStats?.queries_by_code?.[stat.code];
+                // Convert to minutes or return null if no data for that day
+                return durationMs != null ? durationMs / 60000 : null;
+            });
+
+            const randomColor = getRandomColor(); // Generate a random color for each series
+
+            return {
+                label: `[${stat.code.substring(0, 6)}] ${stat.name.substring(0, {{ QUERY_NAME_LIMIT }})}`,
+                data: data,
+                fill: false,
+                tension: 0.1,
+                hidden: false, // All series visible by default
+                spanGaps: true, // Connect points across null values
+                borderColor: randomColor, // Apply random color
+                backgroundColor: randomColor,
+            };
+        });
+
+        // --- Annotation and Legend Data Structures ---
+        const queryChartAnnotations = []; // For the first chart
+        const cumulatedTimeChartAnnotations = []; // For the second chart
+        const genericOptimizationLegendEntries = []; // Unified legend entries
+        const queryOptimizationLegendEntries = []; // Unified legend entries
+
+        let annotationCounter = 0;
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+        // Helper to add annotations and legend entries
+        function addOptimization(targetAnnotationsArray, targetLegendEntriesArray, opt, type, borderColor, queryCode = null) {
+            const annotationId = alphabet[annotationCounter % alphabet.length];
+            targetLegendEntriesArray.push({
+                id: annotationId,
+                date: opt.date,
+                type: type,
+                queryCode: queryCode, // Will be null for server/event optimizations
+                text: opt.text
+            });
+            annotationCounter++;
+
+            targetAnnotationsArray.push({
+                type: 'line',
+                mode: 'vertical',
+                xMin: opt.date,
+                xMax: opt.date,
+                borderColor: borderColor,
+                borderWidth: 2,
+                label: {
+                    content: annotationId,
+                    display: true,
+                    position: 'top',
+                    font: { size: 12, weight: 'bold' },
+                    backgroundColor: borderColor.replace('0.8', '0.7'),
+                    color: 'white',
+                    rotation: 0,
+                    yAdjust: -10
+                }
+            });
+        }
+
+        // Add query-specific optimizations to the FIRST chart
+        for (const queryCode in queryOptimizations) {
+            if (queryOptimizations.hasOwnProperty(queryCode)) {
+                queryOptimizations[queryCode].forEach(opt => {
+                    addOptimization(queryChartAnnotations, queryOptimizationLegendEntries, opt, "Requête", 'rgba(255, 0, 0, 0.8)', queryCode); // Red
+                });
+            }
+        }
+
+        // Add server optimizations to the SECOND chart
+        serverOptimizations.forEach(opt => {
+            addOptimization(cumulatedTimeChartAnnotations, genericOptimizationLegendEntries, opt, "Serveur", 'rgba(0, 0, 255, 0.8)'); // Blue
+        });
+
+        // Add event optimizations to the SECOND chart
+        eventOptimizations.forEach(opt => {
+            addOptimization(cumulatedTimeChartAnnotations, genericOptimizationLegendEntries, opt, "Événement", 'rgba(0, 128, 0, 0.8)'); // Green
+        });
+
+        // After chart creation, populate the optimization legend
+        const genericLegendContainer = document.getElementById('genericOptimizationLegend'); // Renamed from legendContainer
+        if (genericOptimizationLegendEntries.length > 0) {
+            let legendHtml = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
+            // Sort legend entries by ID (alphabetical) for better readability
+            genericOptimizationLegendEntries.sort((a, b) => a.id.localeCompare(b.id)).forEach(entry => {
+                legendHtml += `<li><strong>${entry.id}</strong>`;
+                if (entry.queryCode) {
+                    legendHtml += ` [${entry.queryCode.substring(0, 6)}]`;
+                }
+                if(entry.type === 'Serveur')
+                    legendHtml +=  `: <code>${entry.text}</code></li>`;
+                else
+                    legendHtml += `: ${entry.text}</li>`;
+            });
+            legendHtml += '</ul>';
+            genericLegendContainer.innerHTML = legendHtml;
+        } else {
+            genericLegendContainer.innerHTML = '<p>Aucune optimisation enregistrée.</p>';
+        }
+
+        // --- New Chart for Daily Cumulated Time ---
+        // This chart also needs to use the expanded allDays for its labels
+        const cumulatedTimeData = allDays.map(day => {
+            const dayStats = dailyQueryStats[day];
+            // Convert to minutes or return null if no data for that day
+            return dayStats?.cumulated_time != null ? dayStats.cumulated_time / 60000 : null;
+        });
+
+        const totalQueriesData = allDays.map(day => {
+            const dayStats = dailyQueryStats[day];
+            return dayStats?.total_queries != null ? dayStats.total_queries : null;
+        });
+
+        const ctx2 = document.getElementById('dailyCumulatedTimeChart').getContext('2d');
+        const dailyCumulatedTimeChartObj = new Chart(ctx2, {
+            type: 'line', // Default type for the first dataset
+            data: {
+                labels: allDays, // Use the expanded allDays here too
+                datasets: [
+                    {
+                        label: 'Total Cumulated Time',
+                        data: cumulatedTimeData,
+                        borderColor: 'rgb(75, 192, 192)', // A distinct color for this single line
+                        backgroundColor: 'rgb(75, 192, 192)',
+                        fill: false,
+                        tension: 0.1,
+                        spanGaps: true,
+                        yAxisID: 'y' // Assign to the default left axis
+                    },
+                    {
+                        label: 'Total Queries Count',
+                        data: totalQueriesData,
+                        type: 'bar', // This dataset will be a bar chart
+                        backgroundColor: 'rgba(153, 102, 255, 0.5)', // Purple with transparency
+                        borderColor: 'rgba(153, 102, 255, 1)', // Solid purple border
+                        borderWidth: 1,
+                        yAxisID: 'yAxisRightTotalQueries' // Assign to the new right axis
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Daily Cumulated Time and Query Count Trends'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    if (context.dataset.yAxisID === 'yAxisRightTotalQueries') {
+                                        label += context.parsed.y.toFixed(0); // Total queries are integers
+                                    } else {
+                                        label += context.parsed.y.toFixed(2) + ' min';
+                                    }
+                                }
+                                return label;
+                            }
+                        }
+                    },
+                    annotation: { // Add annotation plugin configuration here
+                        annotations: cumulatedTimeChartAnnotations // Apply server/event annotations to this chart
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: { // Left Y-axis for Cumulated Time
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Cumulated Time (Minutes)'
+                        },
+                        beginAtZero: true
+                    },
+                    yAxisRightTotalQueries: { // New Right Y-axis for Total Queries
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Total Queries Count'
+                        },
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false // Only draw grid lines for the primary Y-axis
+                        }
+                    }
+                }
+            }
+        });
+
+        // --- Click handler: navigate to the day represented by the clicked point/bar ---
+        document.getElementById('dailyCumulatedTimeChart').onclick = function(evt) {
+            const chart = dailyCumulatedTimeChartObj;
+            const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+            if (!points.length) return;
+
+            const idx = points[0].index;
+            const day = chart.data.labels[idx];
+
+            // Activate the corresponding day tab
+            const tabId = `tab-${day.replace(/\./g, '-')}-tab`;
+            const tabEl = document.getElementById(tabId);
+            if (tabEl) {
+                const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
+                tabInstance.show();
+                // Scroll to the top smoothly after switching tab
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+
+        // --- New Logic for Daily Tab Content Population ---
+
+        // Function to populate daily summary and queries by code table
+        function updateDailyTabContent(day) {
+            const currentDayStats = dailyQueryStats[day];
+
+            // Update total queries and cumulated time
+            const totalQueriesSpan = document.getElementById(`total-queries-${day.replace('.', '-')}`);
+            const cumulatedTimeSpan = document.getElementById(`cumulated-time-day-${day.replace('.', '-')}`);
+            if (totalQueriesSpan && currentDayStats) {
+                totalQueriesSpan.innerHTML = currentDayStats.total_queries || 0;
+            }
+            if (cumulatedTimeSpan && currentDayStats) {
+                cumulatedTimeSpan.innerHTML = Duration.fromMillis(currentDayStats.cumulated_time || 0).to Format("h'h'm'm's's'");
+            }
+
+            // Update queries by code table
+            const queriesByCodeTableBody = document.getElementById(`queries-by-code-table-body-${day.replace('.', '-')}`);
+            if (queriesByCodeTableBody && currentDayStats && currentDayStats.queries_by_code) {
+                const queriesByCode = currentDayStats.queries_by_code;
+                let tableBodyHtml = '';
+                const sortedQueries = Object.entries(queriesByCode).sort(([, durationA], [, durationB]) => durationB - durationA);
+
+                for (const [code, durationMs] of sortedQueries) {
+                    tableBodyHtml += `<tr><td>${code.substring(0, 6)}</td><td>${Duration.fromMillis(durationMs).toFormat("h'h'm'm's's'")}</td></tr>`;
+                }
+                queriesByCodeTableBody.innerHTML = tableBodyHtml;
+            }
+        }
+
+        // Get all tab links
+        const tabLinks = document.querySelectorAll('#dailyTabs .nav-link');
+
+        tabLinks.forEach(tabLink => {
+            tabLink.addEventListener('shown.bs.tab', function (event) {
+                // Get the ID of the newly active tab pane (e.g., "tab-2023-10-26")
+                const targetTabPaneId = event.target.getAttribute('href').substring(1); // Remove '#'
+                // Extract the day string (e.g., "2023.10.26") by replacing hyphens with dots
+                const day = targetTabPaneId.replace('tab-', '').replace(/-/g, '.');
+                updateDailyTabContent(day);
+            });
+        });
+
+        // Manually trigger for the initially active tab on page load
+        // Find the active tab and trigger its content update
+        const activeTabElement = document.querySelector('#dailyTabs .nav-link.active');
+        if (activeTabElement) {
+            const targetPaneId = activeTabElement.getAttribute('href').substring(1);
+            const day = targetPaneId.replace('tab-', '').replace(/-/g, '.');
+            updateDailyTabContent(day);
+        }
+
+        // --- Click handler for Global Synthesis Table rows ---
+        document.querySelectorAll('.global-query-row').forEach(row => {
+            row.addEventListener('click', function () {
+                const code = this.getAttribute('data-query-code');
+                if (!code) return;
+
+                // Find the earliest day containing this query code
+                let targetDay = null;
+                for (const day of allDays) {
+                    const dayStats = dailyQueryStats[day];
+                    if (dayStats?.queries_by_code?.[code] != null) {
+                        targetDay = day;
+                        break;
+                    }
+                }
+                if (!targetDay) return;
+
+                const tabId = `tab-${targetDay.replace(/\./g, '-')}-tab`;
+                const tabEl = document.getElementById(tabId);
+                if (tabEl) {
+                    const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
+                    tabInstance.show();
+
+                    // After the tab pane is visible, scroll to & expand the first accordion item for this query
+                    setTimeout(() => {
+                        const selector = `#tab-${targetDay.replace(/\./g, '-')} .accordion-button[data-query-code='${code}']`;
+                        const btn = document.querySelector(selector);
+                        if (btn) {
+                            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            if (btn.classList.contains('collapsed')) {
+                                btn.click();
+                            }
+                        }
+                    }, 200);
+                }
+            });
+        });
+    });
+</script>

@@ -1,0 +1,13 @@
+<script>
+    const {createApp} = Vue;
+    // Directly assign the JavaScript objects rendered by Jinja
+    // These are now global for easier access by inline scripts
+    const dailyQueryStats = {{ daily_query_stats_json | safe }};
+    const globalQueryStats = {{ query_stats | tojson | safe }}; // Renamed from query_stats to globalQueryStats to avoid confusion with daily stats
+    const queryOptimizations = {{ query_optimizations | tojson | safe }};
+    const serverOptimizations = {{ server_optimizations | tojson | safe }};
+    const eventOptimizations = {{ event_optimizations | tojson | safe }};
+    const ddlContext = {{ ddl_context | tojson | safe }};
+    const serverConfigContext = {{ server_config_context | tojson | safe }};
+    const infraContext = {{ infra_context | tojson | safe }};
+</script>

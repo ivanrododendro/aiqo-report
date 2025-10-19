@@ -1,0 +1,523 @@
+<h1 class="mb-4">{{ title }}</h1>
+<p class="text-muted">Rapport généré le : {{ report_creation_timestamp }}</p>
+<ul class="nav nav-tabs" id="dailyTabs" role="tablist">
+    {% for day, reports in reports_by_day.items()|sort %}
+    <li class="nav-item" role="presentation">
+        <a class="nav-link {% if loop.last %}active{% endif %}" id="tab-{{ day | replace('.', '-') }}-tab" data-bs-toggle="tab" href="#tab-{{ day | replace('.', '-') }}" role="tab" aria-controls="tab-{{ day | replace('.', '-') }}" aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
+            {{ day }}
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+
+<div class="tab-content" id="dailyTabContent">
+    {% for day, reports in reports_by_day.items()|sort %}
+    <div class="tab-pane fade {% if loop.last %}show active{% endif %}" id="tab-{{ day | replace('.', '-') }}" role="tabpanel" aria-labelledby="tab-{{ day | replace('.', '-') }}-tab">
+        <div class="card card-body mt-3">
+
+            <h5 class="mt-4">Détail des requêtes individuelles pour le {{ day }}</h5>
+            <div class="accordion" id="accordionDailyQueries-{{ day | replace('.', '-') }}">
+                {% for report in reports %}
+                {% set i = loop.index0 %}
+                {% set app_id = 'app-' ~ day | replace('.', '-') ~ '-' ~ i %} {# Ensure app_id is also safe for dots #}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading-{{ app_id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ app_id }}" aria-expanded="false" aria-controls="collapse-{{ app_id }}" data-query-code="{{ report.code }}">
+                            <span title="{{ report.query_timestamp }}">[{{ report.code[:6] }}] {{ report.title[:QUERY_NAME_LIMIT] }}</span>
+                            {% if query_optimizations[report.code] %}
+                            <i class="bi bi-lightning icon ms-2" title="Optimisations disponibles"></i>
+                            {% endif %}
+                            {% if report.seq_scan_indicator %}
+                            <i class="bi bi-database-exclamation icon ms-2" title="La requête contient un Seq Scan"></i>
+                            {% endif %}
+                            {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
+                            <i class="bi bi-chat-left-text icon ms-2" title="Analyse AI disponible"></i>
+                            {% endif %}
+                        </button>
+                    </h2>
+                    <div id="collapse-{{ app_id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ app_id }}" data-bs-parent="#accordionDailyQueries-{{ day | replace('.', '-') }}">
+                        <div class="accordion-body">
+                            <p id="duration-{{ day | replace('.', '-') }}-{{ i }}">
+                                <script>document.getElementById("duration-{{ day | replace('.', '-') }}-{{ i }}").innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}})
+                                .toFormat("h'h'm'm's's'");</script>
+                            </p>
+                            {% if query_optimizations[report.code] %}
+                                <p>
+                                    <strong>Optimisations déjà appliquées :</strong>
+                                    {% if query_optimizations[report.code] is iterable and query_optimizations[report.code] is not string %}
+                                <ul id="opt-list-{{ app_id }}">
+                                    {% for opt in query_optimizations[report.code] %}
+                                    <li data-opt-date="{{ opt.date }}"><strong class="opt-letter"></strong> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                {{ query_optimizations[report.code]|safe }}
+                                {% endif %}
+                                </p>
+                            {% endif %}
+
+                            {% if report.chatgpt_hints and not report.chatgpt_hints.startswith('AI analysis skipped') %}
+                                <p><strong>Analyse AI :</strong> {{ report.chatgpt_hints|safe }}</p>
+                            {% endif %}
+
+                            <div id="{{ app_id }}">
+                                <pev2 :plan-source="plan" :plan-query="query"
+                                      style="display: block;  aspect-ratio: 16 / 9; width: 100%;"></pev2>
+                            </div>
+                            <!-- Execution Time Over Time Chart -->
+                            <div class="mb-3">
+                                <canvas id="execTimeChart-{{ app_id }}" height="120"></canvas>
+                            </div>
+                            {% if server_optimizations %}
+                            <p>
+                                <strong>Optimisations serveur :</strong>
+                                <ul id="server-opt-list-{{ app_id }}">
+                                    {% for opt in server_optimizations %}
+                                    <li data-opt-date="{{ opt.date }}"><strong class="server-opt-label"></strong> {{ opt.date }} : <code>{{ opt.text|safe }}</code></li>
+                                    {% endfor %}
+                                </ul>
+                            </p>
+                            {% endif %}
+                            <script>
+                                // Changed from jQuery .on() to vanilla JS addEventListener
+                                document.getElementById('collapse-{{ app_id }}').addEventListener('shown.bs.collapse', function () {
+                                    createApp({
+                                        data() {
+                                            return {
+                                                plan: `{{ report.plan|safe }}`,
+                                                query: `{{ report.query_text|safe }}`
+                                            };
+                                        }
+                                    }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+
+                                    // --- Execution Time Over Time Chart ---
+                                    // Costruisci allExecutions includendo anche i giorni senza esecuzione per questa query
+
+                                    const allExecutions = [];
+
+                                    {% for d, reps in reports_by_day.items() %}
+                                        {% set found = False %}
+                                        {% for r in reps %}
+                                            {% if r.code == report.code %}
+                                                allExecutions.push({
+                                                    timestamp: "{{ r.query_timestamp }}",
+                                                    duration: {{ r.duration|int }},
+                                                    cost: {{ r.cost|default(None)|tojson }},
+                                                    rows: {{ r.rows|default(None)|tojson }}
+                                                });
+                                                {% set found = True %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% if not found %}
+                                            // Se nessuna esecuzione per questa query in questo giorno, aggiungi null
+                                            // Prendi il primo timestamp del giorno (o crea uno fittizio se necessario)
+                                            allExecutions.push({
+                                                timestamp: "{{ d }}",
+                                                duration: null,
+                                                cost: null,
+                                                rows: null
+                                            });
+                                        {% endif %}
+                                    {% endfor %}
+                                    // Sort by timestamp
+                                    allExecutions.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+                                    // Prepare data
+                                    // Use only the date portion (YYYY.MM.DD) on the X-axis
+                                    const labels = allExecutions.map(e => e.timestamp.split(' ')[0]);
+                                    // Convert duration from ms to minutes for the chart
+                                    const data = allExecutions.map(e => e.duration !== null ? e.duration / 60000 : null);
+                                    // Additional series: cost and rows (coerce to numbers)
+                                    function parseCostVal(val) {
+                                        if (val === null || val === undefined) return null;
+                                        if (typeof val === 'number' && isFinite(val)) return val;
+                                        if (typeof val === 'string') {
+                                            const trimmed = val.trim();
+                                            // Match "a..b" range, take b (total cost)
+                                            const rangeMatch = trimmed.match(/^(\d+(?:\.\d+)?)\.\.(\d+(?:\.\d+)?)/);
+                                            if (rangeMatch) return parseFloat(rangeMatch[2]);
+                                            const n = parseFloat(trimmed.replace(/[^0-9.-]/g, ''));
+                                            return Number.isFinite(n) ? n : null;
+                                        }
+                                        return null;
+                                    }
+                                    function parseRowsVal(val) {
+                                        if (val === null || val === undefined) return null;
+                                        if (typeof val === 'number' && isFinite(val)) return val;
+                                        if (typeof val === 'string') {
+                                            const n = parseInt(val.replace(/[^0-9-]/g, ''), 10);
+                                            return Number.isFinite(n) ? n : null;
+                                        }
+                                        return null;
+                                    }
+                                    const dataCost = allExecutions.map((e, idx) => {
+                                        const parsed = parseCostVal(e.cost);
+                                        if (parsed === null) console.debug(`DEBUG parseCost null at idx ${idx}`, e.cost, e);
+                                        return parsed;
+                                    });
+                                    const dataRows = allExecutions.map((e, idx) => {
+                                        const parsed = parseRowsVal(e.rows);
+                                        if (parsed === null) console.debug(`DEBUG parseRows null at idx ${idx}`, e.rows, e);
+                                        return parsed;
+                                    });
+                                    // Debug logs to verify extracted values
+                                    console.log("DEBUG allExecutions ({{ report.code }})", allExecutions);
+                                    console.log("DEBUG parsed dataCost ({{ report.code }})", dataCost);
+                                    console.log("DEBUG parsed dataRows ({{ report.code }})", dataRows);
+                                    // Draw chart
+                                    const chartId = "execTimeChart-{{ app_id }}";
+                                    const ctx = document.getElementById(chartId).getContext('2d');
+
+                                    // Build query- and server-optimization annotations and label numbers in the lists
+                                    const individualAnnotations = [];
+                                    (function () {
+                                        function findLabelIndex(ls, dateStr) {
+                                            const base = dateStr;
+                                            const candidates = [base, base.replace(/\./g, '-'), base.replace(/-/g, '.')];
+                                            for (const c of candidates) {
+                                                const i = ls.indexOf(c);
+                                                if (i !== -1) return i;
+                                            }
+                                            return -1;
+                                        }
+                                        // Query-specific optimizations (red), numbers start at 1
+                                        const qListEl = document.querySelector('#opt-list-{{ app_id }}');
+                                        if (qListEl) {
+                                            const qItems = Array.from(qListEl.querySelectorAll('li[data-opt-date]'));
+                                            qItems.forEach((li, idx) => {
+                                                const number = (idx + 1).toString();
+                                                const badge = li.querySelector('.opt-letter');
+                                                if (badge) badge.textContent = `${number} `;
+                                                const datePart = (li.dataset.optDate || '').split(' ')[0];
+                                                const idxOnScale = findLabelIndex(labels, datePart);
+                                                if (idxOnScale !== -1) {
+                                                    const labelVal = labels[idxOnScale];
+                                                    individualAnnotations.push({
+                                                        type: 'line',
+                                                        xScaleID: 'x',
+                                                        xMin: labelVal,
+                                                        xMax: labelVal,
+                                                        borderColor: 'rgba(255, 0, 0, 0.8)',
+                                                        borderWidth: 2,
+                                                        label: {
+                                                            content: number,
+                                                            display: true,
+                                                            position: 'top',
+                                                            font: { size: 12, weight: 'bold' },
+                                                            backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                                                            color: 'white',
+                                                            rotation: 0,
+                                                            yAdjust: -10
+                                                        }
+                                                    });
+                                                } else {
+                                                    console.warn('Annotation date not matching labels (detail chart, query opt):', datePart, labels);
+                                                }
+                                            });
+                                        }
+
+                                        // Server optimizations (blue), numbers start at 1 with 'S' prefix in list and chart
+                                        const sListEl = document.querySelector('#server-opt-list-{{ app_id }}');
+                                        if (sListEl) {
+                                            const sItems = Array.from(sListEl.querySelectorAll('li[data-opt-date]'));
+                                            sItems.forEach((li, idx) => {
+                                                const number = (idx + 1).toString();
+                                                const labelText = `S${number}`;
+                                                const badge = li.querySelector('.server-opt-label');
+                                                if (badge) badge.textContent = `${labelText} `;
+                                                const datePart = (li.dataset.optDate || '').split(' ')[0];
+                                                const idxOnScale = findLabelIndex(labels, datePart);
+                                                if (idxOnScale !== -1) {
+                                                    const labelVal = labels[idxOnScale];
+                                                    individualAnnotations.push({
+                                                        type: 'line',
+                                                        xScaleID: 'x',
+                                                        xMin: labelVal,
+                                                        xMax: labelVal,
+                                                        borderColor: 'rgba(0, 0, 255, 0.8)',
+                                                        borderWidth: 2,
+                                                        label: {
+                                                            content: labelText,
+                                                            display: true,
+                                                            position: 'top',
+                                                            font: { size: 12, weight: 'bold' },
+                                                            backgroundColor: 'rgba(0, 0, 255, 0.7)',
+                                                            color: 'white',
+                                                            rotation: 0,
+                                                            yAdjust: -10
+                                                        }
+                                                    });
+                                                } else {
+                                                    console.warn('Annotation date not matching labels (detail chart, server opt):', datePart, labels);
+                                                }
+                                            });
+                                        }
+                                    })();
+
+                                    if (window["execTimeChartObj_{{ app_id }}"]) {
+                                        window["execTimeChartObj_{{ app_id }}"].destroy();
+                                    }
+                                    window["execTimeChartObj_{{ app_id }}"] = new Chart(ctx, {
+                                        type: 'line',
+                                        data: {
+                                            labels: labels,
+                                            datasets: [
+                                                {
+                                                    label: 'Execution Time (min)',
+                                                    data: data,
+                                                    borderColor: 'rgba(75, 192, 192, 1)',
+                                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                                    fill: false,
+                                                    tension: 0.1,
+                                                    spanGaps: true,
+                                                    pointRadius: 3,
+                                                    yAxisID: 'y'
+                                                },
+                                                {
+                                                    label: 'Cost',
+                                                    data: dataCost,
+                                                    borderColor: 'rgba(255, 159, 64, 1)',
+                                                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                                                    fill: false,
+                                                    tension: 0.1,
+                                                    spanGaps: true,
+                                                    pointRadius: 3,
+                                                    yAxisID: 'yCost'
+                                                },
+                                                {
+                                                    label: 'Rows',
+                                                    data: dataRows,
+                                                    borderColor: 'rgba(54, 162, 235, 1)',
+                                                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                                    fill: false,
+                                                    tension: 0.1,
+                                                    spanGaps: true,
+                                                    pointRadius: 3,
+                                                    yAxisID: 'yRows',
+                                                    hidden: true // Masquer la série "Rows" par défaut
+                                                }
+                                            ]
+                                        },
+                                        options: {
+                                            responsive: true,
+                                            plugins: {
+                                                legend: {
+                                                    display: true,
+                                                    onClick: (e, legendItem, legend) => {
+                                                        const chart = legend.chart;
+                                                        // Utiliser le gestionnaire par défaut pour basculer la visibilité
+                                                        Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                                                        // Si on a cliqué sur la série "Rows", synchroniser la visibilité de l'axe yRows
+                                                        const ds = chart.data.datasets[legendItem.datasetIndex];
+                                                        if (ds && ds.yAxisID === 'yRows') {
+                                                            const isVisible = typeof chart.isDatasetVisible === 'function'
+                                                                ? chart.isDatasetVisible(legendItem.datasetIndex)
+                                                                : !ds.hidden;
+                                                            chart.options.scales.yRows.display = isVisible;
+                                                            chart.update();
+                                                        }
+                                                    }
+                                                }, // Afficher la légende pour permettre le masquage/affichage
+                                                annotation: { annotations: individualAnnotations }
+                                            },
+                                            scales: {
+                                                x: {
+                                                    title: { display: true, text: 'Timestamp' },
+                                                    ticks: {
+                                                        autoSkip: true,
+                                                        maxTicksLimit: 10,
+                                                        font: (ctx) => {
+                                                            const selectedDay = "{{ day }}";
+                                                            const lbl = ctx.tick && (ctx.tick.label);
+                                                            if (lbl === selectedDay) {
+                                                                return { weight: 'bold' };
+                                                            }
+                                                            return {};
+                                                        }
+                                                    }
+                                                },
+                                                y: {
+                                                    title: { display: true, text: 'Execution Time (min)' },
+                                                    beginAtZero: true
+                                                },
+                                                yCost: {
+                                                    type: 'linear',
+                                                    position: 'right',
+                                                    title: { display: true, text: 'Cost' },
+                                                    beginAtZero: true,
+                                                    grid: { drawOnChartArea: false }
+                                                },
+                                                yRows: {
+                                                    type: 'linear',
+                                                    position: 'right',
+                                                    display: false, // Afficher l'axe uniquement quand la série "Rows" est visible
+                                                    offset: true,
+                                                    title: { display: true, text: 'Rows' },
+                                                    beginAtZero: true,
+                                                    grid: { drawOnChartArea: false }
+                                                }
+                                            }
+                                        }
+                                    });
+
+                                    // --- Click handler: navigate to the execution represented by the clicked point ---
+                                    document.getElementById(chartId).onclick = function(evt) {
+                                        const chart = window["execTimeChartObj_{{ app_id }}"];
+                                        const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+                                        if (!points.length) return;
+
+                                        const idx = points[0].index;
+                                        // Label already holds the date (YYYY.MM.DD)
+                                        const day = chart.data.labels[idx];
+
+                                        // Activate the corresponding day tab
+                                        const tabId = `tab-${day.replace(/\./g, '-')}-tab`;
+                                        const tabEl = document.getElementById(tabId);
+                                        if (tabEl) {
+                                            const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
+                                            tabInstance.show();
+
+                                            // After the tab pane is visible, scroll to & expand the right accordion item
+                                            setTimeout(() => {
+                                                const selector = `#tab-${day.replace(/\./g, '-')} .accordion-button[data-query-code='{{ report.code }}']`;
+                                                const btn = document.querySelector(selector);
+                                                if (btn) {
+                                                    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                    if (btn.classList.contains('collapsed')) {
+                                                        btn.click();
+                                                    }
+                                                }
+                                            }, 200);
+                                        }
+                                    };
+                                });
+                            </script>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2>Synthèse globale</h2> {# Changed from "Synthèse" to "Synthèse globale" for clarity #}
+<div class="accordion" id="accordionGlobalSynthesis">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingRequestCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#requestCollapse" aria-expanded="false" aria-controls="requestCollapse">
+                <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3> {# More descriptive title #}
+            </button>
+        </h2>
+        <div id="requestCollapse" class="accordion-collapse collapse" aria-labelledby="headingRequestCollapse" data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="card card-body">
+                    <table class='table table-bordered table-striped table-hover'>
+                        <thead>
+                        <tr>
+                            <th scope='col'>Requête</th>
+                            <th scope='col'>Temps cumulé</th>
+                            <th scope='col'># occurrences</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for stat in query_stats %} {# This is now globalQueryStats in JS, but query_stats in Jinja #}
+                        <tr scope='row' class="global-query-row" data-query-code="{{ stat.code }}" style="cursor:pointer;">
+                            <td>[{{ stat.code[:6] }}] {{ stat.name[:QUERY_NAME_LIMIT] }}</td>
+                            <td id='cumulated-time-{{ stat.code }}'>{{ stat.cumulated_time }}</td>
+                            <script>document.getElementById('cumulated-time-{{ stat.code }}').innerHTML = Duration.fromMillis(
+                                {{ stat.cumulated_time }}).toFormat("h'h'm'm's's'");</script>
+                            <td>{{ stat.count }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingDailyCumulatedTimeChartCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dailyCumulatedTimeChartCollapse" aria-expanded="false" aria-controls="dailyCumulatedTimeChartCollapse">
+                <h3>Tendances quotidiennes du temps cumulé et du nombre de requêtes</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="dailyCumulatedTimeChartCollapse" aria-labelledby="headingDailyCumulatedTimeChartCollapse" data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="card card-body">
+                    <canvas id="dailyCumulatedTimeChart"></canvas>
+                </div>
+                <div class="card card-body">
+                    <div id="genericOptimizationLegend"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> {# This closes the accordionGlobalSynthesis div #}
+
+{% if not skip_ai_analysis %}
+<h2>Contexte</h2>
+
+<div class="accordion" id="accordionContextDetails"> {# NEW ACCORDION CONTAINER for contexts #}
+    <!-- New Accordion for DDL Context -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingDdlContextCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ddlContextCollapse" aria-expanded="false" aria-controls="ddlContextCollapse">
+                <h3>Contexte DDL</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="ddlContextCollapse" aria-labelledby="headingDdlContextCollapse" data-bs-parent="#accordionContextDetails"> {# Updated data-bs-parent #}
+            <div class="accordion-body">
+                <div class="card card-body">
+                    {% if ddl_context %}
+                        <pre><code>{{ ddl_context | safe }}</code></pre>
+                    {% else %}
+                        <p>Aucun contexte DDL disponible.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Accordion for Server Configuration Context -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingServerConfigContextCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#serverConfigContextCollapse" aria-expanded="false" aria-controls="serverConfigContextCollapse">
+                <h3>Contexte de Configuration Serveur</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="serverConfigContextCollapse" aria-labelledby="headingServerConfigContextCollapse" data-bs-parent="#accordionContextDetails"> {# Updated data-bs-parent #}
+            <div class="accordion-body">
+                <div class="card card-body">
+                    {% if server_config_context %}
+                        <pre><code>{{ server_config_context | safe }}</code></pre>
+                    {% else %}
+                        <p>Aucun contexte de configuration serveur disponible.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Accordion for Infrastructure Context -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingInfraContextCollapse">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#infraContextCollapse" aria-expanded="false" aria-controls="infraContextCollapse">
+                <h3>Contexte d'Infrastructure</h3>
+            </button>
+        </h2>
+        <div class="accordion-collapse collapse" id="infraContextCollapse" aria-labelledby="headingInfraContextCollapse" data-bs-parent="#accordionContextDetails"> {# Updated data-bs-parent #}
+            <div class="accordion-body">
+                <div class="card card-body">
+                    {% if infra_context %}
+                        <pre><code>{{ infra_context | safe }}</code></pre>
+                    {% else %}
+                        <p>Aucun contexte d'infrastructure disponible.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div> {# NEW CLOSING ACCORDION CONTAINER #}
+{% endif %}
