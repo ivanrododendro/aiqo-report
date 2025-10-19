@@ -193,8 +193,12 @@
                                                     const labelVal = labels[idxOnScale];
                                                     individualAnnotations.push({
                                                         type: 'line',
-                                                        xMin: labelVal,
-                                                        xMax: labelVal,
+                                                        xScaleID: 'x',
+                                                        yScaleID: 'y',
+                                                        xMin: idxOnScale,
+                                                        xMax: idxOnScale,
+                                                        yMin: 'min',
+                                                        yMax: 'max',
                                                         borderColor: 'rgba(255, 0, 0, 0.8)',
                                                         borderWidth: 2,
                                                         label: {
@@ -229,8 +233,12 @@
                                                     const labelVal = labels[idxOnScale];
                                                     individualAnnotations.push({
                                                         type: 'line',
-                                                        xMin: labelVal,
-                                                        xMax: labelVal,
+                                                        xScaleID: 'x',
+                                                        yScaleID: 'y',
+                                                        xMin: idxOnScale,
+                                                        xMax: idxOnScale,
+                                                        yMin: 'min',
+                                                        yMax: 'max',
                                                         borderColor: 'rgba(0, 0, 255, 0.8)',
                                                         borderWidth: 2,
                                                         label: {
