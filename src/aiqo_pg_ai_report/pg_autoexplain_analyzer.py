@@ -6,6 +6,9 @@ import sys  # Import sys for exit
 from collections import defaultdict
 from pathlib import Path
 
+# Ensure package imports resolve when run as a script
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 # Import classes and necessary constants from their new modules
 from aiqo_pg_ai_report.ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT
 from aiqo_pg_ai_report.log_parser import LogParser
