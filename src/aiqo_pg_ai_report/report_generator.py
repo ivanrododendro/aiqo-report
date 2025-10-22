@@ -13,11 +13,14 @@ QUERY_NAME_LIMIT = 140
 
 class ReportGenerator:
     def __init__(self, template_base_path):
+        # Ensure correct templates folder for Jinja loader
+        templates_path = Path(template_base_path) / "report_templates"
         self.env = Environment(
-            loader=FileSystemLoader(str(template_base_path)), autoescape=select_autoescape(["html", "xml"])
+            loader=FileSystemLoader(str(templates_path)),
+            autoescape=select_autoescape(["html", "xml"])
         )
         self._setup_custom_filters()
-        self.template = self.env.get_template("report_templates/report_template.html")
+        self.template = self.env.get_template("report_template.html")
         self.data_processor = ReportDataProcessor()
 
     def _setup_custom_filters(self):
