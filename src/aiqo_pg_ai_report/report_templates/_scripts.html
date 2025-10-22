@@ -85,22 +85,20 @@
                     }
 
                     // Compute startTime robustly after confirming endTime validity
-                    let startTime = null;
+                    let validStart = "N/A";
                     if (endTime.isValid && Number.isFinite(durationMillis) && durationMillis > 0) {
-                        // use plain JS date math to avoid Luxon invalid clones
-                        const startDate = new Date(endTime.toMillis() - durationMillis);
-                        startTime = luxon.DateTime.fromMillis(startDate.getTime());
+                        const startMillis = endTime.toMillis() - durationMillis;
+                        if (startMillis > 0) { // Ensure we don't get negative timestamps
+                            const startTime = luxon.DateTime.fromMillis(startMillis);
+                            if (startTime.isValid) {
+                                validStart = startTime.toFormat("yyyy-MM-dd HH:mm:ss");
+                            }
+                        }
                     }
 
                     const validEnd = endTime.isValid
                         ? endTime.toFormat("yyyy-MM-dd HH:mm:ss")
                         : rawTimestamp || "N/A";
-                    const validStart =
-                        (startTime && startTime.isValid)
-                            ? startTime.toFormat("yyyy-MM-dd HH:mm:ss")
-                            : (endTime.isValid && Number.isFinite(durationMillis)
-                                ? luxon.DateTime.fromMillis(endTime.toMillis() - durationMillis).toFormat("yyyy-MM-dd HH:mm:ss")
-                                : "N/A");
                     const durationFmt = (Number.isFinite(durationMillis) && durationMillis > 0)
                         ? luxon.Duration.fromMillis(durationMillis).toFormat("h'h'm'm's's'")
                         : "N/A";
