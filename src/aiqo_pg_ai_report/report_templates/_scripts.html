@@ -72,10 +72,15 @@
                 const detailsCard = document.getElementById("query-details-card-{{ day | safe_id }}-{{ i }}");
                 if (detailsCard) {
                     const durationMillis = {{ report.duration|int }};
-                    const endTime = luxon.DateTime.fromSQL("{{ report.query_timestamp }}");
+                    const rawTimestamp = "{{ report.query_timestamp }}";
+                    // Use SQL or ISO parsing for better coverage
+                    let endTime = luxon.DateTime.fromSQL(rawTimestamp);
+                    if (!endTime.isValid) {
+                        endTime = luxon.DateTime.fromISO(rawTimestamp);
+                    }
                     const startTime = endTime.minus(luxon.Duration.fromMillis(durationMillis));
 
-                    const validEnd = endTime.isValid ? endTime.toFormat("yyyy-MM-dd HH:mm:ss") : "N/A";
+                    const validEnd = endTime.isValid ? endTime.toFormat("yyyy-MM-dd HH:mm:ss") : rawTimestamp || "N/A";
                     const validStart = startTime.isValid ? startTime.toFormat("yyyy-MM-dd HH:mm:ss") : "N/A";
                     const durationFmt = luxon.Duration.fromMillis(durationMillis).toFormat("h'h'm'm's's'");
 
