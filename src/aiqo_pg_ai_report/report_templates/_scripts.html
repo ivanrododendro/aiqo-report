@@ -68,10 +68,33 @@
             if (!collapseEl) return;
 
             collapseEl.addEventListener('shown.bs.collapse', function () {
-                // Initialize duration display
-                const durationEl = document.getElementById("duration-{{ day | safe_id }}-{{ i }}");
-                if (durationEl) {
-                    durationEl.innerHTML = "<strong>Durée :</strong> " + Duration.fromMillis({{report.duration}}).toFormat("h'h'm'm's's'");
+                // Initialize query execution details card
+                const detailsCard = document.getElementById("query-details-card-{{ day | safe_id }}-{{ i }}");
+                if (detailsCard) {
+                    const durationMillis = {{ report.duration|int }};
+                    const endTime = luxon.DateTime.fromSQL("{{ report.query_timestamp }}");
+                    const startTime = endTime.minus(luxon.Duration.fromMillis(durationMillis));
+
+                    const validEnd = endTime.isValid ? endTime.toFormat("yyyy-MM-dd HH:mm:ss") : "N/A";
+                    const validStart = startTime.isValid ? startTime.toFormat("yyyy-MM-dd HH:mm:ss") : "N/A";
+                    const durationFmt = luxon.Duration.fromMillis(durationMillis).toFormat("h'h'm'm's's'");
+
+                    const cost = {{ report.cost|default(None)|tojson }};
+                    const rows = {{ report.rows|default(None)|tojson }};
+                    const costFormatted = (cost !== null && !isNaN(cost)) ? Number(cost).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : 'N/A';
+                    const rowsFormatted = (rows !== null && !isNaN(rows)) ? Number(rows).toLocaleString() : 'N/A';
+
+                    detailsCard.innerHTML = `
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title">Détails de l'exécution</h6>
+                                <p class="card-text mb-1"><strong>Début :</strong> ${validStart}</p>
+                                <p class="card-text mb-1"><strong>Fin :</strong> ${validEnd}</p>
+                                <p class="card-text mb-1"><strong>Durée :</strong> ${durationFmt}</p>
+                                <p class="card-text mb-1"><strong>Coût :</strong> ${costFormatted}</p>
+                                <p class="card-text mb-0"><strong>Lignes :</strong> ${rowsFormatted}</p>
+                            </div>
+                        </div>`;
                 }
 
                 // Initialize Vue app for pev2 visualization
