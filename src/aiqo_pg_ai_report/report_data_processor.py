@@ -245,10 +245,11 @@ class ReportDataProcessor:
                 enhanced_report = dict(report)  # Copy original report
 
                 # Add flags for UI indicators
-                enhanced_report["has_query_optimizations"] = report["code"] in query_optimizations
+                # Check if query_optimizations is not empty for the specific query code
+                enhanced_report["has_query_optimizations"] = bool(query_optimizations.get(report["code"]))
                 enhanced_report["has_ai_hints"] = (
-                    report.get("chatgpt_hints")
-                    and not report["chatgpt_hints"].startswith("AI analysis skipped")
+                    report.get("ai_hints")
+                    and not report["ai_hints"].startswith("AI analysis skipped")
                 )
 
                 # Truncate name for display
