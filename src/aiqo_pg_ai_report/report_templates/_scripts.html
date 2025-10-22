@@ -76,12 +76,28 @@
                     // Use SQL or ISO parsing for better coverage
                     let endTime = luxon.DateTime.fromSQL(rawTimestamp);
                     if (!endTime.isValid) {
+                        // Try ISO and fallback manual parsing
                         endTime = luxon.DateTime.fromISO(rawTimestamp);
+                        if (!endTime.isValid) {
+                            const tsFixed = rawTimestamp.replace(" ", "T");
+                            endTime = luxon.DateTime.fromISO(tsFixed);
+                        }
                     }
-                    const startTime = endTime.minus(luxon.Duration.fromMillis(durationMillis));
 
-                    const validEnd = endTime.isValid ? endTime.toFormat("yyyy-MM-dd HH:mm:ss") : rawTimestamp || "N/A";
-                    const validStart = startTime.isValid ? startTime.toFormat("yyyy-MM-dd HH:mm:ss") : "N/A";
+                    let startTime = null;
+                    if (endTime.isValid && durationMillis && durationMillis > 0) {
+                        startTime = endTime.minus({ milliseconds: durationMillis });
+                    }
+
+                    const validEnd = endTime.isValid
+                        ? endTime.toFormat("yyyy-MM-dd HH:mm:ss")
+                        : rawTimestamp || "N/A";
+                    const validStart =
+                        startTime && startTime.isValid
+                            ? startTime.toFormat("yyyy-MM-dd HH:mm:ss")
+                            : (endTime.isValid
+                                ? endTime.minus({ milliseconds: durationMillis }).toFormat("yyyy-MM-dd HH:mm:ss")
+                                : "N/A");
                     const durationFmt = luxon.Duration.fromMillis(durationMillis).toFormat("h'h'm'm's's'");
 
                     const cost = {{ report.cost|default(None)|tojson }};
