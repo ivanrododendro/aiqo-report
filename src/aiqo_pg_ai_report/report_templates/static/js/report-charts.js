@@ -104,7 +104,7 @@ class ReportChartManager {
         allExecutions.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
         const labels = allExecutions.map(e => e.timestamp.split(' ')[0]);
-        const data = allExecutions.map(e => e.duration !== null ? e.duration / 60000 : null);
+        const data = allExecutions.map(e => e.duration !== null ? e.duration / 3600000 : null); // Convert ms to hours
         const dataCost = allExecutions.map(e => ReportUtils.parseCostValue(e.cost));
         const dataRows = allExecutions.map(e => ReportUtils.parseRowsValue(e.rows));
 
@@ -116,7 +116,7 @@ class ReportChartManager {
                 labels: labels,
                 datasets: [
                     {
-                        label: 'Execution Time (min)',
+                        label: 'Execution Time (hours)',
                         data: data,
                         borderColor: 'rgba(75, 192, 192, 1)',
                         backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -188,7 +188,7 @@ class ReportChartManager {
                         }
                     },
                     y: {
-                        title: { display: true, text: 'Execution Time (min)' },
+                        title: { display: true, text: 'Execution Time (hours)' },
                         beginAtZero: true
                     },
                     yCost: {
