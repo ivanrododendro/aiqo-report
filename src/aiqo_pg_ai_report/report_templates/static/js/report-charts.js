@@ -220,7 +220,15 @@ class ReportChartManager {
      */
     _buildGenericAnnotations() {
         const annotations = {};
-        const genericAnnotations = this.reportData.optimizations.annotations.annotations.generic;
+        // Use safe path resolution to avoid breaking visualization when annotations are missing or structure differs
+        const annotationsRoot = this.reportData.optimizations && this.reportData.optimizations.annotations;
+        const genericAnnotations =
+            (annotationsRoot && (annotationsRoot.generic || (annotationsRoot.annotations && annotationsRoot.annotations.generic))) || [];
+
+        if (!Array.isArray(genericAnnotations) || genericAnnotations.length === 0) {
+            console.debug("No generic annotations found, skipping annotation drawing.");
+            return annotations;
+        }
 
         genericAnnotations.forEach((ann, idx) => {
             const dateIndex = ReportUtils.findLabelIndex(
