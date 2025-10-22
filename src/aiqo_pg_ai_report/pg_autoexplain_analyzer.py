@@ -7,11 +7,11 @@ from collections import defaultdict
 from pathlib import Path
 
 # Import classes and necessary constants from their new modules
-from ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT
-from log_parser import LogParser
-from report_generator import ReportGenerator
-from sql_utils import SQLUtils  # Import the new SQLUtils class
-from context import ContextLoader  # Import the new ContextLoader class
+from aiqo_pg_ai_report.ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT
+from aiqo_pg_ai_report.log_parser import LogParser
+from aiqo_pg_ai_report.report_generator import ReportGenerator
+from aiqo_pg_ai_report.sql_utils import SQLUtils
+from aiqo_pg_ai_report.context import ContextLoader
 
 DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selection
 DEFAULT_MODEL = "gemini-2.5-flash"
