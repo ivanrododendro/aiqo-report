@@ -9,7 +9,7 @@
 </nav>
 
 {# TAPPA 2: Tab degli Anni (Livello 1) #}
-<ul class="nav nav-tabs" id="yearTabs" role="tablist">
+<ul class="nav nav-tabs flex-nowrap overflow-auto" id="yearTabs" role="tablist">
     {% for year in date_hierarchy.all_years %}
     <li class="nav-item" role="presentation">
         <button class="nav-link {% if loop.last %}active{% endif %}" 
@@ -38,7 +38,7 @@
             <h4>Anno {{ year }}</h4>
             
             {# Tab dei mesi per questo anno #}
-            <ul class="nav nav-tabs month-tabs" id="monthTabs-{{ year }}" role="tablist">
+            <ul class="nav nav-tabs month-tabs flex-nowrap overflow-auto" id="monthTabs-{{ year }}" role="tablist">
                 {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {% if loop.last %}active{% endif %}" 
@@ -68,7 +68,7 @@
                         <h5>{{ month_data.name }} {{ year }}</h5>
                         
                         {# Tab dei giorni per questo mese #}
-                        <ul class="nav nav-tabs day-tabs" id="dayTabs-{{ month_data.year_month }}" role="tablist">
+                        <ul class="nav nav-tabs day-tabs flex-nowrap overflow-auto" id="dayTabs-{{ month_data.year_month }}" role="tablist">
                             {% for day in month_data.days %}
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link {% if loop.last %}active{% endif %}" 
