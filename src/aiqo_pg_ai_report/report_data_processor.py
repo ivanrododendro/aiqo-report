@@ -13,6 +13,72 @@ class ReportDataProcessor:
 
     def __init__(self):
         self.query_name_limit = 140
+        self.all_reports = []
+        self.reports_by_day = defaultdict(list)
+        self.all_query_stats_dict = {}
+        self.daily_query_stats = defaultdict(
+            lambda: {"total_queries": 0, "cumulated_time": 0.0, "queries_by_code": defaultdict(float)}
+        )
+
+    def create_report_entry(self, log_entry, query_code, ai_hints):
+        """
+        Crea una entrée de rapport à partir des données de log et des indices AI.
+        """
+        query_name = log_entry["query_name"]
+        job_name = log_entry["job_name"]
+        execution_plan = log_entry["execution_plan"]
+        timestamp = log_entry["timestamp"]
+        duration = log_entry["duration"]
+
+        return {
+            "title": job_name + " " + query_name,
+            "chatgpt_hints": ai_hints,
+            "plan": execution_plan,
+            "query_text": log_entry["query_text"],
+            "query_timestamp": timestamp,
+            "query_name": query_name,
+            "job_name": job_name,
+            "code": query_code,
+            "day": timestamp[:10],
+            "seq_scan_indicator": execution_plan.find("Seq Scan") != -1,
+            "duration": duration,
+            "cost": log_entry["cost"],
+            "rows": log_entry["rows"]
+        }
+
+    def update_statistics(self, report):
+        """
+        Met à jour toutes les structures de données statistiques avec la nouvelle entrée de rapport.
+        """
+        self.all_reports.append(report)
+        self.reports_by_day[report["day"]].append(report)
+
+        query_code = report["code"]
+        duration = report["duration"]
+        day = report["day"]
+
+        # Met à jour les statistiques globales
+        if query_code not in self.all_query_stats_dict:
+            self.all_query_stats_dict[query_code] = {
+                "code": query_code,
+                "name": report["query_name"],
+                "count": 1,
+                "cumulated_time": duration,
+            }
+        else:
+            self.all_query_stats_dict[query_code]["count"] += 1
+            self.all_query_stats_dict[query_code]["cumulated_time"] += duration
+
+        # Met à jour les statistiques quotidiennes
+        self.daily_query_stats[day]["total_queries"] += 1
+        self.daily_query_stats[day]["cumulated_time"] += duration
+        self.daily_query_stats[day]["queries_by_code"][query_code] += duration
+
+    def get_query_stats_list(self):
+        """
+        Retourne la liste des statistiques de requêtes triées par temps cumulé.
+        """
+        return sorted(self.all_query_stats_dict.values(), key=lambda x: x["cumulated_time"], reverse=True)
 
     def prepare_report_context(
         self,

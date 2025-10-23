@@ -56,14 +56,10 @@ class PGAutoExplainAnalyzer:
         self.log_parser = LogParser()
         # Pass the base path of the current script to ReportGenerator
         self.report_generator = ReportGenerator(self.context_loader.script_base_path)
-
-        self.all_reports = []
-        self.reports_by_day = defaultdict(list)
-        self.all_query_stats_dict = {}
-        # New data structure for daily query statistics
-        self.daily_query_stats = defaultdict(
-            lambda: {"total_queries": 0, "cumulated_time": 0.0, "queries_by_code": defaultdict(float)}
-        )
+        
+        # Initialize the data processor
+        from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
+        self.data_processor = ReportDataProcessor()
 
     def _determine_ai_analysis_status(self, log_entry, query_code):
         """
@@ -119,60 +115,6 @@ class PGAutoExplainAnalyzer:
             return "AI analysis failed or timed out."
         return ai_hints_result
 
-    def _create_report_entry(self, log_entry, query_code, ai_hints):
-        """
-        Crée une entrée de rapport à partir des données de log et des indices AI.
-        """
-        query_name = log_entry["query_name"]
-        job_name = log_entry["job_name"]
-        execution_plan = log_entry["execution_plan"]
-        timestamp = log_entry["timestamp"]
-        duration = log_entry["duration"]
-
-        return {
-            "title": job_name + " " + query_name,
-            "chatgpt_hints": ai_hints,
-            "plan": execution_plan,
-            "query_text": log_entry["query_text"],
-            "query_timestamp": timestamp,
-            "query_name": query_name,
-            "job_name": job_name,
-            "code": query_code,
-            "day": timestamp[:10],
-            "seq_scan_indicator": execution_plan.find("Seq Scan") != -1,
-            "duration": duration,
-            "cost": log_entry["cost"],
-            "rows": log_entry["rows"]
-        }
-
-    def _update_statistics(self, report):
-        """
-        Met à jour toutes les structures de données statistiques avec la nouvelle entrée de rapport.
-        """
-        self.all_reports.append(report)
-        self.reports_by_day[report["day"]].append(report)
-
-        query_code = report["code"]
-        duration = report["duration"]
-        day = report["day"]
-
-        # Met à jour les statistiques globales
-        if query_code not in self.all_query_stats_dict:
-            self.all_query_stats_dict[query_code] = {
-                "code": query_code,
-                "name": report["query_name"],
-                "count": 1,
-                "cumulated_time": duration,
-            }
-        else:
-            self.all_query_stats_dict[query_code]["count"] += 1
-            self.all_query_stats_dict[query_code]["cumulated_time"] += duration
-
-        # Met à jour les statistiques quotidiennes
-        self.daily_query_stats[day]["total_queries"] += 1
-        self.daily_query_stats[day]["cumulated_time"] += duration
-        self.daily_query_stats[day]["queries_by_code"][query_code] += duration
-
     def _process_parsed_log_entry(self, log_entry):
         query_text = log_entry["query_text"]
         query_code = SQLUtils.get_query_code(query_text)
@@ -187,8 +129,8 @@ class PGAutoExplainAnalyzer:
             ai_hints = self._perform_ai_call_and_get_hints(log_entry, query_code)
         # else ai_hints contient déjà le message de saut
 
-        report = self._create_report_entry(log_entry, query_code, ai_hints)
-        self._update_statistics(report)
+        report = self.data_processor.create_report_entry(log_entry, query_code, ai_hints)
+        self.data_processor.update_statistics(report)
 
     def run(self):
         # Rate limit variables are now handled within AiCaller, so these global assignments are removed.
@@ -266,8 +208,8 @@ class PGAutoExplainAnalyzer:
             for parsed_entry in self.log_parser.parse_log_file(log_file):
                 self._process_parsed_log_entry(parsed_entry)
 
-        # Convert query_stats dict to sorted list for the report
-        query_stats_list = sorted(self.all_query_stats_dict.values(), key=lambda x: x["cumulated_time"], reverse=True)
+        # Get query stats from data processor
+        query_stats_list = self.data_processor.get_query_stats_list()
         report_title = (
             "PostgreSQL Auto Explain Report"
             if self.skip_ai_analysis
@@ -280,8 +222,8 @@ class PGAutoExplainAnalyzer:
             report_title,
             self.model,
             query_stats_list,
-            self.reports_by_day,
-            self.daily_query_stats,
+            self.data_processor.reports_by_day,
+            self.data_processor.daily_query_stats,
             self.context_loader.query_optimizations_cache,  # Pass the query optimizations cache from ContextLoader
             self.context_loader.server_optimizations,  # Pass pre-loaded server optimizations from ContextLoader
             self.context_loader.event_optimizations,  # Pass pre-loaded event optimizations from ContextLoader
