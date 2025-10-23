@@ -192,13 +192,9 @@
                                                                 <h6 class="mt-3">Évolution du temps d'exécution</h6>
                                                                 <canvas id="execTimeChart-{{ app_id }}" width="400" height="200"></canvas>
                                                                 
-                                                                {# Query plan visualization #}
-                                                                <h6 class="mt-4">Plan d'exécution</h6>
+                                                                {# Query plan and text visualization with pev2 #}
+                                                                <h6 class="mt-4">Plan d'exécution et requête</h6>
                                                                 <div id="{{ app_id }}"></div>
-                                                                
-                                                                {# Query text #}
-                                                                <h6 class="mt-4">Texte de la requête</h6>
-                                                                <pre class="bg-light p-3"><code>{{ report.query_text }}</code></pre>
                                                             </div>
                                                         </div>
                                                     </div>
