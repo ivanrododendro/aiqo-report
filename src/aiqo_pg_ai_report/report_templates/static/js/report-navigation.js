@@ -15,7 +15,7 @@ class TabNavigator {
         if (tabEl) {
             const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
             tabInstance.show();
-            console.log(`✅ Navigato all'anno: ${year}`);
+            // console.log(`✅ Navigato all'anno: ${year}`);
             return true;
         }
         console.error(`❌ Tab anno non trovato: ${year}`);
@@ -41,7 +41,7 @@ class TabNavigator {
             if (tabEl) {
                 const tabInstance = bootstrap.Tab.getOrCreateInstance(tabEl);
                 tabInstance.show();
-                console.log(`✅ Navigato al mese: ${yearMonth}`);
+                // console.log(`✅ Navigato al mese: ${yearMonth}`);
             } else {
                 console.error(`❌ Tab mese non trovato: ${yearMonth}`);
             }
@@ -79,7 +79,7 @@ class TabNavigator {
                         const dayTabInstance = bootstrap.Tab.getOrCreateInstance(dayTabEl);
                         dayTabInstance.show();
                         window.scrollTo({ top: 0, behavior: 'smooth' });
-                        console.log(`✅ Navigato al giorno: ${day}`);
+                        // console.log(`✅ Navigato al giorno: ${day}`);
                     } else {
                         console.error(`❌ Tab giorno non trovato: ${day}`);
                     }
@@ -116,7 +116,7 @@ class TabNavigator {
                 const tabInstance = bootstrap.Tab.getOrCreateInstance(targetQueryTab);
                 tabInstance.show();
                 targetQueryTab.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                console.log(`✅ Navigato alla query: ${queryCode} nel giorno ${day}`);
+                // console.log(`✅ Navigato alla query: ${queryCode} nel giorno ${day}`);
             } else {
                 console.error(`❌ Tab query non trovato: ${queryCode} nel giorno ${day}`);
             }
@@ -230,8 +230,8 @@ class NavigationEventHandler {
         const yearTabLinks = document.querySelectorAll('#yearTabs .nav-link');
         yearTabLinks.forEach(tabLink => {
             tabLink.addEventListener('shown.bs.tab', (event) => {
-                const year = event.target.textContent.trim();
-                console.log(`📅 Anno cambiato: ${year}`);
+                // const year = event.target.textContent.trim();
+                // console.log(`📅 Anno cambiato: ${year}`);
             });
         });
 
@@ -239,8 +239,8 @@ class NavigationEventHandler {
         const monthTabLinks = document.querySelectorAll('.month-tabs .nav-link');
         monthTabLinks.forEach(tabLink => {
             tabLink.addEventListener('shown.bs.tab', (event) => {
-                const monthName = event.target.textContent.trim();
-                console.log(`📅 Mese cambiato: ${monthName}`);
+                // const monthName = event.target.textContent.trim();
+                // console.log(`📅 Mese cambiato: ${monthName}`);
             });
         });
 
@@ -249,7 +249,7 @@ class NavigationEventHandler {
         dayTabLinks.forEach(tabLink => {
             tabLink.addEventListener('shown.bs.tab', (event) => {
                 const day = this._extractDayFromTabEvent(event);
-                console.log(`📅 Giorno cambiato: ${day}`);
+                // console.log(`📅 Giorno cambiato: ${day}`);
                 this.tabUpdater.updateTabContent(day);
             });
         });
@@ -318,7 +318,7 @@ class NavigationEventHandler {
 
         const idx = points[0].index;
         const day = chart.data.labels[idx];
-        console.log(`📊 Click sul grafico per il giorno: ${day}`);
+        // console.log(`📊 Click sul grafico per il giorno: ${day}`);
         this.tabNavigator.navigateToDay(day);
     }
 }

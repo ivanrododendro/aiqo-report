@@ -292,9 +292,46 @@
             console.log("=== FINE VERIFICA pev2 ===\n");
         }, 1500);
         
+        // === TAPPA 10: Setup breadcrumb updater ===
+        const updateBreadcrumb = function() {
+            const breadcrumb = document.getElementById('navigationBreadcrumb');
+            if (!breadcrumb) return;
+            
+            const activeYear = document.querySelector('#yearTabs .nav-link.active');
+            const activeMonth = document.querySelector('.month-tabs .nav-link.active');
+            const activeDay = document.querySelector('.day-tabs .nav-link.active');
+            const activeQuery = document.querySelector('.query-tabs .nav-link.active');
+            
+            let html = '<li class="breadcrumb-item"><a href="#" onclick="return false;">Home</a></li>';
+            
+            if (activeYear) {
+                html += `<li class="breadcrumb-item active">${activeYear.textContent.trim()}</li>`;
+            }
+            if (activeMonth) {
+                html += `<li class="breadcrumb-item active">${activeMonth.textContent.trim()}</li>`;
+            }
+            if (activeDay) {
+                html += `<li class="breadcrumb-item active">Giorno ${activeDay.textContent.trim()}</li>`;
+            }
+            if (activeQuery) {
+                const queryCode = activeQuery.getAttribute('data-query-code');
+                html += `<li class="breadcrumb-item active">Query ${queryCode?.substring(0, 8)}</li>`;
+            }
+            
+            breadcrumb.innerHTML = html;
+        };
+        
+        // Update breadcrumb on tab changes
+        document.querySelectorAll('#yearTabs .nav-link, .month-tabs .nav-link, .day-tabs .nav-link, .query-tabs .nav-link').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', updateBreadcrumb);
+        });
+        
+        // Initial breadcrumb update
+        setTimeout(updateBreadcrumb, 500);
+        
         // === TEST TAPPA 6, 7, 8: Verifica navigazione JavaScript ===
         setTimeout(() => {
-            console.log("\n=== TEST TAPPA 6, 7, 8: Navigazione JavaScript ===");
+            console.log("\n=== TEST TAPPA 6, 7, 8, 9, 10: Navigazione e Ottimizzazioni ===");
             
             // Test navigazione programmatica
             console.log("\n📋 Test navigazione programmatica:");
@@ -323,7 +360,16 @@
             console.log("   1. Clicca su una riga nella tabella 'Top Queries by Cumulated Time'");
             console.log("   2. Verifica che si aprano Anno → Mese → Giorno → Query");
             console.log("   3. Verifica che la query specifica sia selezionata e visualizzata");
-            console.log("=== FINE TEST TAPPA 6, 7, 8 ===\n");
+            console.log("");
+            console.log("   TAPPA 9 - Grafici query:");
+            console.log("   1. Seleziona diverse query e verifica che i grafici si carichino");
+            console.log("   2. Clicca su un punto del grafico query e verifica la navigazione");
+            console.log("");
+            console.log("   TAPPA 10 - Ottimizzazioni:");
+            console.log("   1. Verifica che il breadcrumb mostri il percorso corrente");
+            console.log("   2. Verifica il layout responsive (riduci la finestra)");
+            console.log("   3. Verifica che la navigazione sia fluida e veloce");
+            console.log("=== FINE TEST TAPPA 6, 7, 8, 9, 10 ===\n");
         },  2000);
 
         // Initialize managers
@@ -443,9 +489,10 @@
                         const planData = `{{ report.plan|safe }}`;
                         const queryData = `{{ report.query_text|safe }}`;
                         
-                        console.log("🔍 Dati pev2 per {{ app_id }}:");
-                        console.log("  - Plan length:", planData.length);
-                        console.log("  - Query length:", queryData.length);
+                        // Debug logs (commentati per produzione)
+                        // console.log("🔍 Dati pev2 per {{ app_id }}:");
+                        // console.log("  - Plan length:", planData.length);
+                        // console.log("  - Query length:", queryData.length);
                         
                         if (!planData || planData.length === 0) {
                             console.error("❌ Piano di esecuzione vuoto per {{ app_id }}");
@@ -461,27 +508,28 @@
                                 };
                             },
                             mounted() {
-                                console.log("🎯 Vue app mounted per {{ app_id }}");
-                                console.log("  - plan disponibile:", !!this.plan);
-                                console.log("  - query disponibile:", !!this.query);
+                                // Debug logs (commentati per produzione)
+                                // console.log("🎯 Vue app mounted per {{ app_id }}");
+                                // console.log("  - plan disponibile:", !!this.plan);
+                                // console.log("  - query disponibile:", !!this.query);
                             }
                         });
                         
                         app.component("pev2", pev2.Plan);
                         app.mount("#{{ app_id }}");
                         
-                        console.log("✅ pev2 montato per {{ app_id }}");
+                        // console.log("✅ pev2 montato per {{ app_id }}");
                         
-                        // Verify rendering after a short delay
-                        setTimeout(() => {
-                            const pev2Element = pev2Container.querySelector('.pev2');
-                            if (pev2Element) {
-                                console.log("✅ pev2 renderizzato correttamente per {{ app_id }}");
-                            } else {
-                                console.error("❌ pev2 montato ma non renderizzato per {{ app_id }}");
-                                console.log("  Container HTML:", pev2Container.innerHTML.substring(0, 200));
-                            }
-                        }, 500);
+                        // Verify rendering after a short delay (debug only)
+                        // setTimeout(() => {
+                        //     const pev2Element = pev2Container.querySelector('.pev2');
+                        //     if (pev2Element) {
+                        //         console.log("✅ pev2 renderizzato correttamente per {{ app_id }}");
+                        //     } else {
+                        //         console.error("❌ pev2 montato ma non renderizzato per {{ app_id }}");
+                        //         console.log("  Container HTML:", pev2Container.innerHTML.substring(0, 200));
+                        //     }
+                        // }, 500);
                         
                     } catch (error) {
                         console.error("❌ Errore montaggio pev2 per {{ app_id }}:", error);
