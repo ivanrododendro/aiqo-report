@@ -259,6 +259,38 @@
         console.log("   5. Verifica il layout responsive (riduci la finestra del browser)");
         console.log("=== FINE TEST TAPPA 5 ===\n");
         // === FINE TEST TAPPA 5 ===
+        
+        // Wait a bit for pev2 to render, then check
+        setTimeout(() => {
+            console.log("\n=== VERIFICA POST-CARICAMENTO pev2 ===");
+            const allPev2Containers = document.querySelectorAll('[id^="app-"]');
+            console.log(`Totale container pev2: ${allPev2Containers.length}`);
+            
+            let mountedCount = 0;
+            let renderedCount = 0;
+            
+            allPev2Containers.forEach(container => {
+                if (container.hasAttribute('data-v-app')) {
+                    mountedCount++;
+                    const pev2Element = container.querySelector('.pev2');
+                    if (pev2Element) {
+                        renderedCount++;
+                    }
+                }
+            });
+            
+            console.log(`Container con Vue montato: ${mountedCount}`);
+            console.log(`Container con pev2 renderizzato: ${renderedCount}`);
+            
+            if (mountedCount > 0 && renderedCount === 0) {
+                console.error("⚠️ Vue è montato ma pev2 non si renderizza!");
+                console.log("Possibili cause:");
+                console.log("  1. Dati plan/query non validi");
+                console.log("  2. Componente pev2 non caricato correttamente");
+                console.log("  3. Errore nel template Vue");
+            }
+            console.log("=== FINE VERIFICA pev2 ===\n");
+        }, 1500);
 
         // Initialize managers
         window.reportChartManager = new ReportChartManager(reportData);
@@ -367,18 +399,54 @@
                 // Initialize Vue app for pev2 visualization
                 const pev2Container = document.getElementById("{{ app_id }}");
                 if (pev2Container) {
+                    // Check if already mounted (avoid double mounting)
+                    if (pev2Container.hasAttribute('data-v-app')) {
+                        console.log("⚠️ pev2 già montato per {{ app_id }}, skip");
+                        return;
+                    }
+                    
                     try {
-                        createApp({
+                        const planData = `{{ report.plan|safe }}`;
+                        const queryData = `{{ report.query_text|safe }}`;
+                        
+                        console.log("🔍 Dati pev2 per {{ app_id }}:");
+                        console.log("  - Plan length:", planData.length);
+                        console.log("  - Query length:", queryData.length);
+                        
+                        if (!planData || planData.length === 0) {
+                            console.error("❌ Piano di esecuzione vuoto per {{ app_id }}");
+                            pev2Container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione non disponibile</div>';
+                            return;
+                        }
+                        
+                        const app = createApp({
                             data() {
                                 return {
-                                    plan: `{{ report.plan|safe }}`,
-                                    query: `{{ report.query_text|safe }}`
+                                    plan: planData,
+                                    query: queryData
                                 };
                             }
-                        }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+                        });
+                        
+                        app.component("pev2", pev2.Plan);
+                        app.mount("#{{ app_id }}");
+                        
                         console.log("✅ pev2 montato per {{ app_id }}");
+                        
+                        // Verify rendering after a short delay
+                        setTimeout(() => {
+                            const pev2Element = pev2Container.querySelector('.pev2');
+                            if (pev2Element) {
+                                console.log("✅ pev2 renderizzato correttamente per {{ app_id }}");
+                            } else {
+                                console.error("❌ pev2 montato ma non renderizzato per {{ app_id }}");
+                                console.log("  Container HTML:", pev2Container.innerHTML.substring(0, 200));
+                            }
+                        }, 500);
+                        
                     } catch (error) {
                         console.error("❌ Errore montaggio pev2 per {{ app_id }}:", error);
+                        pev2Container.innerHTML = '<div class="alert alert-danger">Errore nel caricamento del piano di esecuzione</div>';
                     }
                 } else {
                     console.error("❌ Container pev2 non trovato: {{ app_id }}");
