@@ -194,7 +194,9 @@
                                                                 
                                                                 {# Query plan and text visualization with pev2 #}
                                                                 <h6 class="mt-4">Plan d'exécution et requête</h6>
-                                                                <div id="{{ app_id }}"></div>
+                                                                <div id="{{ app_id }}">
+                                                                    <pev2 :plan="plan" :query="query"></pev2>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
