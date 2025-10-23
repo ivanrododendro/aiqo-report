@@ -28,16 +28,13 @@
         border-bottom: 1px solid #dee2e6;
         padding-left: 0;
         margin-bottom: 0;
-        height: 120px;
-        align-items: flex-end;
+        flex-wrap: nowrap;
+        overflow-x: auto;
     }
 
     .nav-tabs .nav-item {
         margin-bottom: 0;
-        position: relative;
-        width: 25px;
-        height: 100%;
-        margin-right: 2px;
+        flex-shrink: 0;
     }
 
     .nav-tabs .nav-link {
@@ -52,16 +49,6 @@
         background-color: transparent;
         white-space: nowrap;
         display: block;
-        position: absolute;
-        bottom: 0;
-        left: 25px;
-        transform: rotate(-90deg);
-        transform-origin: bottom left;
-        width: 100px;
-        height: 25px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
     }
 
     .nav-tabs .nav-link.active {
