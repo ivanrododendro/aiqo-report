@@ -515,6 +515,16 @@
                 setTimeout(initializeQueryDetails, 100);
             }
             {% endif %}
+            
+            // Also listen for when this day tab becomes active
+            const dayTabButton = document.getElementById('tab-day-{{ day | safe_id }}-tab');
+            if (dayTabButton) {
+                dayTabButton.addEventListener('shown.bs.tab', function() {
+                    // When day tab is shown, initialize the first query tab for this day
+                    setTimeout(initializeQueryDetails, 100);
+                });
+            }
+            {% endif %}
         })();
         {% endfor %}
         {% endfor %}
