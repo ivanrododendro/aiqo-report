@@ -115,15 +115,29 @@ class ReportDataProcessor:
         for opt in event_optimizations:
             all_dates_set.add(opt["date"])
 
-        # Normalize to consistent "YYYY-MM-DD" format before sorting
+        # Normalize all collected dates to "YYYY-MM-DD" and replace in optimizations too
         normalized = set()
-        for d in all_dates_set:
+
+        def _normalize_date(ds):
             try:
-                parsed = datetime.strptime(d.replace('.', '-'), "%Y-%m-%d")
-                normalized.add(parsed.strftime("%Y-%m-%d"))
+                parsed = datetime.strptime(ds.replace(".", "-"), "%Y-%m-%d")
+                return parsed.strftime("%Y-%m-%d")
             except Exception:
-                logger.warning(f"Unexpected date format encountered: {d}")
-                normalized.add(d)
+                logger.warning(f"Unexpected date format encountered: {ds}")
+                return ds.replace(".", "-")
+
+        for d in all_dates_set:
+            normalized.add(_normalize_date(d))
+
+        # update opt["date"] everywhere to normalized version
+        for opts_dict in (query_optimizations,):
+            for q, opts in opts_dict.items():
+                for opt in opts:
+                    opt["date"] = _normalize_date(opt["date"])
+        for opt_list in (server_optimizations, event_optimizations):
+            for opt in opt_list:
+                opt["date"] = _normalize_date(opt["date"])
+
         return sorted(list(normalized))
 
     def _prepare_chart_data(self, query_stats, daily_query_stats, all_dates):

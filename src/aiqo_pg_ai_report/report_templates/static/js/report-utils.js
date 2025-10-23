@@ -42,18 +42,17 @@ const ReportUtils = {
     },
 
     /**
-     * Find label index in array; expects "YYYY-MM-DD" unified format
+     * Find label index in array; expects already-normalized "YYYY-MM-DD"
      */
     findLabelIndex(labels, dateStr) {
         if (!dateStr) return -1;
-        const normalized = dateStr.replace(/\./g, '-');
-        return labels.indexOf(normalized);
+        return labels.indexOf(dateStr);
     },
 
     /**
-     * Convert date string to safe HTML ID (unified date format)
+     * Convert date string to safe HTML ID (no normalization needed now)
      */
     dateToSafeId(dateStr) {
-        return dateStr.replace(/\./g, '-');
+        return dateStr;
     }
 };
