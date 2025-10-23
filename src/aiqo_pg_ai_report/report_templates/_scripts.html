@@ -14,6 +14,45 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         console.log("Initializing report with data:", reportData);
+        
+        // === TEST TAPPA 1: Verifica struttura date_hierarchy ===
+        console.log("\n=== TEST TAPPA 1: Struttura Date Hierarchy ===");
+        if (reportData.date_hierarchy) {
+            console.log("✅ date_hierarchy presente nel reportData");
+            console.log("📅 Anni disponibili:", reportData.date_hierarchy.all_years);
+            console.log("📅 Mesi disponibili:", reportData.date_hierarchy.all_months);
+            console.log("📅 Giorni totali:", reportData.date_hierarchy.all_days.length);
+            
+            // Verifica struttura dettagliata per ogni anno
+            reportData.date_hierarchy.all_years.forEach(year => {
+                const yearData = reportData.date_hierarchy.years[year];
+                console.log(`\n📆 Anno ${year}:`);
+                console.log(`   - Numero mesi: ${Object.keys(yearData.months).length}`);
+                console.log(`   - Numero giorni: ${yearData.all_days.length}`);
+                
+                // Mostra i primi 3 mesi di questo anno come esempio
+                const monthEntries = Object.entries(yearData.months).slice(0, 3);
+                monthEntries.forEach(([monthNum, monthData]) => {
+                    console.log(`   └─ ${monthData.name} (${monthData.year_month}): ${monthData.days.length} giorni`);
+                    // Mostra i primi 3 giorni del mese
+                    if (monthData.days.length > 0) {
+                        const sampleDays = monthData.days.slice(0, 3).join(', ');
+                        console.log(`      Esempio giorni: ${sampleDays}${monthData.days.length > 3 ? '...' : ''}`);
+                    }
+                });
+                
+                if (Object.keys(yearData.months).length > 3) {
+                    console.log(`   ... e altri ${Object.keys(yearData.months).length - 3} mesi`);
+                }
+            });
+            
+            console.log("\n✅ TAPPA 1 COMPLETATA: La struttura gerarchica è pronta per la navigazione");
+        } else {
+            console.error("❌ TAPPA 1 FALLITA: date_hierarchy non trovato in reportData!");
+            console.log("Struttura reportData disponibile:", Object.keys(reportData));
+        }
+        console.log("=== FINE TEST TAPPA 1 ===\n");
+        // === FINE TEST TAPPA 1 ===
 
         // Initialize managers
         window.reportChartManager = new ReportChartManager(reportData);
