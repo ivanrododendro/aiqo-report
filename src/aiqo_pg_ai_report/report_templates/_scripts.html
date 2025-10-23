@@ -310,7 +310,8 @@
             const queryTabEl = document.getElementById('query-tab-{{ day | safe_id }}-{{ i }}');
             if (!queryTabEl) return;
 
-            queryTabEl.addEventListener('shown.bs.tab', function () {
+            // Function to initialize query details
+            const initializeQueryDetails = function() {
                 // Initialize query execution details card
                 const detailsCard = document.getElementById("query-details-card-{{ app_id }}");
                 if (detailsCard) {
@@ -414,7 +415,20 @@
                     const clickedDay = chart.data.labels[idx];
                     reportNavigator.navigateToQuery("{{ report.code }}", clickedDay);
                 };
-            });
+            };
+
+            // Attach to tab shown event
+            queryTabEl.addEventListener('shown.bs.tab', initializeQueryDetails);
+
+            // Initialize immediately if this is the first query tab (already active)
+            {% if loop.index0 == 0 %}
+            // Check if this tab is currently active (visible day)
+            const dayPane = document.getElementById('tab-day-{{ day | safe_id }}');
+            if (dayPane && dayPane.classList.contains('active')) {
+                // Small delay to ensure DOM is fully ready
+                setTimeout(initializeQueryDetails, 100);
+            }
+            {% endif %}
         })();
         {% endfor %}
         {% endfor %}
