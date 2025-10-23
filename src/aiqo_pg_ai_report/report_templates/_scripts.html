@@ -291,6 +291,40 @@
             }
             console.log("=== FINE VERIFICA pev2 ===\n");
         }, 1500);
+        
+        // === TEST TAPPA 6, 7, 8: Verifica navigazione JavaScript ===
+        setTimeout(() => {
+            console.log("\n=== TEST TAPPA 6, 7, 8: Navigazione JavaScript ===");
+            
+            // Test navigazione programmatica
+            console.log("\n📋 Test navigazione programmatica:");
+            console.log("Usa questi comandi nella console per testare:");
+            console.log("  window.reportNavigator.navigateToYear('2025')");
+            console.log("  window.reportNavigator.navigateToMonth('2025-06')");
+            console.log("  window.reportNavigator.navigateToDay('2025-06-09')");
+            
+            // Verifica che i metodi esistano
+            const methods = ['navigateToYear', 'navigateToMonth', 'navigateToDay', 'navigateToQuery'];
+            methods.forEach(method => {
+                if (typeof window.reportNavigator[method] === 'function') {
+                    console.log(`✅ Metodo ${method}() disponibile`);
+                } else {
+                    console.error(`❌ Metodo ${method}() non trovato!`);
+                }
+            });
+            
+            console.log("\n📋 TEST MANUALE SUGGERITO:");
+            console.log("   TAPPA 7 - Click sul grafico globale:");
+            console.log("   1. Clicca su un punto del grafico 'Daily Cumulated Time'");
+            console.log("   2. Verifica che si aprano Anno → Mese → Giorno corrispondente");
+            console.log("   3. Verifica che la prima query del giorno sia selezionata");
+            console.log("");
+            console.log("   TAPPA 8 - Click sulla lista query globali:");
+            console.log("   1. Clicca su una riga nella tabella 'Top Queries by Cumulated Time'");
+            console.log("   2. Verifica che si aprano Anno → Mese → Giorno → Query");
+            console.log("   3. Verifica che la query specifica sia selezionata e visualizzata");
+            console.log("=== FINE TEST TAPPA 6, 7, 8 ===\n");
+        },  2000);
 
         // Initialize managers
         window.reportChartManager = new ReportChartManager(reportData);
