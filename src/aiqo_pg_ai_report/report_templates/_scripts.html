@@ -74,9 +74,9 @@
         }
         
         // Verifica contenuto del tab attivo
-        const activeYearPane = document.querySelector('#yearTabContent .tab-pane.active');
-        if (activeYearPane) {
-            const daysCount = activeYearPane.querySelectorAll('.accordion').length;
+        const activeYearPane2 = document.querySelector('#yearTabContent .tab-pane.active');
+        if (activeYearPane2) {
+            const daysCount = activeYearPane2.querySelectorAll('.accordion').length;
             console.log("✅ Giorni visualizzati nel tab attivo:", daysCount);
         }
         
@@ -108,14 +108,14 @@
         });
         
         // Verifica il mese attivo nell'anno attivo
-        const activeYearPane = document.querySelector('#yearTabContent .tab-pane.active');
-        if (activeYearPane) {
-            const activeMonthTab = activeYearPane.querySelector('.month-tabs .nav-link.active');
+        const activeYearPane3 = document.querySelector('#yearTabContent .tab-pane.active');
+        if (activeYearPane3) {
+            const activeMonthTab = activeYearPane3.querySelector('.month-tabs .nav-link.active');
             if (activeMonthTab) {
                 console.log("\n✅ Mese attivo nell'anno attivo:", activeMonthTab.textContent.trim());
                 
                 // Verifica contenuto del mese attivo
-                const activeMonthPane = activeYearPane.querySelector('.month-tab-content .tab-pane.active');
+                const activeMonthPane = activeYearPane3.querySelector('.month-tab-content .tab-pane.active');
                 if (activeMonthPane) {
                     const daysCount = activeMonthPane.querySelectorAll('.accordion').length;
                     console.log("✅ Giorni visualizzati nel mese attivo:", daysCount);
