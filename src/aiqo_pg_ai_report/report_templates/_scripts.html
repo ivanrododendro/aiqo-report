@@ -105,12 +105,14 @@
 
                     detailsCard.innerHTML = `
                         <div class="card bg-light mb-3">
-                            <div class="card-body d-flex flex-wrap align-items-center gap-4">
-                                <p class="card-text mb-0"><strong>Début :</strong> ${validStart}</p>
-                                <p class="card-text mb-0"><strong>Fin :</strong> ${validEnd}</p>
-                                <p class="card-text mb-0"><strong>Durée :</strong> ${durationFmt}</p>
-                                <p class="card-text mb-0"><strong>Coût :</strong> ${costFormatted}</p>
-                                <p class="card-text mb-0"><strong>Lignes :</strong> ${rowsFormatted}</p>
+                            <div class="card-body">
+                                <div class="row text-nowrap">
+                                    <div class="col-auto"><strong>Début :</strong> ${validStart}</div>
+                                    <div class="col-auto"><strong>Fin :</strong> ${validEnd}</div>
+                                    <div class="col-auto"><strong>Durée :</strong> ${durationFmt}</div>
+                                    <div class="col-auto"><strong>Coût :</strong> ${costFormatted}</div>
+                                    <div class="col-auto"><strong>Lignes :</strong> ${rowsFormatted}</div>
+                                </div>
                             </div>
                         </div>`;
                 }
