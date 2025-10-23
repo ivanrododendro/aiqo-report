@@ -158,7 +158,8 @@ class NavigationEventHandler {
      */
     _extractDayFromTabEvent(event) {
         const targetTabPaneId = event.target.getAttribute('href').substring(1);
-        return targetTabPaneId.replace('tab-', '').replace(/-/g, '.');
+        // Tabs now use "YYYY-MM-DD" format directly
+        return targetTabPaneId.replace('tab-', '');
     }
 
     /**
@@ -168,7 +169,7 @@ class NavigationEventHandler {
         const activeTabElement = document.querySelector('#dailyTabs .nav-link.active');
         if (activeTabElement) {
             const targetPaneId = activeTabElement.getAttribute('href').substring(1);
-            const day = targetPaneId.replace('tab-', '').replace(/-/g, '.');
+            const day = targetPaneId.replace('tab-', '');
             this.tabUpdater.updateTabContent(day);
         }
     }

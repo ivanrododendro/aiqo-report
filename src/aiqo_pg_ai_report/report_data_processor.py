@@ -115,7 +115,16 @@ class ReportDataProcessor:
         for opt in event_optimizations:
             all_dates_set.add(opt["date"])
 
-        return sorted(list(all_dates_set))
+        # Normalize to consistent "YYYY-MM-DD" format before sorting
+        normalized = set()
+        for d in all_dates_set:
+            try:
+                parsed = datetime.strptime(d.replace('.', '-'), "%Y-%m-%d")
+                normalized.add(parsed.strftime("%Y-%m-%d"))
+            except Exception:
+                logger.warning(f"Unexpected date format encountered: {d}")
+                normalized.add(d)
+        return sorted(list(normalized))
 
     def _prepare_chart_data(self, query_stats, daily_query_stats, all_dates):
         """Prepare data structures optimized for Chart.js rendering."""
@@ -256,8 +265,8 @@ class ReportDataProcessor:
                 enhanced_report["display_name"] = report["title"][: self.query_name_limit]
                 enhanced_report["short_code"] = report["code"][:6]
 
-                # Safe ID for HTML elements
-                enhanced_report["safe_day"] = day.replace(".", "-")
+                # Safe ID for HTML elements (dates are already normalized "YYYY-MM-DD")
+                enhanced_report["safe_day"] = day
 
                 enhanced_reports.append(enhanced_report)
 
