@@ -260,6 +260,8 @@ class ReportDataProcessor:
     def _enhance_reports_by_day(self, reports_by_day, query_optimizations, server_optimizations):
         """
         Enhance reports with additional computed properties and flags.
+        Also converts query_timestamp strings to UTC timestamps (milliseconds since epoch)
+        for consistent parsing on the frontend.
         """
         enhanced = {}
         for day, reports in reports_by_day.items():
@@ -281,6 +283,36 @@ class ReportDataProcessor:
 
                 # Safe ID for HTML elements (dates are already normalized "YYYY-MM-DD")
                 enhanced_report["safe_day"] = day
+
+                # Convert query_timestamp to UTC milliseconds
+                ts = report.get("query_timestamp")
+                if ts:
+                    try:
+                        from datetime import timezone
+                        import re
+
+                        # Clean timezone abbreviations if present
+                        clean_ts = re.sub(r"\s+[A-Z]{2,4}$", "", ts.strip())
+
+                        # Try multiple formats
+                        parsed = None
+                        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
+                            try:
+                                parsed = datetime.strptime(clean_ts, fmt).replace(tzinfo=timezone.utc)
+                                break
+                            except Exception:
+                                continue
+
+                        if parsed:
+                            enhanced_report["query_timestamp_utc"] = int(parsed.timestamp() * 1000)
+                        else:
+                            logger.warning(f"Could not parse timestamp '{ts}' for report {report.get('code')}")
+                            enhanced_report["query_timestamp_utc"] = None
+                    except Exception as e:
+                        logger.warning(f"Timestamp conversion failed for {report.get('code')}: {e}")
+                        enhanced_report["query_timestamp_utc"] = None
+                else:
+                    enhanced_report["query_timestamp_utc"] = None
 
                 enhanced_reports.append(enhanced_report)
 
