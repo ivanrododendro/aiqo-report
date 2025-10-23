@@ -232,8 +232,11 @@
                         const hasQueryText = activeQueryContent.querySelector('pre code');
                         console.log(`✅ Contenuto query visualizzato:`);
                         console.log(`   - Grafico: ${hasChart ? 'Sì' : 'No'}`);
-                        console.log(`   - Piano esecuzione: ${hasPlan ? 'Sì' : 'No'}`);
-                        console.log(`   - Testo query: ${hasQueryText ? 'Sì' : 'No'}`);
+                        console.log(`   - Container pev2: ${hasPlan ? 'Sì' : 'No'}`);
+                        if (hasPlan) {
+                            const pev2Content = hasPlan.querySelector('.pev2');
+                            console.log(`   - pev2 renderizzato: ${pev2Content ? 'Sì' : 'No'}`);
+                        }
                     }
                 } else {
                     console.error("❌ Nessun tab query attivo trovato!");
@@ -362,14 +365,24 @@
                 }
 
                 // Initialize Vue app for pev2 visualization
-                createApp({
-                    data() {
-                        return {
-                            plan: `{{ report.plan|safe }}`,
-                            query: `{{ report.query_text|safe }}`
-                        };
+                const pev2Container = document.getElementById("{{ app_id }}");
+                if (pev2Container) {
+                    try {
+                        createApp({
+                            data() {
+                                return {
+                                    plan: `{{ report.plan|safe }}`,
+                                    query: `{{ report.query_text|safe }}`
+                                };
+                            }
+                        }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+                        console.log("✅ pev2 montato per {{ app_id }}");
+                    } catch (error) {
+                        console.error("❌ Errore montaggio pev2 per {{ app_id }}:", error);
                     }
-                }).component("pev2", pev2.Plan).mount("#{{ app_id }}");
+                } else {
+                    console.error("❌ Container pev2 non trovato: {{ app_id }}");
+                }
 
                 // Prepare execution data for this query
                 const allExecutions = [];
