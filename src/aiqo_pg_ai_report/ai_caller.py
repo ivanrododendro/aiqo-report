@@ -1,23 +1,10 @@
 import logging
 import litellm
-from ratelimit import limits, sleep_and_retry
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_AI_CALL_TIMEOUT = 90
-
-FREE_TIER_RATE_LIMITS = {
-    "gpt-4o": (10, 60),
-    "gpt-4o-mini": (10, 60),
-    "gpt-3.5-turbo": (10, 60),
-    "o1": (10, 60),
-    "o1-mini": (10, 60),
-    "gemini-2.0-flash": (15, 60),
-    "gemini-1.5-flash": (15, 60),
-    "gemini-1.5-flash-8b": (15, 60),
-    "gemini-1.5-pro": (15, 60),
-}
 
 
 class AiCaller:
@@ -37,20 +24,6 @@ class AiCaller:
             litellm._turn_on_debug()
             logger.info("LiteLLM debug mode enabled.")
 
-        # Determine rate limits based on the model
-        self.calls_per_period, self.period_seconds = FREE_TIER_RATE_LIMITS.get(
-            self.model, (10, 60)  # Default to 10 calls/min if model not in list
-        )
-        logger.info(
-            f"AI Caller initialized with rate limit: {self.calls_per_period} calls per {self.period_seconds} seconds for model {self.model}"
-        )
-
-        # Create a rate-limited version of the internal _perform_ai_call method
-        # This uses the 'limits' function (not decorator) to apply the rate limit dynamically
-        self._rate_limited_perform_ai_call = limits(calls=self.calls_per_period, period=self.period_seconds)(
-            self._perform_ai_call
-        )
-
     def _get_model_token_limit(self):
         model_info = litellm.get_model_info(self.model)
         if model_info and "max_input_tokens" in model_info and model_info["max_input_tokens"] is not None:
@@ -62,8 +35,6 @@ class AiCaller:
             )
             return DEFAULT_TOKEN_LIMIT
 
-    # This is the actual method that performs the AI call logic.
-    # It is NOT decorated with @limits directly.
     def _perform_ai_call(self, prompt):
         messages = [{"role": "user", "content": prompt}]
         # Add a system prompt for chat models, similar to the old call_chatgpt logic
@@ -150,12 +121,10 @@ class AiCaller:
                 logger.error(f"LiteLLM Response content: {e.response.text}")
             return None
 
-    # This is the public method that will be called by other classes.
-    # It applies the sleep_and_retry logic to the rate-limited internal method.
     def call_ai_provider(self, prompt):
         logger.info("Calling AI Model for plan analysis...")
         self.call_count += 1  # Increment call count when AI call is initiated
-        return sleep_and_retry(self._rate_limited_perform_ai_call)(prompt)
+        return self._perform_ai_call(prompt)
 
     def show_stats(self):
         """Logs the final statistics of AI API usage."""
