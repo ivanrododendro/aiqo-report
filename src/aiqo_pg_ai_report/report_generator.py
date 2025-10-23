@@ -86,6 +86,7 @@ class ReportGenerator:
                 "statistics": context["statistics"],
                 "charts": context["charts"],
                 "optimizations": context["optimizations"],
+                "date_hierarchy": context["date_hierarchy"],
             }
         )
 

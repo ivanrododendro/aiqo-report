@@ -106,6 +106,9 @@ class ReportDataProcessor:
             daily_query_stats, query_optimizations, server_optimizations, event_optimizations
         )
 
+        # Build date hierarchy for year/month/day navigation
+        date_hierarchy = self._build_date_hierarchy(all_dates)
+
         # Prepare chart data
         chart_data = self._prepare_chart_data(query_stats, daily_query_stats, all_dates)
 
@@ -157,6 +160,7 @@ class ReportDataProcessor:
                 "daily_trends": chart_data["daily_trends"],
                 "query_series": chart_data["query_series"],
             },
+            "date_hierarchy": date_hierarchy,
         }
 
         return context
@@ -205,6 +209,86 @@ class ReportDataProcessor:
                 opt["date"] = _normalize_date(opt["date"])
 
         return sorted(list(normalized))
+
+    def _build_date_hierarchy(self, all_dates):
+        """
+        Build a hierarchical structure of dates organized by year, month, and day.
+        
+        Returns:
+            dict: {
+                "years": {
+                    "2024": {
+                        "months": {
+                            "01": {
+                                "name": "January",
+                                "days": ["2024-01-15", "2024-01-16", ...]
+                            },
+                            ...
+                        },
+                        "all_days": ["2024-01-15", "2024-01-16", ...]
+                    },
+                    ...
+                },
+                "all_years": ["2023", "2024", ...],
+                "all_months": ["2024-01", "2024-02", ...],
+                "all_days": ["2024-01-15", "2024-01-16", ...]
+            }
+        """
+        month_names = {
+            "01": "January", "02": "February", "03": "March", "04": "April",
+            "05": "May", "06": "June", "07": "July", "08": "August",
+            "09": "September", "10": "October", "11": "November", "12": "December"
+        }
+        
+        hierarchy = {
+            "years": {},
+            "all_years": [],
+            "all_months": [],
+            "all_days": all_dates
+        }
+        
+        # Group dates by year and month
+        for date_str in all_dates:
+            try:
+                year = date_str[:4]
+                month = date_str[5:7]
+                year_month = f"{year}-{month}"
+                
+                # Initialize year if not exists
+                if year not in hierarchy["years"]:
+                    hierarchy["years"][year] = {
+                        "months": {},
+                        "all_days": []
+                    }
+                    hierarchy["all_years"].append(year)
+                
+                # Initialize month if not exists
+                if month not in hierarchy["years"][year]["months"]:
+                    hierarchy["years"][year]["months"][month] = {
+                        "name": month_names.get(month, month),
+                        "year_month": year_month,
+                        "days": []
+                    }
+                    if year_month not in hierarchy["all_months"]:
+                        hierarchy["all_months"].append(year_month)
+                
+                # Add day to month and year
+                hierarchy["years"][year]["months"][month]["days"].append(date_str)
+                hierarchy["years"][year]["all_days"].append(date_str)
+                
+            except Exception as e:
+                logger.warning(f"Error processing date {date_str} for hierarchy: {e}")
+        
+        # Sort everything
+        hierarchy["all_years"].sort()
+        hierarchy["all_months"].sort()
+        
+        for year_data in hierarchy["years"].values():
+            year_data["all_days"].sort()
+            for month_data in year_data["months"].values():
+                month_data["days"].sort()
+        
+        return hierarchy
 
     def _prepare_chart_data(self, query_stats, daily_query_stats, all_dates):
         """Prepare data structures optimized for Chart.js rendering."""
