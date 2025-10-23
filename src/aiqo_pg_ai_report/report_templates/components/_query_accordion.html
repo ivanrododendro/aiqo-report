@@ -1,7 +1,8 @@
 {% from '_macros.html' import optimization_badge, optimization_list %}
 
 {% macro query_accordion_item(report, day, index, parent_accordion_id, query_optimizations, server_optimizations) %}
-{% set app_id = 'app-' ~ day | safe_id ~ '-' ~ index %}
+{# Define app_id once at the beginning to avoid repetition #}
+{% set app_id = 'app-' ~ (day | safe_id) ~ '-' ~ index %}
 <div class="accordion-item">
     <h2 class="accordion-header" id="heading-{{ app_id }}">
         <button class="accordion-button collapsed" 
