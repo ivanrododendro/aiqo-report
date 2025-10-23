@@ -132,6 +132,62 @@
         console.log("   4. Verifica che gli accordion delle query funzionino ancora");
         console.log("=== FINE TEST TAPPA 3 ===\n");
         // === FINE TEST TAPPA 3 ===
+        
+        // === TEST TAPPA 4: Verifica tab dei giorni ===
+        console.log("\n=== TEST TAPPA 4: Tab dei Giorni ===");
+        
+        // Verifica tab giorni per ogni mese
+        const allDayTabs = document.querySelectorAll('.day-tabs');
+        console.log("✅ Numero gruppi di tab giorni (uno per mese):", allDayTabs.length);
+        
+        // Mostra dettagli solo per il mese attivo
+        const activeMonthPane4 = document.querySelector('.month-tab-content .tab-pane.active');
+        if (activeMonthPane4) {
+            const activeDayTabGroup = activeMonthPane4.querySelector('.day-tabs');
+            if (activeDayTabGroup) {
+                const monthId = activeDayTabGroup.id.replace('dayTabs-', '');
+                const dayLinks = activeDayTabGroup.querySelectorAll('.nav-link');
+                console.log(`\n📅 Mese attivo (${monthId}):`);
+                console.log(`   - Numero giorni: ${dayLinks.length}`);
+                
+                // Mostra i primi 5 giorni come esempio
+                dayLinks.forEach((link, dayIndex) => {
+                    if (dayIndex < 5) {
+                        const dayNum = link.textContent.trim();
+                        const isActive = link.classList.contains('active');
+                        console.log(`      ${dayIndex + 1}. Giorno ${dayNum} ${isActive ? '(ATTIVO)' : ''}`);
+                    }
+                });
+                
+                if (dayLinks.length > 5) {
+                    console.log(`      ... e altri ${dayLinks.length - 5} giorni`);
+                }
+                
+                // Verifica il giorno attivo
+                const activeDayTab = activeDayTabGroup.querySelector('.nav-link.active');
+                if (activeDayTab) {
+                    console.log(`\n✅ Giorno attivo: ${activeDayTab.textContent.trim()}`);
+                    
+                    // Verifica contenuto del giorno attivo
+                    const activeDayPane = activeMonthPane4.querySelector('.day-tab-content .tab-pane.active');
+                    if (activeDayPane) {
+                        const queriesCount = activeDayPane.querySelectorAll('.accordion-item').length;
+                        console.log(`✅ Query visualizzate nel giorno attivo: ${queriesCount}`);
+                    }
+                } else {
+                    console.error("❌ Nessun tab giorno attivo trovato!");
+                }
+            }
+        }
+        
+        console.log("\n📋 TEST MANUALE SUGGERITO:");
+        console.log("   1. Naviga: Anno → Mese → Giorno e verifica che tutto funzioni");
+        console.log("   2. Clicca su diversi tab giorni e verifica che il contenuto cambi");
+        console.log("   3. Verifica che ogni giorno mostri solo le sue query");
+        console.log("   4. Verifica che gli accordion delle query funzionino ancora");
+        console.log("   5. Espandi un accordion e verifica che il grafico si carichi");
+        console.log("=== FINE TEST TAPPA 4 ===\n");
+        // === FINE TEST TAPPA 4 ===
 
         // Initialize managers
         window.reportChartManager = new ReportChartManager(reportData);
