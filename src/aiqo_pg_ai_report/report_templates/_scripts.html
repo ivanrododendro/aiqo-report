@@ -425,6 +425,11 @@
                                     plan: planData,
                                     query: queryData
                                 };
+                            },
+                            mounted() {
+                                console.log("🎯 Vue app mounted per {{ app_id }}");
+                                console.log("  - plan disponibile:", !!this.plan);
+                                console.log("  - query disponibile:", !!this.query);
                             }
                         });
                         
