@@ -105,12 +105,11 @@
 
                     detailsCard.innerHTML = `
                         <div class="card bg-light mb-3">
-                            <div class="card-body">
-                                <h6 class="card-title">Détails de l'exécution</h6>
-                                <p class="card-text mb-1"><strong>Début :</strong> ${validStart}</p>
-                                <p class="card-text mb-1"><strong>Fin :</strong> ${validEnd}</p>
-                                <p class="card-text mb-1"><strong>Durée :</strong> ${durationFmt}</p>
-                                <p class="card-text mb-1"><strong>Coût :</strong> ${costFormatted}</p>
+                            <div class="card-body d-flex flex-wrap align-items-center gap-4">
+                                <p class="card-text mb-0"><strong>Début :</strong> ${validStart}</p>
+                                <p class="card-text mb-0"><strong>Fin :</strong> ${validEnd}</p>
+                                <p class="card-text mb-0"><strong>Durée :</strong> ${durationFmt}</p>
+                                <p class="card-text mb-0"><strong>Coût :</strong> ${costFormatted}</p>
                                 <p class="card-text mb-0"><strong>Lignes :</strong> ${rowsFormatted}</p>
                             </div>
                         </div>`;
