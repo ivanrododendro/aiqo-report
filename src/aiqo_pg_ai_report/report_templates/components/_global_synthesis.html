@@ -33,7 +33,7 @@
                                 data-query-code="{{ stat.code }}" 
                                 style="cursor:pointer;">
                                 <td>[{{ stat.code | truncate_code }}] {{ stat.name[:metadata.query_name_limit] }}</td>
-                                <td id='cumulated-time-{{ stat.code }}'>{{ stat.cumulated_time }}</td>
+                                <td id='cumulated-time-{{ stat.code | safe_id }}'>{{ stat.cumulated_time }}</td>
                                 <td>{{ stat.count }}</td>
                             </tr>
                             {% endfor %}

@@ -51,7 +51,8 @@
         // Initialize duration displays for global query stats
         {% for stat in statistics.global_query_stats %}
         (function() {
-            const cumulatedTimeEl = document.getElementById('cumulated-time-{{ stat.code }}');
+            const safeCode = ReportUtils.safeId('{{ stat.code | safe }}');
+            const cumulatedTimeEl = document.getElementById('cumulated-time-' + safeCode);
             if (cumulatedTimeEl) {
                 cumulatedTimeEl.innerHTML = Duration.fromMillis({{ stat.cumulated_time }}).toFormat("h'h'm'm's's'");
             }

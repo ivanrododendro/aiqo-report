@@ -54,5 +54,14 @@ const ReportUtils = {
      */
     dateToSafeId(dateStr) {
         return dateStr;
+    },
+
+    /**
+     * Convert any text to safe HTML ID by replacing non-alphanumeric characters with hyphens
+     * Must match the Python safe_id filter implementation
+     */
+    safeId(text) {
+        if (!text) return '';
+        return String(text).replace(/[^a-zA-Z0-9]/g, '-');
     }
 };

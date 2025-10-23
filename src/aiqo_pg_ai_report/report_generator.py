@@ -27,8 +27,12 @@ class ReportGenerator:
         """Setup custom Jinja2 filters for common transformations."""
 
         def safe_id(text):
-            """Convert text to safe HTML ID by replacing dots with dashes."""
-            return text.replace(".", "-")
+            """Convert text to safe HTML ID by replacing non-alphanumeric characters with dashes."""
+            import re
+            if not text:
+                return ""
+            # Replace any non-alphanumeric characters with hyphens
+            return re.sub(r'[^a-zA-Z0-9]', '-', str(text))
 
         def truncate_code(code, length=6):
             """Truncate query code to specified length."""
