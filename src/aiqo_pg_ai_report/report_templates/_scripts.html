@@ -72,33 +72,28 @@
                 const detailsCard = document.getElementById("query-details-card-{{ day | safe_id }}-{{ i }}");
                 if (detailsCard) {
                     const durationMillis = {{ report.duration|int }};
-                    const rawTimestamp = "{{ report.query_timestamp }}";
-                    // Use SQL or ISO parsing for better coverage
-                    let endTime = luxon.DateTime.fromSQL(rawTimestamp);
-                    if (!endTime.isValid) {
-                        // Try ISO and fallback manual parsing
-                        endTime = luxon.DateTime.fromISO(rawTimestamp);
-                        if (!endTime.isValid) {
-                            const tsFixed = rawTimestamp.replace(" ", "T");
-                            endTime = luxon.DateTime.fromISO(tsFixed);
-                        }
+                    const timestampUtc = {{ report.query_timestamp_utc|default('null') }};
+                    let endTime = null;
+
+                    if (timestampUtc && Number.isFinite(timestampUtc)) {
+                        endTime = luxon.DateTime.fromMillis(timestampUtc, { zone: "utc" });
                     }
 
                     // Compute startTime robustly after confirming endTime validity
                     let validStart = "N/A";
-                    if (endTime.isValid && Number.isFinite(durationMillis) && durationMillis > 0) {
+                    if (endTime && endTime.isValid && Number.isFinite(durationMillis) && durationMillis > 0) {
                         const startMillis = endTime.toMillis() - durationMillis;
-                        if (startMillis > 0) { // Ensure we don't get negative timestamps
-                            const startTime = luxon.DateTime.fromMillis(startMillis);
+                        if (startMillis > 0) {
+                            const startTime = luxon.DateTime.fromMillis(startMillis, { zone: "utc" });
                             if (startTime.isValid) {
                                 validStart = startTime.toFormat("yyyy-MM-dd HH:mm:ss");
                             }
                         }
                     }
 
-                    const validEnd = endTime.isValid
+                    const validEnd = (endTime && endTime.isValid)
                         ? endTime.toFormat("yyyy-MM-dd HH:mm:ss")
-                        : rawTimestamp || "N/A";
+                        : (timestampUtc ? (new Date(timestampUtc)).toISOString() : "N/A");
                     const durationFmt = (Number.isFinite(durationMillis) && durationMillis > 0)
                         ? luxon.Duration.fromMillis(durationMillis).toFormat("h'h'm'm's's'")
                         : "N/A";
