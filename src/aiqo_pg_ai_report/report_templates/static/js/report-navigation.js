@@ -213,6 +213,7 @@ class NavigationEventHandler {
 
         const idx = points[0].index;
         const day = chart.data.labels[idx];
+        console.log(`📊 Click sul grafico per il giorno: ${day}`);
         this.tabNavigator.navigateToDay(day);
     }
 }
