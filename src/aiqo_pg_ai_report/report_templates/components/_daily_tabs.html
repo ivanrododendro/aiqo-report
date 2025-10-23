@@ -86,23 +86,125 @@
                                  role="tabpanel" 
                                  aria-labelledby="tab-day-{{ day | safe_id }}-tab">
                                 
-                                {# Contenuto del giorno: accordion delle query #}
+                                {# TAPPA 5: Layout a 2 Colonne - Query Laterali + Dettaglio #}
                                 {% if day in reports.by_day %}
                                     {% set reports_list = reports.by_day[day] %}
                                     <div class="card card-body mt-3">
                                         <h6>Détail des requêtes individuelles pour le {{ day }}</h6>
                                         <p class="text-muted">Nombre de requêtes: {{ reports_list|length }}</p>
-                                        <div class="accordion" id="accordionDailyQueries-{{ day | safe_id }}">
-                                            {% for report in reports_list %}
-                                            {{ query_accordion_item(
-                                                report, 
-                                                day, 
-                                                loop.index0, 
-                                                'accordionDailyQueries-' ~ day | safe_id,
-                                                optimizations.query,
-                                                optimizations.server
-                                            ) }}
-                                            {% endfor %}
+                                        
+                                        {# Layout a 2 colonne #}
+                                        <div class="row">
+                                            {# Colonna sinistra: Tab verticali delle query #}
+                                            <div class="col-md-3">
+                                                <div class="nav flex-column nav-pills query-tabs" 
+                                                     id="queryTabs-{{ day | safe_id }}" 
+                                                     role="tablist" 
+                                                     aria-orientation="vertical">
+                                                    {% for report in reports_list %}
+                                                    <button class="nav-link {% if loop.first %}active{% endif %} text-start" 
+                                                            id="query-tab-{{ day | safe_id }}-{{ loop.index0 }}" 
+                                                            data-bs-toggle="pill" 
+                                                            data-bs-target="#query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
+                                                            type="button" 
+                                                            role="tab" 
+                                                            data-query-code="{{ report.code }}"
+                                                            aria-controls="query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
+                                                            aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+                                                        <small class="d-block text-truncate" style="max-width: 200px;">
+                                                            <strong>{{ report.code[:8] }}</strong>
+                                                        </small>
+                                                        <small class="text-muted d-block">
+                                                            {{ (report.duration / 1000) | round(2) }}s
+                                                        </small>
+                                                    </button>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                            
+                                            {# Colonna destra: Dettaglio query selezionata #}
+                                            <div class="col-md-9">
+                                                <div class="tab-content query-tab-content" id="queryTabContent-{{ day | safe_id }}">
+                                                    {% for report in reports_list %}
+                                                    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
+                                                         id="query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
+                                                         role="tabpanel" 
+                                                         aria-labelledby="query-tab-{{ day | safe_id }}-{{ loop.index0 }}">
+                                                        
+                                                        {# Contenuto della query (stesso contenuto dell'accordion) #}
+                                                        {% set i = loop.index0 %}
+                                                        {% set app_id = 'app-' ~ day | safe_id ~ '-' ~ i %}
+                                                        
+                                                        <div class="card">
+                                                            <div class="card-header">
+                                                                <h6 class="mb-0">
+                                                                    Query {{ report.code[:8] }}
+                                                                    {% if report.ai_hints %}
+                                                                    <span class="badge bg-info">AI Hints</span>
+                                                                    {% endif %}
+                                                                </h6>
+                                                            </div>
+                                                            <div class="card-body">
+                                                                {# Query details card placeholder #}
+                                                                <div id="query-details-card-{{ app_id }}"></div>
+                                                                
+                                                                {# AI Hints #}
+                                                                {% if report.ai_hints %}
+                                                                <div class="alert alert-info">
+                                                                    <strong>AI Suggestions:</strong>
+                                                                    <pre class="mb-0">{{ report.ai_hints }}</pre>
+                                                                </div>
+                                                                {% endif %}
+                                                                
+                                                                {# Query optimizations #}
+                                                                {% if report.code in optimizations.query %}
+                                                                <div class="alert alert-warning">
+                                                                    <strong>Optimisations appliquées:</strong>
+                                                                    <ul class="mb-0">
+                                                                    {% for opt in optimizations.query[report.code] %}
+                                                                        {% if opt.date == day %}
+                                                                        <li>{{ opt.text }}</li>
+                                                                        {% endif %}
+                                                                    {% endfor %}
+                                                                    </ul>
+                                                                </div>
+                                                                {% endif %}
+                                                                
+                                                                {# Server optimizations for this day #}
+                                                                {% set day_server_opts = [] %}
+                                                                {% for opt in optimizations.server %}
+                                                                    {% if opt.date == day %}
+                                                                        {% set _ = day_server_opts.append(opt) %}
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                                {% if day_server_opts %}
+                                                                <div class="alert alert-success">
+                                                                    <strong>Optimisations serveur ce jour:</strong>
+                                                                    <ul class="mb-0">
+                                                                    {% for opt in day_server_opts %}
+                                                                        <li><code>{{ opt.text }}</code></li>
+                                                                    {% endfor %}
+                                                                    </ul>
+                                                                </div>
+                                                                {% endif %}
+                                                                
+                                                                {# Execution time chart #}
+                                                                <h6 class="mt-3">Évolution du temps d'exécution</h6>
+                                                                <canvas id="execTimeChart-{{ app_id }}" width="400" height="200"></canvas>
+                                                                
+                                                                {# Query plan visualization #}
+                                                                <h6 class="mt-4">Plan d'exécution</h6>
+                                                                <div id="{{ app_id }}"></div>
+                                                                
+                                                                {# Query text #}
+                                                                <h6 class="mt-4">Texte de la requête</h6>
+                                                                <pre class="bg-light p-3"><code>{{ report.query_text }}</code></pre>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 {% else %}

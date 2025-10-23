@@ -188,6 +188,74 @@
         console.log("   5. Espandi un accordion e verifica che il grafico si carichi");
         console.log("=== FINE TEST TAPPA 4 ===\n");
         // === FINE TEST TAPPA 4 ===
+        
+        // === TEST TAPPA 5: Verifica layout a 2 colonne con query laterali ===
+        console.log("\n=== TEST TAPPA 5: Layout a 2 Colonne ===");
+        
+        // Verifica presenza tab query laterali
+        const allQueryTabs = document.querySelectorAll('.query-tabs');
+        console.log("✅ Numero gruppi di tab query (uno per giorno):", allQueryTabs.length);
+        
+        // Verifica il giorno attivo
+        const activeDayPane5 = document.querySelector('.day-tab-content .tab-pane.active');
+        if (activeDayPane5) {
+            const queryTabGroup = activeDayPane5.querySelector('.query-tabs');
+            if (queryTabGroup) {
+                const queryLinks = queryTabGroup.querySelectorAll('.nav-link');
+                console.log(`\n📋 Giorno attivo:`);
+                console.log(`   - Numero query: ${queryLinks.length}`);
+                
+                // Mostra le prime 3 query come esempio
+                queryLinks.forEach((link, queryIndex) => {
+                    if (queryIndex < 3) {
+                        const queryCode = link.getAttribute('data-query-code');
+                        const isActive = link.classList.contains('active');
+                        console.log(`      ${queryIndex + 1}. Query ${queryCode?.substring(0, 8)} ${isActive ? '(ATTIVA)' : ''}`);
+                    }
+                });
+                
+                if (queryLinks.length > 3) {
+                    console.log(`      ... e altre ${queryLinks.length - 3} query`);
+                }
+                
+                // Verifica la query attiva
+                const activeQueryTab = queryTabGroup.querySelector('.nav-link.active');
+                if (activeQueryTab) {
+                    const activeQueryCode = activeQueryTab.getAttribute('data-query-code');
+                    console.log(`\n✅ Query attiva: ${activeQueryCode?.substring(0, 8)}`);
+                    
+                    // Verifica contenuto della query attiva
+                    const activeQueryContent = activeDayPane5.querySelector('.query-tab-content .tab-pane.active');
+                    if (activeQueryContent) {
+                        const hasChart = activeQueryContent.querySelector('canvas');
+                        const hasPlan = activeQueryContent.querySelector('[id^="app-"]');
+                        const hasQueryText = activeQueryContent.querySelector('pre code');
+                        console.log(`✅ Contenuto query visualizzato:`);
+                        console.log(`   - Grafico: ${hasChart ? 'Sì' : 'No'}`);
+                        console.log(`   - Piano esecuzione: ${hasPlan ? 'Sì' : 'No'}`);
+                        console.log(`   - Testo query: ${hasQueryText ? 'Sì' : 'No'}`);
+                    }
+                } else {
+                    console.error("❌ Nessun tab query attivo trovato!");
+                }
+                
+                // Verifica layout a 2 colonne
+                const leftColumn = activeDayPane5.querySelector('.col-md-3');
+                const rightColumn = activeDayPane5.querySelector('.col-md-9');
+                console.log(`\n✅ Layout a 2 colonne:`);
+                console.log(`   - Colonna sinistra (query): ${leftColumn ? 'Presente' : 'Mancante'}`);
+                console.log(`   - Colonna destra (dettaglio): ${rightColumn ? 'Presente' : 'Mancante'}`);
+            }
+        }
+        
+        console.log("\n📋 TEST MANUALE SUGGERITO:");
+        console.log("   1. Verifica che le query siano visualizzate in tab verticali a sinistra");
+        console.log("   2. Clicca su diverse query e verifica che il dettaglio cambi a destra");
+        console.log("   3. Verifica che il grafico si carichi per ogni query");
+        console.log("   4. Verifica che il piano di esecuzione (pev2) si visualizzi correttamente");
+        console.log("   5. Verifica il layout responsive (riduci la finestra del browser)");
+        console.log("=== FINE TEST TAPPA 5 ===\n");
+        // === FINE TEST TAPPA 5 ===
 
         // Initialize managers
         window.reportChartManager = new ReportChartManager(reportData);
@@ -233,16 +301,16 @@
         })();
         {% endfor %}
 
-        // Setup accordion collapse event handlers for query details
+        // Setup query tab event handlers for query details (TAPPA 5)
         {% for day, reports_list in reports.by_day.items()|sort %}
         {% for report in reports_list %}
         {% set i = loop.index0 %}
         {% set app_id = 'app-' ~ day | safe_id ~ '-' ~ i %}
         (function() {
-            const collapseEl = document.getElementById('collapse-{{ app_id }}');
-            if (!collapseEl) return;
+            const queryTabEl = document.getElementById('query-tab-{{ day | safe_id }}-{{ i }}');
+            if (!queryTabEl) return;
 
-            collapseEl.addEventListener('shown.bs.collapse', function () {
+            queryTabEl.addEventListener('shown.bs.tab', function () {
                 // Initialize query execution details card
                 const detailsCard = document.getElementById("query-details-card-{{ app_id }}");
                 if (detailsCard) {
