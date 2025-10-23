@@ -53,6 +53,39 @@
         }
         console.log("=== FINE TEST TAPPA 1 ===\n");
         // === FINE TEST TAPPA 1 ===
+        
+        // === TEST TAPPA 2: Verifica tab degli anni ===
+        console.log("\n=== TEST TAPPA 2: Tab degli Anni ===");
+        const yearTabs = document.querySelectorAll('#yearTabs .nav-link');
+        console.log("✅ Numero tab anni trovati:", yearTabs.length);
+        
+        yearTabs.forEach((tab, index) => {
+            const yearText = tab.textContent.trim();
+            const isActive = tab.classList.contains('active');
+            console.log(`   ${index + 1}. Anno: ${yearText} ${isActive ? '(ATTIVO)' : ''}`);
+        });
+        
+        // Verifica che il tab attivo corrisponda all'ultimo anno
+        const activeYearTab = document.querySelector('#yearTabs .nav-link.active');
+        if (activeYearTab) {
+            console.log("✅ Tab anno attivo:", activeYearTab.textContent.trim());
+        } else {
+            console.error("❌ Nessun tab anno attivo trovato!");
+        }
+        
+        // Verifica contenuto del tab attivo
+        const activeYearPane = document.querySelector('#yearTabContent .tab-pane.active');
+        if (activeYearPane) {
+            const daysCount = activeYearPane.querySelectorAll('.accordion').length;
+            console.log("✅ Giorni visualizzati nel tab attivo:", daysCount);
+        }
+        
+        console.log("\n📋 TEST MANUALE SUGGERITO:");
+        console.log("   1. Clicca su ogni tab anno e verifica che il contenuto cambi");
+        console.log("   2. Verifica che ogni anno mostri i suoi giorni");
+        console.log("   3. Verifica che gli accordion delle query funzionino ancora");
+        console.log("=== FINE TEST TAPPA 2 ===\n");
+        // === FINE TEST TAPPA 2 ===
 
         // Initialize managers
         window.reportChartManager = new ReportChartManager(reportData);

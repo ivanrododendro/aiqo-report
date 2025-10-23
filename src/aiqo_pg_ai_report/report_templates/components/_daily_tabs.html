@@ -1,32 +1,57 @@
 {% from '_macros.html' import tab_nav_item %}
 {% from 'components/_query_accordion.html' import query_accordion_item %}
 
-<ul class="nav nav-tabs" id="dailyTabs" role="tablist">
-    {% for day, reports in reports.by_day.items()|sort %}
-    {{ tab_nav_item(day, loop.last) }}
+{# TAPPA 2: Tab degli Anni (Livello 1) #}
+<ul class="nav nav-tabs" id="yearTabs" role="tablist">
+    {% for year in date_hierarchy.all_years %}
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if loop.last %}active{% endif %}" 
+                id="tab-year-{{ year }}-tab" 
+                data-bs-toggle="tab" 
+                data-bs-target="#tab-year-{{ year }}" 
+                type="button" 
+                role="tab" 
+                aria-controls="tab-year-{{ year }}" 
+                aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
+            {{ year }}
+        </button>
+    </li>
     {% endfor %}
 </ul>
 
-<div class="tab-content" id="dailyTabContent">
-    {% for day, reports_list in reports.by_day.items()|sort %}
+<div class="tab-content" id="yearTabContent">
+    {% for year in date_hierarchy.all_years %}
     <div class="tab-pane fade {% if loop.last %}show active{% endif %}" 
-         id="tab-{{ day | safe_id }}" 
+         id="tab-year-{{ year }}" 
          role="tabpanel" 
-         aria-labelledby="tab-{{ day | safe_id }}-tab">
+         aria-labelledby="tab-year-{{ year }}-tab">
+        
+        {# Contenuto temporaneo: tutti i giorni di questo anno #}
         <div class="card card-body mt-3">
-            <h5 class="mt-4">Détail des requêtes individuelles pour le {{ day }}</h5>
-            <div class="accordion" id="accordionDailyQueries-{{ day | safe_id }}">
-                {% for report in reports_list %}
-                {{ query_accordion_item(
-                    report, 
-                    day, 
-                    loop.index0, 
-                    'accordionDailyQueries-' ~ day | safe_id,
-                    optimizations.query,
-                    optimizations.server
-                ) }}
-                {% endfor %}
-            </div>
+            <h4>Anno {{ year }}</h4>
+            <p class="text-muted">Giorni disponibili: {{ date_hierarchy.years[year].all_days|length }}</p>
+            
+            {# Mostra tutti i report dei giorni di questo anno #}
+            {% for day in date_hierarchy.years[year].all_days %}
+                {% if day in reports.by_day %}
+                    {% set reports_list = reports.by_day[day] %}
+                    <div class="mt-4">
+                        <h5>Détail des requêtes individuelles pour le {{ day }}</h5>
+                        <div class="accordion" id="accordionDailyQueries-{{ day | safe_id }}">
+                            {% for report in reports_list %}
+                            {{ query_accordion_item(
+                                report, 
+                                day, 
+                                loop.index0, 
+                                'accordionDailyQueries-' ~ day | safe_id,
+                                optimizations.query,
+                                optimizations.server
+                            ) }}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
         </div>
     </div>
     {% endfor %}
