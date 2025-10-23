@@ -486,7 +486,17 @@
                     }
                     
                     try {
-                        const planData = `{{ report.plan|safe }}`;
+                        // Parse plan data - pev2 expects a JSON object, not a string
+                        let planData;
+                        try {
+                            const planString = `{{ report.plan|safe }}`;
+                            planData = JSON.parse(planString);
+                        } catch (e) {
+                            console.error("❌ Errore parsing piano per {{ app_id }}:", e);
+                            pev2Container.innerHTML = '<div class="alert alert-danger">Errore nel formato del piano di esecuzione</div>';
+                            return;
+                        }
+                        
                         const queryData = `{{ report.query_text|safe }}`;
                         
                         // Debug logs (commentati per produzione)
@@ -494,16 +504,23 @@
                         // console.log("  - Plan length:", planData.length);
                         // console.log("  - Query length:", queryData.length);
                         
-                        if (!planData || planData.length === 0) {
+                        if (!planData) {
                             console.error("❌ Piano di esecuzione vuoto per {{ app_id }}");
                             pev2Container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione non disponibile</div>';
+                            return;
+                        }
+                        
+                        // Validate plan structure
+                        if (typeof planData !== 'object' || !planData.Plan) {
+                            console.error("❌ Struttura piano non valida per {{ app_id }}:", planData);
+                            pev2Container.innerHTML = '<div class="alert alert-danger">Struttura del piano di esecuzione non valida</div>';
                             return;
                         }
                         
                         const app = createApp({
                             data() {
                                 return {
-                                    plan: planData,
+                                    plan: JSON.stringify(planData),
                                     query: queryData
                                 };
                             },
@@ -512,6 +529,10 @@
                                 // console.log("🎯 Vue app mounted per {{ app_id }}");
                                 // console.log("  - plan disponibile:", !!this.plan);
                                 // console.log("  - query disponibile:", !!this.query);
+                            },
+                            errorCaptured(err, instance, info) {
+                                console.error("❌ Errore Vue per {{ app_id }}:", err, info);
+                                return false;
                             }
                         });
                         
