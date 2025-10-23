@@ -486,41 +486,25 @@
                     }
                     
                     try {
-                        // Parse plan data - pev2 expects a JSON object, not a string
-                        let planData;
-                        try {
-                            const planString = `{{ report.plan|safe }}`;
-                            planData = JSON.parse(planString);
-                        } catch (e) {
-                            console.error("❌ Errore parsing piano per {{ app_id }}:", e);
-                            pev2Container.innerHTML = '<div class="alert alert-danger">Errore nel formato del piano di esecuzione</div>';
-                            return;
-                        }
-                        
+                        // Get plan data - pev2 can handle both JSON and text format
+                        const planString = `{{ report.plan|safe }}`;
                         const queryData = `{{ report.query_text|safe }}`;
                         
                         // Debug logs (commentati per produzione)
                         // console.log("🔍 Dati pev2 per {{ app_id }}:");
-                        // console.log("  - Plan length:", planData.length);
+                        // console.log("  - Plan length:", planString.length);
                         // console.log("  - Query length:", queryData.length);
                         
-                        if (!planData) {
+                        if (!planString || planString.trim().length === 0) {
                             console.error("❌ Piano di esecuzione vuoto per {{ app_id }}");
                             pev2Container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione non disponibile</div>';
-                            return;
-                        }
-                        
-                        // Validate plan structure
-                        if (typeof planData !== 'object' || !planData.Plan) {
-                            console.error("❌ Struttura piano non valida per {{ app_id }}:", planData);
-                            pev2Container.innerHTML = '<div class="alert alert-danger">Struttura del piano di esecuzione non valida</div>';
                             return;
                         }
                         
                         const app = createApp({
                             data() {
                                 return {
-                                    plan: JSON.stringify(planData),
+                                    plan: planString,
                                     query: queryData
                                 };
                             },
