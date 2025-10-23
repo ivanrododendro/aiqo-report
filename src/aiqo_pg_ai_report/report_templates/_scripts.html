@@ -70,7 +70,7 @@
 
             collapseEl.addEventListener('shown.bs.collapse', function () {
                 // Initialize query execution details card
-                const detailsCard = document.getElementById("query-details-card-{{ day | safe_id }}-{{ i }}");
+                const detailsCard = document.getElementById("query-details-card-{{ app_id }}");
                 if (detailsCard) {
                     const durationMillis = {{ report.duration|int }};
                     const timestampUtc = {{ report.query_timestamp_utc|default('null') }};
