@@ -26,32 +26,66 @@
          role="tabpanel" 
          aria-labelledby="tab-year-{{ year }}-tab">
         
-        {# Contenuto temporaneo: tutti i giorni di questo anno #}
-        <div class="card card-body mt-3">
+        {# TAPPA 3: Tab dei Mesi (Livello 2) #}
+        <div class="mt-3">
             <h4>Anno {{ year }}</h4>
-            <p class="text-muted">Giorni disponibili: {{ date_hierarchy.years[year].all_days|length }}</p>
             
-            {# Mostra tutti i report dei giorni di questo anno #}
-            {% for day in date_hierarchy.years[year].all_days %}
-                {% if day in reports.by_day %}
-                    {% set reports_list = reports.by_day[day] %}
-                    <div class="mt-4">
-                        <h5>Détail des requêtes individuelles pour le {{ day }}</h5>
-                        <div class="accordion" id="accordionDailyQueries-{{ day | safe_id }}">
-                            {% for report in reports_list %}
-                            {{ query_accordion_item(
-                                report, 
-                                day, 
-                                loop.index0, 
-                                'accordionDailyQueries-' ~ day | safe_id,
-                                optimizations.query,
-                                optimizations.server
-                            ) }}
-                            {% endfor %}
-                        </div>
+            {# Tab dei mesi per questo anno #}
+            <ul class="nav nav-tabs month-tabs" id="monthTabs-{{ year }}" role="tablist">
+                {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if loop.last %}active{% endif %}" 
+                            id="tab-month-{{ month_data.year_month }}-tab" 
+                            data-bs-toggle="tab" 
+                            data-bs-target="#tab-month-{{ month_data.year_month }}" 
+                            type="button" 
+                            role="tab" 
+                            aria-controls="tab-month-{{ month_data.year_month }}" 
+                            aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
+                        {{ month_data.name }}
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+            
+            {# Contenuto dei tab mesi #}
+            <div class="tab-content month-tab-content" id="monthTabContent-{{ year }}">
+                {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
+                <div class="tab-pane fade {% if loop.last %}show active{% endif %}" 
+                     id="tab-month-{{ month_data.year_month }}" 
+                     role="tabpanel" 
+                     aria-labelledby="tab-month-{{ month_data.year_month }}-tab">
+                    
+                    {# Contenuto temporaneo: tutti i giorni di questo mese #}
+                    <div class="card card-body mt-3">
+                        <h5>{{ month_data.name }} {{ year }}</h5>
+                        <p class="text-muted">Giorni disponibili: {{ month_data.days|length }}</p>
+                        
+                        {# Mostra tutti i report dei giorni di questo mese #}
+                        {% for day in month_data.days %}
+                            {% if day in reports.by_day %}
+                                {% set reports_list = reports.by_day[day] %}
+                                <div class="mt-4">
+                                    <h6>Détail des requêtes individuelles pour le {{ day }}</h6>
+                                    <div class="accordion" id="accordionDailyQueries-{{ day | safe_id }}">
+                                        {% for report in reports_list %}
+                                        {{ query_accordion_item(
+                                            report, 
+                                            day, 
+                                            loop.index0, 
+                                            'accordionDailyQueries-' ~ day | safe_id,
+                                            optimizations.query,
+                                            optimizations.server
+                                        ) }}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
                     </div>
-                {% endif %}
-            {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
     {% endfor %}

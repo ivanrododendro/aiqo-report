@@ -86,6 +86,52 @@
         console.log("   3. Verifica che gli accordion delle query funzionino ancora");
         console.log("=== FINE TEST TAPPA 2 ===\n");
         // === FINE TEST TAPPA 2 ===
+        
+        // === TEST TAPPA 3: Verifica tab dei mesi ===
+        console.log("\n=== TEST TAPPA 3: Tab dei Mesi ===");
+        
+        // Verifica tab mesi per ogni anno
+        const allMonthTabs = document.querySelectorAll('.month-tabs');
+        console.log("✅ Numero gruppi di tab mesi (uno per anno):", allMonthTabs.length);
+        
+        allMonthTabs.forEach((monthTabGroup, yearIndex) => {
+            const yearId = monthTabGroup.id.replace('monthTabs-', '');
+            const monthLinks = monthTabGroup.querySelectorAll('.nav-link');
+            console.log(`\n📅 Anno ${yearId}:`);
+            console.log(`   - Numero mesi: ${monthLinks.length}`);
+            
+            monthLinks.forEach((link, monthIndex) => {
+                const monthName = link.textContent.trim();
+                const isActive = link.classList.contains('active');
+                console.log(`      ${monthIndex + 1}. ${monthName} ${isActive ? '(ATTIVO)' : ''}`);
+            });
+        });
+        
+        // Verifica il mese attivo nell'anno attivo
+        const activeYearPane = document.querySelector('#yearTabContent .tab-pane.active');
+        if (activeYearPane) {
+            const activeMonthTab = activeYearPane.querySelector('.month-tabs .nav-link.active');
+            if (activeMonthTab) {
+                console.log("\n✅ Mese attivo nell'anno attivo:", activeMonthTab.textContent.trim());
+                
+                // Verifica contenuto del mese attivo
+                const activeMonthPane = activeYearPane.querySelector('.month-tab-content .tab-pane.active');
+                if (activeMonthPane) {
+                    const daysCount = activeMonthPane.querySelectorAll('.accordion').length;
+                    console.log("✅ Giorni visualizzati nel mese attivo:", daysCount);
+                }
+            } else {
+                console.error("❌ Nessun tab mese attivo trovato!");
+            }
+        }
+        
+        console.log("\n📋 TEST MANUALE SUGGERITO:");
+        console.log("   1. Clicca su diversi tab anno e verifica che i tab mesi cambino");
+        console.log("   2. Clicca su diversi tab mesi e verifica che il contenuto cambi");
+        console.log("   3. Verifica che ogni mese mostri solo i suoi giorni");
+        console.log("   4. Verifica che gli accordion delle query funzionino ancora");
+        console.log("=== FINE TEST TAPPA 3 ===\n");
+        // === FINE TEST TAPPA 3 ===
 
         // Initialize managers
         window.reportChartManager = new ReportChartManager(reportData);
