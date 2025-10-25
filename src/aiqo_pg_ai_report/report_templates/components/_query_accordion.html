@@ -33,13 +33,6 @@
                 <!-- Execution details card will be dynamically injected by JS -->
             </div>
             
-            {% if report.has_query_optimizations %}
-            <p>
-                <strong>Optimisations déjà appliquées :</strong>
-                {{ optimization_list(query_optimizations[report.code], 'opt-list-' ~ app_id) }}
-            </p>
-            {% endif %}
-
             {% if report.has_ai_hints %}
             <p><strong>Analyse AI :</strong> {{ report.chatgpt_hints|safe }}</p>
             {% endif %}
@@ -52,6 +45,13 @@
             <div class="mb-3">
                 <canvas id="execTimeChart-{{ app_id }}" height="120"></canvas>
             </div>
+            
+            {% if report.has_query_optimizations %}
+            <p>
+                <strong>Optimisations déjà appliquées :</strong>
+                {{ optimization_list(query_optimizations[report.code], 'opt-list-' ~ app_id) }}
+            </p>
+            {% endif %}
             
             {% if server_optimizations %}
             <p>
