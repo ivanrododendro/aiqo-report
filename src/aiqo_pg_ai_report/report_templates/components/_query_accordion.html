@@ -41,23 +41,29 @@
                 <pev2 :plan-source="plan" :plan-query="query"
                       style="display: block; aspect-ratio: 16 / 9; width: 100%;"></pev2>
             </div>
-            
+
             <div class="mb-3">
                 <canvas id="execTimeChart-{{ app_id }}" height="120"></canvas>
             </div>
-            
-            {% if report.has_query_optimizations %}
-            <p>
-                <strong>Optimisations déjà appliquées :</strong>
-                {{ optimization_list(query_optimizations[report.code], 'opt-list-' ~ app_id) }}
-            </p>
-            {% endif %}
-            
-            {% if server_optimizations %}
-            <p>
-                <strong>Optimisations serveur :</strong>
-                {{ optimization_list(server_optimizations, 'server-opt-list-' ~ app_id, 'server-opt-label') }}
-            </p>
+
+            {% if report.has_query_optimizations or server_optimizations %}
+            <div class="card mt-3">
+                <div class="card-body">
+                    {% if report.has_query_optimizations %}
+                    <p>
+                        <strong>Optimisations déjà appliquées :</strong>
+                        {{ optimization_list(query_optimizations[report.code], 'opt-list-' ~ app_id) }}
+                    </p>
+                    {% endif %}
+                    
+                    {% if server_optimizations %}
+                    <p>
+                        <strong>Optimisations serveur :</strong>
+                        {{ optimization_list(server_optimizations, 'server-opt-list-' ~ app_id, 'server-opt-label') }}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
             {% endif %}
         </div>
     </div>
