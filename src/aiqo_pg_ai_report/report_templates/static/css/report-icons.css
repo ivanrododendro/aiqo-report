@@ -1,0 +1,16 @@
+/**
+ * Icon and badge styles for optimization markers
+ */
+
+/* Icon colors for optimization badges */
+.bi-database-exclamation {
+    color: red !important;
+}
+
+.bi-chat-left-text {
+    color: blue !important;
+}
+
+.bi-lightning {
+    color: green !important;
+}
