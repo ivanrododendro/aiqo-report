@@ -120,7 +120,7 @@
                                                                 <strong>{{ report.code[:8] }}</strong>
                                                             </small>
                                                             <small class="text-muted d-block text-truncate">
-                                                                {{ report.query_text }}
+                                                                {{ report.query_text[:30] }}{% if report.query_text|length > 30 %}...{% endif %}
                                                             </small>
                                                         </div>
                                                         <div class="flex-shrink-0 ms-2">
