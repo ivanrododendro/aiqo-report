@@ -120,6 +120,15 @@
                                                             aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
                                                         <small class="d-block text-truncate" style="max-width: 200px;">
                                                             <strong>{{ report.code[:8] }}</strong>
+                                                            {% if report.has_query_optimizations %}
+                                                            <i class="bi bi-lightning" title="Optimisations disponibles"></i>
+                                                            {% endif %}
+                                                            {% if report.seq_scan_indicator %}
+                                                            <i class="bi bi-database-exclamation" title="La requête contient un Seq Scan"></i>
+                                                            {% endif %}
+                                                            {% if report.has_ai_hints %}
+                                                            <i class="bi bi-chat-left-text" title="Analyse AI disponible"></i>
+                                                            {% endif %}
                                                         </small>
                                                         <small class="text-muted d-block">
                                                             {{ (report.duration / 1000) | round(2) }}s
