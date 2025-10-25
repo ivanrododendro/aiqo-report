@@ -109,7 +109,7 @@
                                                      role="tablist" 
                                                      aria-orientation="vertical">
                                                     {% for report in reports_list %}
-                                                    <button class="nav-link {% if loop.first %}active{% endif %} text-start" 
+                                                    <button class="nav-link {% if loop.first %}active{% endif %} text-start d-flex justify-content-between align-items-center" 
                                                             id="query-tab-{{ day | safe_id }}-{{ loop.index0 }}" 
                                                             data-bs-toggle="pill" 
                                                             data-bs-target="#query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
@@ -118,8 +118,15 @@
                                                             data-query-code="{{ report.code }}"
                                                             aria-controls="query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
                                                             aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
-                                                        <small class="d-block text-truncate" style="max-width: 200px;">
-                                                            <strong>{{ report.code[:8] }}</strong>
+                                                        <div class="flex-grow-1" style="min-width: 0;">
+                                                            <small class="d-block text-truncate">
+                                                                <strong>{{ report.code[:8] }}</strong>
+                                                            </small>
+                                                            <small class="text-muted d-block">
+                                                                {{ (report.duration / 1000) | round(2) }}s
+                                                            </small>
+                                                        </div>
+                                                        <div class="flex-shrink-0 ms-2">
                                                             {% if report.has_query_optimizations %}
                                                             <i class="bi bi-lightning" title="Optimisations disponibles"></i>
                                                             {% endif %}
@@ -129,10 +136,7 @@
                                                             {% if report.has_ai_hints %}
                                                             <i class="bi bi-chat-left-text" title="Analyse AI disponible"></i>
                                                             {% endif %}
-                                                        </small>
-                                                        <small class="text-muted d-block">
-                                                            {{ (report.duration / 1000) | round(2) }}s
-                                                        </small>
+                                                        </div>
                                                     </button>
                                                     {% endfor %}
                                                 </div>
