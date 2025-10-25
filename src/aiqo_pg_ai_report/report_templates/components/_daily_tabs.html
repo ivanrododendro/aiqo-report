@@ -119,8 +119,8 @@
                                                             <small class="d-block text-truncate">
                                                                 <strong>{{ report.code[:8] }}</strong>
                                                             </small>
-                                                            <small class="text-muted d-block">
-                                                                {{ (report.duration / 1000) | round(2) }}s
+                                                            <small class="text-muted d-block text-truncate">
+                                                                {{ report.query_text }}
                                                             </small>
                                                         </div>
                                                         <div class="flex-shrink-0 ms-2">
