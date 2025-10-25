@@ -14,38 +14,6 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         
-        // Wait a bit for pev2 to render, then check
-        setTimeout(() => {
-            console.log("\n=== VERIFICA POST-CARICAMENTO pev2 ===");
-            const allPev2Containers = document.querySelectorAll('[id^="app-"]');
-            console.log(`Totale container pev2: ${allPev2Containers.length}`);
-            
-            let mountedCount = 0;
-            let renderedCount = 0;
-            
-            allPev2Containers.forEach(container => {
-                if (container.hasAttribute('data-v-app')) {
-                    mountedCount++;
-                    const pev2Element = container.querySelector('.pev2');
-                    if (pev2Element) {
-                        renderedCount++;
-                    }
-                }
-            });
-            
-            console.log(`Container con Vue montato: ${mountedCount}`);
-            console.log(`Container con pev2 renderizzato: ${renderedCount}`);
-            
-            if (mountedCount > 0 && renderedCount === 0) {
-                console.error("⚠️ Vue è montato ma pev2 non si renderizza!");
-                console.log("Possibili cause:");
-                console.log("  1. Dati plan/query non validi");
-                console.log("  2. Componente pev2 non caricato correttamente");
-                console.log("  3. Errore nel template Vue");
-            }
-            console.log("=== FINE VERIFICA pev2 ===\n");
-        }, 1500);
-        
         // === TAPPA 10: Setup breadcrumb updater ===
         const updateBreadcrumb = function() {
             const breadcrumb = document.getElementById('navigationBreadcrumb');
