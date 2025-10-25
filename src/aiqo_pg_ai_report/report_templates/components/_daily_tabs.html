@@ -154,8 +154,8 @@
                                                         
                                                         <div class="card">
                                                             <div class="card-header">
-                                                                <h6 class="mb-0">
-                                                                    Query {{ report.code[:8] }}
+                                                                <h6 class="mb-0 text-truncate">
+                                                                    {{ report.query_text[:120] }}{% if report.query_text|length > 120 %}...{% endif %}
                                                                     {% if report.ai_hints %}
                                                                     <span class="badge bg-info">AI Hints</span>
                                                                     {% endif %}
