@@ -1,17 +1,10 @@
 <!-- Inline JavaScript to produce a fully self-contained HTML report -->
 <script>
+{% filter minify_js %}
 {% include 'static/js/report-utils.js' %}
-</script>
-
-<script>
 {% include 'static/js/report-charts.js' %}
-</script>
-
-<script>
 {% include 'static/js/report-navigation.js' %}
-</script>
-
-<script>
+{% endfilter %}
     document.addEventListener('DOMContentLoaded', function() {
         
         // === TAPPA 10: Setup breadcrumb updater ===

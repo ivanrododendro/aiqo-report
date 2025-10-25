@@ -3,6 +3,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 import json
 from datetime import datetime
+import re
 
 from .report_data_processor import ReportDataProcessor
 
@@ -20,6 +21,7 @@ class ReportGenerator:
             autoescape=select_autoescape(["html", "xml"])
         )
         self._setup_custom_filters()
+        self._setup_minification_filters()
         self.template = self.env.get_template("report_template.html")
         self.data_processor = ReportDataProcessor()
 
@@ -28,7 +30,6 @@ class ReportGenerator:
 
         def safe_id(text):
             """Convert text to safe HTML ID by replacing non-alphanumeric characters with dashes."""
-            import re
             if not text:
                 return ""
             # Replace any non-alphanumeric characters with hyphens
@@ -45,6 +46,34 @@ class ReportGenerator:
         self.env.filters["safe_id"] = safe_id
         self.env.filters["truncate_code"] = truncate_code
         self.env.filters["format_date"] = format_date
+
+    def _setup_minification_filters(self):
+        """Setup minification filters for CSS and JS."""
+        
+        def minify_css(css_content):
+            """Simple CSS minification."""
+            # Remove comments
+            css_content = re.sub(r'/\*.*?\*/', '', css_content, flags=re.DOTALL)
+            # Remove whitespace
+            css_content = re.sub(r'\s+', ' ', css_content)
+            # Remove spaces around special characters
+            css_content = re.sub(r'\s*([{}:;,>+~])\s*', r'\1', css_content)
+            return css_content.strip()
+        
+        def minify_js(js_content):
+            """Simple JavaScript minification."""
+            # Remove single-line comments (but preserve URLs)
+            js_content = re.sub(r'(?<!:)//.*?$', '', js_content, flags=re.MULTILINE)
+            # Remove multi-line comments
+            js_content = re.sub(r'/\*.*?\*/', '', js_content, flags=re.DOTALL)
+            # Remove excessive whitespace (but preserve necessary spaces)
+            js_content = re.sub(r'\s+', ' ', js_content)
+            # Remove spaces around operators and punctuation
+            js_content = re.sub(r'\s*([{}();,:\[\]])\s*', r'\1', js_content)
+            return js_content.strip()
+        
+        self.env.filters["minify_css"] = minify_css
+        self.env.filters["minify_js"] = minify_js
 
     def generate_report(
         self,
