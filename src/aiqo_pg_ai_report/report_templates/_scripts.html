@@ -166,22 +166,27 @@
                     
                     try {
                         // Get plan data - pev2 can handle both JSON and text format
-                        const planString = `{{ report.plan|safe }}`;
-                        const queryData = `{{ report.query_text|safe }}`;
+                        // Use tojson filter to properly escape the data for JavaScript
+                        const planData = {{ report.plan|tojson }};
+                        const queryData = {{ report.query_text|tojson }};
                         
-                        if (!planString || planString.trim().length === 0) {
+                        if (!planData || (typeof planData === 'string' && planData.trim().length === 0)) {
                             pev2Container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione non disponibile</div>';
                             return;
                         }
+                        
+                        // pev2 expects the plan as a string (either JSON string or text format)
+                        const planString = typeof planData === 'string' ? planData : JSON.stringify(planData);
                         
                         const app = createApp({
                             data() {
                                 return {
                                     plan: planString,
-                                    query: queryData
+                                    query: queryData || ''
                                 };
                             },
                             errorCaptured(err, instance, info) {
+                                console.error('Vue error in pev2:', err, info);
                                 return false;
                             }
                         });
