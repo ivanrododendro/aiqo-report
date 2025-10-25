@@ -11,6 +11,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@latest/dist/chartjs-plugin-annotation.min.js"></script>
 
-<!-- Custom report styles -->
-<link rel="stylesheet" href="static/css/report-icons.css">
-<link rel="stylesheet" href="static/css/report-tabs.css">
+<!-- Custom report styles - embedded and minified -->
+<style>
+{% filter minify_css %}
+{% include 'static/css/report-icons.css' %}
+{% include 'static/css/report-tabs.css' %}
+{% endfilter %}
+</style>
