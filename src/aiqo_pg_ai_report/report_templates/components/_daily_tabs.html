@@ -1,14 +1,12 @@
 {% from '_macros.html' import tab_nav_item %}
 {% from 'components/_query_accordion.html' import query_accordion_item %}
 
-{# TAPPA 10: Breadcrumb per navigazione #}
 <nav aria-label="breadcrumb" class="mt-3">
     <ol class="breadcrumb" id="navigationBreadcrumb">
         <li class="breadcrumb-item active">Seleziona un periodo</li>
     </ol>
 </nav>
 
-{# TAPPA 2: Tab degli Anni (Livello 1) #}
 <ul class="nav nav-tabs flex-nowrap overflow-auto" id="yearTabs" role="tablist">
     {% for year in date_hierarchy.all_years %}
     <li class="nav-item" role="presentation">
@@ -93,7 +91,6 @@
                                  role="tabpanel" 
                                  aria-labelledby="tab-day-{{ day | safe_id }}-tab">
                                 
-                                {# TAPPA 5: Layout a 2 Colonne - Query Laterali + Dettaglio #}
                                 {% if day in reports.by_day %}
                                     {% set reports_list = reports.by_day[day] %}
                                     <div class="card card-body mt-3">
