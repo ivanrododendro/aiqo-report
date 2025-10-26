@@ -2,7 +2,7 @@
 {% from 'components/_query_details.html' import query_details_content %}
 
 {# Container per i tre livelli di tab sulla stessa riga #}
-<div class="d-flex gap-2 mb-3 flex-wrap align-items-start">
+<div class="d-flex gap-2 mb-3 align-items-start">
     {# Tab Anno #}
     <div class="flex-shrink-0">
         <label class="form-label small mb-1">Anno:</label>
@@ -56,7 +56,7 @@
         <div class="flex-grow-1 day-tabs-container {% if month_data.year_month != last_month %}d-none{% endif %}" 
              id="day-tabs-container-{{ month_data.year_month }}">
             <label class="form-label small mb-1">Giorno:</label>
-            <ul class="nav nav-tabs day-tabs flex-nowrap overflow-auto" id="dayTabs-{{ month_data.year_month }}" role="tablist">
+            <ul class="nav nav-tabs day-tabs flex-wrap" id="dayTabs-{{ month_data.year_month }}" role="tablist">
                 {% for day in month_data.days %}
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {% if loop.last %}active{% endif %}" 
