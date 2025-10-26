@@ -267,8 +267,28 @@
                 };
             };
 
+            // Function to check if element is visible and has dimensions
+            const isElementVisible = function(el) {
+                if (!el) return false;
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && 
+                       window.getComputedStyle(el).display !== 'none' &&
+                       window.getComputedStyle(el).visibility !== 'hidden';
+            };
+
+            // Wrapper to initialize only when visible
+            const safeInitializeQueryDetails = function() {
+                const pev2Container = document.getElementById("{{ app_id }}");
+                if (!isElementVisible(pev2Container)) {
+                    // Container not visible yet, wait a bit and retry
+                    setTimeout(safeInitializeQueryDetails, 150);
+                    return;
+                }
+                initializeQueryDetails();
+            };
+
             // Attach to tab shown event
-            queryTabEl.addEventListener('shown.bs.tab', initializeQueryDetails);
+            queryTabEl.addEventListener('shown.bs.tab', safeInitializeQueryDetails);
 
             // Initialize immediately if this is the first query tab (already active)
             {% if loop.index0 == 0 %}
@@ -276,7 +296,7 @@
             const dayPane = document.getElementById('tab-day-{{ day | safe_id }}');
             if (dayPane && dayPane.classList.contains('active')) {
                 // Small delay to ensure DOM is fully ready
-                setTimeout(initializeQueryDetails, 100);
+                setTimeout(safeInitializeQueryDetails, 100);
             }
             {% endif %}
             
@@ -285,7 +305,7 @@
             if (dayTabButton) {
                 dayTabButton.addEventListener('shown.bs.tab', function() {
                     // When day tab is shown, initialize the first query tab for this day
-                    setTimeout(initializeQueryDetails, 100);
+                    setTimeout(safeInitializeQueryDetails, 100);
                 });
             }
         })();
