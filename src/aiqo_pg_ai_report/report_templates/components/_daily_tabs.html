@@ -1,12 +1,6 @@
 {% from '_macros.html' import tab_nav_item %}
 {% from 'components/_query_details.html' import query_details_content %}
 
-<nav aria-label="breadcrumb" class="mt-3">
-    <ol class="breadcrumb" id="navigationBreadcrumb">
-        <li class="breadcrumb-item active">Seleziona un periodo</li>
-    </ol>
-</nav>
-
 <ul class="nav nav-tabs flex-nowrap overflow-auto" id="yearTabs" role="tablist">
     {% for year in date_hierarchy.all_years %}
     <li class="nav-item" role="presentation">
