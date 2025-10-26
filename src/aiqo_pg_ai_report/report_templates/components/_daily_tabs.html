@@ -94,15 +94,15 @@
                                         <p class="text-muted">Nombre de requêtes: {{ reports_list|length }}</p>
                                         
                                         {# Layout a 2 colonne - Responsive #}
-                                        <div class="row">
-                                            {# Colonna sinistra: Tab verticali delle query #}
-                                            <div class="col-12 col-lg-3 mb-3 mb-lg-0">
-                                                <div class="nav flex-column nav-pills query-tabs" 
+                                        <div id="split-container-{{ day | safe_id }}" class="d-flex flex-row" style="height: 70vh;">
+                                            {# Pannello sinistro: lista query #}
+                                            <div class="split flex-shrink-0" style="width: 30%; overflow-y: auto; border-right: 1px solid #ddd;">
+                                                <div class="nav flex-column nav-pills query-tabs p-2" 
                                                      id="queryTabs-{{ day | safe_id }}" 
                                                      role="tablist" 
                                                      aria-orientation="vertical">
                                                     {% for report in reports_list %}
-                                                    <button class="nav-link {% if loop.first %}active{% endif %} text-start d-flex justify-content-between align-items-center" 
+                                                    <button class="nav-link {% if loop.first %}active{% endif %} text-start d-flex justify-content-between align-items-center mb-1" 
                                                             id="query-tab-{{ day | safe_id }}-{{ loop.index0 }}" 
                                                             data-bs-toggle="pill" 
                                                             data-bs-target="#query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
@@ -127,30 +127,38 @@
                                                             <i class="bi bi-database-exclamation" title="La requête contient un Seq Scan"></i>
                                                             {% endif %}
                                                             {% if report.has_ai_hints %}
-                                                            <i class="bi bi-chat-left-text" title="Analyse AI disponible"></i>
+                                                            <i class="bi bi-chat-left-text" title="Analyse AI disponibile"></i>
                                                             {% endif %}
                                                         </div>
                                                     </button>
                                                     {% endfor %}
                                                 </div>
                                             </div>
-                                            
-                                            {# Colonna destra: Dettaglio query selezionata #}
-                                            <div class="col-12 col-lg-9">
+
+                                            {# Pannello destro: dettaglio query #}
+                                            <div class="split flex-grow-1" style="overflow-y: auto; padding: 0.5rem;">
                                                 <div class="tab-content query-tab-content" id="queryTabContent-{{ day | safe_id }}">
                                                     {% for report in reports_list %}
                                                     <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
                                                          id="query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
                                                          role="tabpanel" 
                                                          aria-labelledby="query-tab-{{ day | safe_id }}-{{ loop.index0 }}">
-                                                        
-                                                        {# Contenuto della query usando la macro #}
                                                         {{ query_details_content(report, day, loop.index0, optimizations) }}
                                                     </div>
                                                     {% endfor %}
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
+                                        <script>
+                                            Split(['#split-container-{{ day | safe_id }} .split:nth-child(1)', '#split-container-{{ day | safe_id }} .split:nth-child(2)'], {
+                                                sizes: [30, 70],
+                                                minSize: [200, 300],
+                                                gutterSize: 8,
+                                                cursor: 'col-resize'
+                                            });
+                                        </script>
                                     </div>
                                 {% else %}
                                     <div class="card card-body mt-3">
