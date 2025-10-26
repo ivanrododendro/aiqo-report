@@ -237,15 +237,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-    // Doppio click su un bottone query -> copia codice negli appunti
+    // Doppio click su un bottone query -> copia codice corto negli appunti
     document.querySelectorAll('.query-tabs .nav-link').forEach(btn => {
         btn.addEventListener('dblclick', function() {
-            const code = this.dataset.queryCode;
-            if (!code) return;
-            navigator.clipboard.writeText(code).then(() => {
+            const fullCode = this.dataset.queryCode;
+            if (!fullCode) return;
+            const shortCode = fullCode.substring(0, 8);
+            navigator.clipboard.writeText(shortCode).then(() => {
                 const toast = document.createElement('div');
                 toast.className = 'alert alert-success position-fixed top-0 end-0 m-3 py-2 px-3 shadow';
-                toast.textContent = `Codice "${code}" copiato negli appunti!`;
+                toast.textContent = `Codice corto "${shortCode}" copiato negli appunti!`;
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 2000);
             }).catch(err => console.error('Clipboard error:', err));
