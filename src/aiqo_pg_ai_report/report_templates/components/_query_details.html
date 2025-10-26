@@ -4,8 +4,10 @@
 
 <div class="card">
     <div class="card-header">
-        <h6 class="mb-0 text-truncate">
-            {{ report.query_text[:140] }}{% if report.query_text|length > 140 %}...{% endif %}
+        <h6 class="mb-0 text-truncate" 
+            style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;" 
+            title="{{ report.query_text }}">
+            {{ report.query_text }}
             {% if report.ai_hints %}
             <span class="badge bg-info">AI Hints</span>
             {% endif %}
