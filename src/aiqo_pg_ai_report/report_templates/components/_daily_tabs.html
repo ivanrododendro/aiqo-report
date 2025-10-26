@@ -1,80 +1,83 @@
 {% from '_macros.html' import tab_nav_item %}
 {% from 'components/_query_details.html' import query_details_content %}
 
-<ul class="nav nav-tabs flex-nowrap overflow-auto" id="yearTabs" role="tablist">
-    {% for year in date_hierarchy.all_years %}
-    <li class="nav-item" role="presentation">
-        <button class="nav-link {% if loop.last %}active{% endif %}" 
-                id="tab-year-{{ year }}-tab" 
-                data-bs-toggle="tab" 
-                data-bs-target="#tab-year-{{ year }}" 
-                type="button" 
-                role="tab" 
-                aria-controls="tab-year-{{ year }}" 
-                aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
-            {{ year }}
-        </button>
-    </li>
-    {% endfor %}
-</ul>
+{# Container per i tre livelli di tab sulla stessa riga #}
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-start">
+    {# Tab Anno #}
+    <div class="flex-shrink-0">
+        <label class="form-label small mb-1">Anno:</label>
+        <ul class="nav nav-tabs flex-nowrap" id="yearTabs" role="tablist">
+            {% for year in date_hierarchy.all_years %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if loop.last %}active{% endif %}" 
+                        id="tab-year-{{ year }}-tab" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#tab-year-{{ year }}" 
+                        type="button" 
+                        role="tab" 
+                        aria-controls="tab-year-{{ year }}" 
+                        aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
+                    {{ year }}
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
 
-<div class="tab-content" id="yearTabContent">
+    {# Tab Mese - uno per ogni anno #}
     {% for year in date_hierarchy.all_years %}
-    <div class="tab-pane fade {% if loop.last %}show active{% endif %}" 
-         id="tab-year-{{ year }}" 
-         role="tabpanel" 
-         aria-labelledby="tab-year-{{ year }}-tab">
-        
-        {# TAPPA 3: Tab dei Mesi (Livello 2) #}
-        <div class="mt-3">
-            {# Tab dei mesi per questo anno #}
-            <ul class="nav nav-tabs month-tabs flex-nowrap overflow-auto" id="monthTabs-{{ year }}" role="tablist">
-                {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
+    <div class="flex-shrink-0 month-tabs-container {% if not loop.last %}d-none{% endif %}" id="month-tabs-container-{{ year }}">
+        <label class="form-label small mb-1">Mese:</label>
+        <ul class="nav nav-tabs month-tabs flex-nowrap" id="monthTabs-{{ year }}" role="tablist">
+            {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if loop.last %}active{% endif %}" 
+                        id="tab-month-{{ month_data.year_month }}-tab" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#tab-month-{{ month_data.year_month }}" 
+                        type="button" 
+                        role="tab" 
+                        aria-controls="tab-month-{{ month_data.year_month }}" 
+                        aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
+                    {{ month_data.name }}
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+
+    {# Tab Giorno - uno per ogni mese #}
+    {% for year in date_hierarchy.all_years %}
+        {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
+        <div class="flex-shrink-0 day-tabs-container {% if not (loop.last and loop.parent.loop.last) %}d-none{% endif %}" 
+             id="day-tabs-container-{{ month_data.year_month }}">
+            <label class="form-label small mb-1">Giorno:</label>
+            <ul class="nav nav-tabs day-tabs flex-nowrap overflow-auto" id="dayTabs-{{ month_data.year_month }}" role="tablist" style="max-width: 400px;">
+                {% for day in month_data.days %}
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {% if loop.last %}active{% endif %}" 
-                            id="tab-month-{{ month_data.year_month }}-tab" 
+                            id="tab-day-{{ day | safe_id }}-tab" 
                             data-bs-toggle="tab" 
-                            data-bs-target="#tab-month-{{ month_data.year_month }}" 
+                            data-bs-target="#tab-day-{{ day | safe_id }}" 
                             type="button" 
                             role="tab" 
-                            aria-controls="tab-month-{{ month_data.year_month }}" 
+                            aria-controls="tab-day-{{ day | safe_id }}" 
                             aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
-                        {{ month_data.name }}
+                        {{ day.split('-')[2] }}
                     </button>
                 </li>
                 {% endfor %}
             </ul>
-            
-            {# Contenuto dei tab mesi #}
-            <div class="tab-content month-tab-content" id="monthTabContent-{{ year }}">
-                {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
-                <div class="tab-pane fade {% if loop.last %}show active{% endif %}" 
-                     id="tab-month-{{ month_data.year_month }}" 
-                     role="tabpanel" 
-                     aria-labelledby="tab-month-{{ month_data.year_month }}-tab">
-                    
-                    {# TAPPA 4: Tab dei Giorni (Livello 3) #}
-                    <div class="mt-3">
-                        {# Tab dei giorni per questo mese #}
-                        <ul class="nav nav-tabs day-tabs flex-nowrap overflow-auto" id="dayTabs-{{ month_data.year_month }}" role="tablist">
-                            {% for day in month_data.days %}
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link {% if loop.last %}active{% endif %}" 
-                                        id="tab-day-{{ day | safe_id }}-tab" 
-                                        data-bs-toggle="tab" 
-                                        data-bs-target="#tab-day-{{ day | safe_id }}" 
-                                        type="button" 
-                                        role="tab" 
-                                        aria-controls="tab-day-{{ day | safe_id }}" 
-                                        aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
-                                    {{ day.split('-')[2] }}
-                                </button>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        
-                        {# Contenuto dei tab giorni #}
-                        <div class="tab-content day-tab-content" id="dayTabContent-{{ month_data.year_month }}">
+        </div>
+        {% endfor %}
+    {% endfor %}
+</div>
+
+{# Contenuto dei tab giorni #}
+{% for year in date_hierarchy.all_years %}
+    {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
+        <div class="tab-content day-tab-content" id="dayTabContent-{{ month_data.year_month }}">
                             {% for day in month_data.days %}
                             <div class="tab-pane fade {% if loop.last %}show active{% endif %}" 
                                  id="tab-day-{{ day | safe_id }}" 
@@ -154,11 +157,52 @@
                             </div>
                             {% endfor %}
                         </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
+        {% endfor %}
     {% endfor %}
-</div>
+
+<script>
+// Gestione della visibilità dei tab mese e giorno
+document.addEventListener('DOMContentLoaded', function() {
+    // Quando cambia l'anno, mostra i mesi corrispondenti
+    document.querySelectorAll('[id^="tab-year-"]').forEach(yearTab => {
+        yearTab.addEventListener('shown.bs.tab', function(e) {
+            const year = e.target.id.match(/tab-year-(\d+)-tab/)[1];
+            
+            // Nascondi tutti i container dei mesi
+            document.querySelectorAll('.month-tabs-container').forEach(el => el.classList.add('d-none'));
+            // Mostra solo il container del mese per l'anno selezionato
+            const monthContainer = document.getElementById(`month-tabs-container-${year}`);
+            if (monthContainer) {
+                monthContainer.classList.remove('d-none');
+                // Attiva l'ultimo tab del mese (quello più recente)
+                const monthTabs = monthContainer.querySelectorAll('.nav-link');
+                if (monthTabs.length > 0) {
+                    const lastMonthTab = monthTabs[monthTabs.length - 1];
+                    bootstrap.Tab.getOrCreateInstance(lastMonthTab).show();
+                }
+            }
+        });
+    });
+    
+    // Quando cambia il mese, mostra i giorni corrispondenti
+    document.querySelectorAll('[id^="tab-month-"]').forEach(monthTab => {
+        monthTab.addEventListener('shown.bs.tab', function(e) {
+            const yearMonth = e.target.id.match(/tab-month-(.+)-tab/)[1];
+            
+            // Nascondi tutti i container dei giorni
+            document.querySelectorAll('.day-tabs-container').forEach(el => el.classList.add('d-none'));
+            // Mostra solo il container del giorno per il mese selezionato
+            const dayContainer = document.getElementById(`day-tabs-container-${yearMonth}`);
+            if (dayContainer) {
+                dayContainer.classList.remove('d-none');
+                // Attiva l'ultimo tab del giorno (quello più recente)
+                const dayTabs = dayContainer.querySelectorAll('.nav-link');
+                if (dayTabs.length > 0) {
+                    const lastDayTab = dayTabs[dayTabs.length - 1];
+                    bootstrap.Tab.getOrCreateInstance(lastDayTab).show();
+                }
+            }
+        });
+    });
+});
+</script>
