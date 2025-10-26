@@ -163,13 +163,41 @@
                         const planData = {{ report.plan|tojson }};
                         const queryData = {{ report.query_text|tojson }};
                         
-                        if (!planData || (typeof planData === 'string' && planData.trim().length === 0)) {
+                        // Validate plan data
+                        if (!planData) {
                             pev2Container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione non disponibile</div>';
                             return;
                         }
                         
+                        // Check if it's an empty string
+                        if (typeof planData === 'string' && planData.trim().length === 0) {
+                            pev2Container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione vuoto</div>';
+                            return;
+                        }
+                        
+                        // Check if it's an empty object or array
+                        if (typeof planData === 'object' && Object.keys(planData).length === 0) {
+                            pev2Container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione vuoto</div>';
+                            return;
+                        }
+                        
                         // pev2 expects the plan as a string (either JSON string or text format)
-                        const planString = typeof planData === 'string' ? planData : JSON.stringify(planData);
+                        let planString;
+                        if (typeof planData === 'string') {
+                            planString = planData;
+                        } else if (typeof planData === 'object') {
+                            // Ensure we have valid JSON structure
+                            try {
+                                planString = JSON.stringify(planData, null, 2);
+                            } catch (e) {
+                                console.error('Error stringifying plan data:', e);
+                                pev2Container.innerHTML = '<div class="alert alert-danger">Errore nella conversione del piano di esecuzione</div>';
+                                return;
+                            }
+                        } else {
+                            pev2Container.innerHTML = '<div class="alert alert-danger">Formato del piano di esecuzione non valido</div>';
+                            return;
+                        }
                         
                         const app = createApp({
                             data() {
@@ -188,7 +216,8 @@
                         app.mount("#{{ app_id }}");
                         
                     } catch (error) {
-                        pev2Container.innerHTML = '<div class="alert alert-danger">Errore nel caricamento del piano di esecuzione</div>';
+                        console.error('Error mounting pev2 for {{ app_id }}:', error);
+                        pev2Container.innerHTML = `<div class="alert alert-danger">Errore nel caricamento del piano di esecuzione: ${error.message}</div>`;
                     }
                 }
 

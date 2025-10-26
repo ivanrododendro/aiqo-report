@@ -30,6 +30,15 @@ class ReportDataProcessor:
         timestamp = log_entry["timestamp"]
         duration = log_entry["duration"]
 
+        # Validate and sanitize execution plan
+        if execution_plan is None or execution_plan == "":
+            execution_plan = "No execution plan available"
+            seq_scan_indicator = False
+        else:
+            # Ensure execution_plan is a string for text search
+            plan_str = execution_plan if isinstance(execution_plan, str) else str(execution_plan)
+            seq_scan_indicator = "Seq Scan" in plan_str
+
         return {
             "title": job_name + " " + query_name,
             "chatgpt_hints": ai_hints,
@@ -40,7 +49,7 @@ class ReportDataProcessor:
             "job_name": job_name,
             "code": query_code,
             "day": timestamp[:10],
-            "seq_scan_indicator": execution_plan.find("Seq Scan") != -1,
+            "seq_scan_indicator": seq_scan_indicator,
             "duration": duration,
             "cost": log_entry["cost"],
             "rows": log_entry["rows"]
