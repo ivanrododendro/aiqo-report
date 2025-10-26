@@ -8,14 +8,11 @@
             style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;" 
             title="{{ report.query_text }}">
             {{ report.query_text }}
-            {% if report.ai_hints %}
-            <span class="badge bg-info">AI Hints</span>
-            {% endif %}
         </h6>
     </div>
     <div class="card-body">
         {# Query details card placeholder - populated by JavaScript #}
-        <div id="query-details-card-{{ app_id }}"></div>
+        <div id="query-details-card-{{ app_id }}" ></div>
         
         {# AI Hints #}
         {% if report.ai_hints %}
@@ -34,7 +31,7 @@
                 {% endif %}
             {% endfor %}
             {% if day_query_opts %}
-            <div class="alert alert-warning">
+            <div>
                 <strong>Optimisations appliquées:</strong>
                 <ul class="mb-0">
                 {% for opt in day_query_opts %}
