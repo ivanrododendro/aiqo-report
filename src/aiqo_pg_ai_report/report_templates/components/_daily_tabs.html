@@ -1,5 +1,4 @@
 {% from '_macros.html' import tab_nav_item %}
-{% from 'components/_query_accordion.html' import query_accordion_item %}
 
 <nav aria-label="breadcrumb" class="mt-3">
     <ol class="breadcrumb" id="navigationBreadcrumb">
@@ -120,7 +119,7 @@
                                                                 <strong>{{ report.code[:8] }}</strong>
                                                             </small>
                                                             <small class="text-muted d-block text-truncate">
-                                                                {{ report.query_text[:30] }}{% if report.query_text|length > 30 %}...{% endif %}
+                                                                {{ report.query_text[:35] }}{% if report.query_text|length > 35 %}...{% endif %}
                                                             </small>
                                                         </div>
                                                         <div class="flex-shrink-0 ms-2">
@@ -155,7 +154,7 @@
                                                         <div class="card">
                                                             <div class="card-header">
                                                                 <h6 class="mb-0 text-truncate">
-                                                                    {{ report.query_text[:120] }}{% if report.query_text|length > 120 %}...{% endif %}
+                                                                    {{ report.query_text[:140] }}{% if report.query_text|length > 140 %}...{% endif %}
                                                                     {% if report.ai_hints %}
                                                                     <span class="badge bg-info">AI Hints</span>
                                                                     {% endif %}
@@ -205,16 +204,15 @@
                                                                 </div>
                                                                 {% endif %}
                                                                 
-                                                                {# Execution time chart #}
-                                                                <h6 class="mt-3">Évolution du temps d'exécution</h6>
-                                                                <canvas id="execTimeChart-{{ app_id }}" width="400" height="200"></canvas>
-                                                                
                                                                 {# Query plan and text visualization with pev2 #}
-                                                                <h6 class="mt-4">Plan d'exécution et requête</h6>
                                                                 <div id="{{ app_id }}">
                                                                     <pev2 :plan-source="plan" :plan-query="query"
                                                                           style="display: block; aspect-ratio: 16 / 9; width: 100%;"></pev2>
                                                                 </div>
+                                                                {# Execution time chart #}
+                                                                <h6 class="mt-3">Évolution du temps d'exécution</h6>
+                                                                <canvas id="execTimeChart-{{ app_id }}" width="400" height="200"></canvas>
+
                                                             </div>
                                                         </div>
                                                     </div>
