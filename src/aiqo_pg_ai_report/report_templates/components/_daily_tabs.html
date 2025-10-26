@@ -90,8 +90,10 @@
                                 {% if day in reports.by_day %}
                                     {% set reports_list = reports.by_day[day] %}
                                     <div class="card card-body mt-3">
-                                        <h6>Détail des requêtes individuelles pour le {{ day }}</h6>
-                                        <p class="text-muted">Nombre de requêtes: {{ reports_list|length }}</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">Détail des requêtes individuelles pour le {{ day }}</h6>
+                                            <p class="text-muted mb-0 ms-3">Nombre de requêtes: {{ reports_list|length }}</p>
+                                        </div>
                                         
                                         {# Layout a 2 colonne - Responsive #}
                                         <div id="split-container-{{ day | safe_id }}" class="d-flex flex-row" style="height: 70vh;">
