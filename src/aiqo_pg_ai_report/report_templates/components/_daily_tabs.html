@@ -78,9 +78,12 @@
 </div>
 
 {# Contenuto dei tab giorni #}
+{% set last_year = date_hierarchy.all_years[-1] %}
+{% set last_year_months = date_hierarchy.years[last_year].months.items()|sort %}
+{% set last_month = last_year_months[-1][1].year_month if last_year_months else '' %}
 {% for year in date_hierarchy.all_years %}
     {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
-        <div class="tab-content day-tab-content" id="dayTabContent-{{ month_data.year_month }}">
+        <div class="tab-content day-tab-content {% if month_data.year_month != last_month %}d-none{% endif %}" id="dayTabContent-{{ month_data.year_month }}">
                             {% for day in month_data.days %}
                             <div class="tab-pane fade {% if loop.last %}show active{% endif %}" 
                                  id="tab-day-{{ day | safe_id }}" 
@@ -234,6 +237,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     const lastDayTab = dayTabs[dayTabs.length - 1];
                     bootstrap.Tab.getOrCreateInstance(lastDayTab).show();
                 }
+            }
+            
+            // Nascondi tutti i contenuti dei tab giorni
+            document.querySelectorAll('.day-tab-content').forEach(el => el.classList.add('d-none'));
+            // Mostra solo il contenuto dei tab giorni per il mese selezionato
+            const dayTabContent = document.getElementById(`dayTabContent-${yearMonth}`);
+            if (dayTabContent) {
+                dayTabContent.classList.remove('d-none');
             }
         });
     });
