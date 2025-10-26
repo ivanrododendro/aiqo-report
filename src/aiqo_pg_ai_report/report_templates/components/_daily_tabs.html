@@ -48,9 +48,12 @@
     {% endfor %}
 
     {# Tab Giorno - uno per ogni mese #}
+    {% set last_year = date_hierarchy.all_years[-1] %}
+    {% set last_year_months = date_hierarchy.years[last_year].months.items()|sort %}
+    {% set last_month = last_year_months[-1][1].year_month if last_year_months else '' %}
     {% for year in date_hierarchy.all_years %}
         {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
-        <div class="flex-shrink-0 day-tabs-container {% if not (loop.last and loop.parent.loop.last) %}d-none{% endif %}" 
+        <div class="flex-shrink-0 day-tabs-container {% if month_data.year_month != last_month %}d-none{% endif %}" 
              id="day-tabs-container-{{ month_data.year_month }}">
             <label class="form-label small mb-1">Giorno:</label>
             <ul class="nav nav-tabs day-tabs flex-nowrap overflow-auto" id="dayTabs-{{ month_data.year_month }}" role="tablist" style="max-width: 400px;">
