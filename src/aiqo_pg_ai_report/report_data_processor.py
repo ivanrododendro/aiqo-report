@@ -179,20 +179,27 @@ class ReportDataProcessor:
         all_dates_set = set()
 
         # From daily stats
-        all_dates_set.update(daily_query_stats.keys())
+        dates_from_stats = set(daily_query_stats.keys())
+        logger.info(f"Dates from daily_query_stats: {sorted(dates_from_stats)}")
+        all_dates_set.update(dates_from_stats)
 
         # From query optimizations
+        dates_from_query_opts = set()
         for query_code, opts in query_optimizations.items():
             for opt in opts:
-                all_dates_set.add(opt["date"])
+                dates_from_query_opts.add(opt["date"])
+        logger.info(f"Dates from query_optimizations: {sorted(dates_from_query_opts)}")
+        all_dates_set.update(dates_from_query_opts)
 
         # From server optimizations
-        for opt in server_optimizations:
-            all_dates_set.add(opt["date"])
+        dates_from_server_opts = {opt["date"] for opt in server_optimizations}
+        logger.info(f"Dates from server_optimizations: {sorted(dates_from_server_opts)}")
+        all_dates_set.update(dates_from_server_opts)
 
         # From event optimizations
-        for opt in event_optimizations:
-            all_dates_set.add(opt["date"])
+        dates_from_event_opts = {opt["date"] for opt in event_optimizations}
+        logger.info(f"Dates from event_optimizations: {sorted(dates_from_event_opts)}")
+        all_dates_set.update(dates_from_event_opts)
 
         # Normalize all collected dates to "YYYY-MM-DD" and replace in optimizations too
         normalized = set()
@@ -208,6 +215,13 @@ class ReportDataProcessor:
         for d in all_dates_set:
             normalized.add(_normalize_date(d))
 
+        # Filter out unwanted placeholder dates (1 gennaio)
+        unwanted_dates = {'2024-01-01', '2025-01-01'}
+        filtered_dates = {d for d in normalized if d not in unwanted_dates}
+        
+        if unwanted_dates & normalized:
+            logger.warning(f"Filtered out placeholder dates: {sorted(unwanted_dates & normalized)}")
+
         # update opt["date"] everywhere to normalized version
         for opts_dict in (query_optimizations,):
             for q, opts in opts_dict.items():
@@ -217,7 +231,7 @@ class ReportDataProcessor:
             for opt in opt_list:
                 opt["date"] = _normalize_date(opt["date"])
 
-        return sorted(list(normalized))
+        return sorted(list(filtered_dates))
 
     def _build_date_hierarchy(self, all_dates):
         """
