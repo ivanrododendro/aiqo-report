@@ -27,8 +27,6 @@
         
         {# TAPPA 3: Tab dei Mesi (Livello 2) #}
         <div class="mt-3">
-            <h4>Anno {{ year }}</h4>
-            
             {# Tab dei mesi per questo anno #}
             <ul class="nav nav-tabs month-tabs flex-nowrap overflow-auto" id="monthTabs-{{ year }}" role="tablist">
                 {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
@@ -57,8 +55,6 @@
                     
                     {# TAPPA 4: Tab dei Giorni (Livello 3) #}
                     <div class="mt-3">
-                        <h5>{{ month_data.name }} {{ year }}</h5>
-                        
                         {# Tab dei giorni per questo mese #}
                         <ul class="nav nav-tabs day-tabs flex-nowrap overflow-auto" id="dayTabs-{{ month_data.year_month }}" role="tablist">
                             {% for day in month_data.days %}
