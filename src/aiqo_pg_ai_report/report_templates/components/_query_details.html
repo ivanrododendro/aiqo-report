@@ -18,7 +18,7 @@
         {% if report.ai_hints %}
         <div class="alert alert-info">
             <strong>AI Suggestions:</strong>
-            <pre class="mb-0">{{ report.ai_hints }}</pre>
+            <div class="mb-0">{{ report.ai_hints | safe }}</div>
         </div>
         {% endif %}
         
