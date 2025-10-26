@@ -25,16 +25,22 @@
         
         {# Query optimizations #}
         {% if report.code in optimizations.query %}
-        <div class="alert alert-warning">
-            <strong>Optimisations appliquées:</strong>
-            <ul class="mb-0">
+            {% set day_query_opts = [] %}
             {% for opt in optimizations.query[report.code] %}
                 {% if opt.date == day %}
-                <li>{{ opt.text }}</li>
+                    {% set _ = day_query_opts.append(opt) %}
                 {% endif %}
             {% endfor %}
-            </ul>
-        </div>
+            {% if day_query_opts %}
+            <div class="alert alert-warning">
+                <strong>Optimisations appliquées:</strong>
+                <ul class="mb-0">
+                {% for opt in day_query_opts %}
+                    <li>{{ opt.text }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
         {% endif %}
         
         {# Server optimizations for this day #}
