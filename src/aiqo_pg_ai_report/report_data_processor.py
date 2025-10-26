@@ -41,7 +41,7 @@ class ReportDataProcessor:
 
         return {
             "title": job_name + " " + query_name,
-            "chatgpt_hints": ai_hints,
+            "ai_hints": ai_hints,
             "plan": execution_plan,
             "query_text": log_entry["query_text"],
             "query_timestamp": timestamp,
@@ -446,8 +446,8 @@ class ReportDataProcessor:
                 # Check if query_optimizations is not empty for the specific query code
                 enhanced_report["has_query_optimizations"] = bool(query_optimizations.get(report["code"]))
                 enhanced_report["has_ai_hints"] = (
-                    report.get("chatgpt_hints")
-                    and not report["chatgpt_hints"].startswith("AI analysis skipped")
+                    report.get("ai_hints")
+                    and not report["ai_hints"].startswith("AI analysis skipped")
                 )
 
                 # Truncate name for display
