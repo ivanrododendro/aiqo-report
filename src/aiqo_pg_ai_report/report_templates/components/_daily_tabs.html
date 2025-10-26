@@ -102,7 +102,8 @@
                                                      role="tablist" 
                                                      aria-orientation="vertical">
                                                     {% for report in reports_list %}
-                                                    <button class="nav-link {% if loop.first %}active{% endif %} text-start d-flex justify-content-between align-items-center mb-1" 
+                                                    <button class="nav-link {% if loop.first %}active{% endif %} text-start d-flex justify-content-between align-items-center mb-1 w-100" 
+                                                            style="max-width: 100%; overflow: hidden; text-overflow: ellipsis;"
                                                             id="query-tab-{{ day | safe_id }}-{{ loop.index0 }}" 
                                                             data-bs-toggle="pill" 
                                                             data-bs-target="#query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
@@ -111,12 +112,14 @@
                                                             data-query-code="{{ report.code }}"
                                                             aria-controls="query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
                                                             aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
-                                                        <div class="flex-grow-1" style="min-width: 0;">
+                                                        <div class="flex-grow-1 text-truncate" style="min-width: 0;">
                                                             <small class="d-block text-truncate">
                                                                 <strong>{{ report.code[:8] }}</strong>
                                                             </small>
-                                                            <small class="text-muted d-block text-truncate">
-                                                                {{ report.query_text[:35] }}{% if report.query_text|length > 35 %}...{% endif %}
+                                                            <small class="text-muted d-block text-truncate" 
+                                                                   style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;" 
+                                                                   title="{{ report.query_text }}">
+                                                                {{ report.query_text }}
                                                             </small>
                                                         </div>
                                                         <div class="flex-shrink-0 ms-2">
