@@ -152,11 +152,28 @@
 
                                         <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
                                         <script>
-                                            Split(['#split-container-{{ day | safe_id }} .split:nth-child(1)', '#split-container-{{ day | safe_id }} .split:nth-child(2)'], {
-                                                sizes: [30, 70],
-                                                minSize: [200, 300],
-                                                gutterSize: 8,
-                                                cursor: 'col-resize'
+                                            document.addEventListener('DOMContentLoaded', function() {
+                                                const containerId = '#split-container-{{ day | safe_id }}';
+                                                const leftPane = containerId + ' .split:nth-child(1)';
+                                                const rightPane = containerId + ' .split:nth-child(2)';
+
+                                                // Inizializza Split solo se esistono entrambi i pannelli
+                                                if (document.querySelector(leftPane) && document.querySelector(rightPane)) {
+                                                    Split([leftPane, rightPane], {
+                                                        sizes: [30, 70],
+                                                        minSize: [150, 300],
+                                                        gutterSize: 6,
+                                                        cursor: 'col-resize',
+                                                        gutter: function (index, direction) {
+                                                            const gutter = document.createElement('div');
+                                                            gutter.className = 'gutter gutter-' + direction;
+                                                            gutter.style.background = '#ddd';
+                                                            gutter.style.cursor = 'col-resize';
+                                                            gutter.style.width = '6px';
+                                                            return gutter;
+                                                        }
+                                                    });
+                                                }
                                             });
                                         </script>
                                     </div>
