@@ -4,6 +4,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 import json
 from datetime import datetime
 import re
+import base64
 
 from .report_data_processor import ReportDataProcessor
 
@@ -43,9 +44,29 @@ class ReportGenerator:
             """Format date string for display."""
             return date_str
 
+        def embed_image(relative_path):
+            """Convert image file to base64 encoded string for embedding."""
+            try:
+                # Construct full path relative to template base
+                templates_path = Path(self.env.loader.searchpath[0])
+                image_path = templates_path / relative_path
+                
+                if not image_path.exists():
+                    logger.warning(f"Image not found: {image_path}")
+                    return ""
+                
+                # Read and encode image
+                with open(image_path, "rb") as image_file:
+                    encoded = base64.b64encode(image_file.read()).decode('utf-8')
+                return encoded
+            except Exception as e:
+                logger.error(f"Error embedding image {relative_path}: {e}")
+                return ""
+
         self.env.filters["safe_id"] = safe_id
         self.env.filters["truncate_code"] = truncate_code
         self.env.filters["format_date"] = format_date
+        self.env.filters["embed_image"] = embed_image
 
     def _setup_minification_filters(self):
         """Setup minification filters for CSS and JS."""
