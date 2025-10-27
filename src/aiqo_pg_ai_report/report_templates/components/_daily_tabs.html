@@ -5,7 +5,6 @@
 <div class="d-flex gap-2 mb-3 align-items-start">
     {# Tab Anno #}
     <div class="flex-shrink-0">
-        <label class="form-label small mb-1">Anno:</label>
         <ul class="nav nav-tabs flex-nowrap" id="yearTabs" role="tablist">
             {% for year in date_hierarchy.all_years %}
             <li class="nav-item" role="presentation">
@@ -27,7 +26,6 @@
     {# Tab Mese - uno per ogni anno #}
     {% for year in date_hierarchy.all_years %}
     <div class="flex-shrink-0 month-tabs-container {% if not loop.last %}d-none{% endif %}" id="month-tabs-container-{{ year }}">
-        <label class="form-label small mb-1">Mese:</label>
         <ul class="nav nav-tabs month-tabs flex-nowrap" id="monthTabs-{{ year }}" role="tablist">
             {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
             <li class="nav-item" role="presentation">
@@ -55,7 +53,6 @@
         {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
         <div class="flex-grow-1 day-tabs-container {% if month_data.year_month != last_month %}d-none{% endif %}" 
              id="day-tabs-container-{{ month_data.year_month }}">
-            <label class="form-label small mb-1">Giorno:</label>
             <ul class="nav nav-tabs day-tabs flex-wrap" id="dayTabs-{{ month_data.year_month }}" role="tablist">
                 {% for day in month_data.days %}
                 <li class="nav-item" role="presentation">
