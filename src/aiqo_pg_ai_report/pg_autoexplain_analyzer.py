@@ -68,11 +68,11 @@ class PGAutoExplainAnalyzer:
         """
         if self.skip_ai_analysis:
             logger.debug("Skipping AI analysis (skip_ai_analysis flag is true)")
-            return False, "AI analysis skipped (CLI flag --skip_ai_analysis)."
+            return False, ""
 
         if self.limit_ai_calls != -1 and (self.ai_caller.call_count >= self.limit_ai_calls):
             logger.warning("AI call limit reached. Skipping AI analysis for query")
-            return False, "AI analysis skipped (AI call limit reached)."
+            return False, ""
 
         # Vérifie les critères de filtre
         if self.filter_strings:
@@ -90,13 +90,13 @@ class PGAutoExplainAnalyzer:
                 logger.info(
                     f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria."
                 )
-                return False, "AI analysis skipped due to filter criteria."
+                return False, ""
 
         # Vérifie l'analyse AI uniquement pour les Seq Scan
         seq_scan_indicator = log_entry["execution_plan"].find("Seq Scan") != -1
         if self.only_seq_scan_ai_analysis and not seq_scan_indicator:
             logger.info("Skipping AI analysis for query without Seq Scan (only_seq_scan_ai_analysis is true)")
-            return False, "AI analysis skipped (only for Seq Scan queries)."
+            return False, ""
 
         return True, ""
 
