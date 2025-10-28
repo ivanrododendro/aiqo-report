@@ -127,7 +127,9 @@
                 <div id="collapse-chart-{{ app_id }}" class="accordion-collapse collapse show"
                      aria-labelledby="heading-chart-{{ app_id }}">
                     <div class="accordion-body">
-                        <canvas id="execTimeChart-{{ app_id }}" width="400" height="200"></canvas>
+                        <canvas id="execTimeChart-{{ app_id }}" width="400" height="200"
+                                data-query-opt-list="opt-list-{{ app_id }}"
+                                data-server-opt-list="opt-list-server-{{ app_id }}"></canvas>
                     </div>
                 </div>
             </div>
