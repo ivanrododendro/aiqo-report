@@ -11,64 +11,142 @@
         </h6>
     </div>
     <div class="card-body">
-        {# Query details card placeholder - populated by JavaScript #}
-        <div id="query-details-card-{{ app_id }}" ></div>
-        
-        {# AI Hints #}
-        {% if report.ai_hints %}
-        <div class="alert alert-info">
-            <strong>AI Suggestions:</strong>
-            <div class="mb-0">{{ report.ai_hints | safe }}</div>
-        </div>
-        {% endif %}
-        
-        {# Query optimizations #}
-        {% if report.code in optimizations.query %}
-            {% set day_query_opts = [] %}
-            {% for opt in optimizations.query[report.code] %}
-                {% if opt.date == day %}
-                    {% set _ = day_query_opts.append(opt) %}
-                {% endif %}
-            {% endfor %}
-            {% if day_query_opts %}
-            <div>
-                <strong>Optimisations appliquées:</strong>
-                <ul class="mb-0">
-                {% for opt in day_query_opts %}
-                    <li>{{ opt.text }}</li>
-                {% endfor %}
-                </ul>
+        <div class="accordion" id="accordion-{{ app_id }}">
+            
+            {# Query details card placeholder - populated by JavaScript #}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-details-{{ app_id }}">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-details-{{ app_id }}" aria-expanded="true"
+                            aria-controls="collapse-details-{{ app_id }}">
+                        Détails de la requête
+                    </button>
+                </h2>
+                <div id="collapse-details-{{ app_id }}" class="accordion-collapse collapse show"
+                     aria-labelledby="heading-details-{{ app_id }}" data-bs-parent="#accordion-{{ app_id }}">
+                    <div class="accordion-body">
+                        <div id="query-details-card-{{ app_id }}"></div>
+                    </div>
+                </div>
+            </div>
+
+            {# AI Suggestions accordion only if present #}
+            {% if report.ai_hints %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-ai-{{ app_id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-ai-{{ app_id }}" aria-expanded="false"
+                            aria-controls="collapse-ai-{{ app_id }}">
+                        AI Suggestions
+                    </button>
+                </h2>
+                <div id="collapse-ai-{{ app_id }}" class="accordion-collapse collapse"
+                     aria-labelledby="heading-ai-{{ app_id }}" data-bs-parent="#accordion-{{ app_id }}">
+                    <div class="accordion-body">
+                        <div class="alert alert-info mb-0">{{ report.ai_hints | safe }}</div>
+                    </div>
+                </div>
             </div>
             {% endif %}
-        {% endif %}
-        
-        {# Server optimizations for this day #}
-        {% set day_server_opts = [] %}
-        {% for opt in optimizations.server %}
-            {% if opt.date == day %}
-                {% set _ = day_server_opts.append(opt) %}
+
+            {# Query optimizations accordion if any #}
+            {% set day_query_opts = [] %}
+            {% if report.code in optimizations.query %}
+                {% for opt in optimizations.query[report.code] %}
+                    {% if opt.date == day %}
+                        {% set _ = day_query_opts.append(opt) %}
+                    {% endif %}
+                {% endfor %}
             {% endif %}
-        {% endfor %}
-        {% if day_server_opts %}
-        <div class="alert alert-success">
-            <strong>Optimisations serveur ce jour:</strong>
-            <ul class="mb-0">
-            {% for opt in day_server_opts %}
-                <li><code>{{ opt.text }}</code></li>
+            {% if day_query_opts %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-queryopt-{{ app_id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-queryopt-{{ app_id }}" aria-expanded="false"
+                            aria-controls="collapse-queryopt-{{ app_id }}">
+                        Optimisations appliquées
+                    </button>
+                </h2>
+                <div id="collapse-queryopt-{{ app_id }}" class="accordion-collapse collapse"
+                     aria-labelledby="heading-queryopt-{{ app_id }}" data-bs-parent="#accordion-{{ app_id }}">
+                    <div class="accordion-body">
+                        <ul class="mb-0">
+                        {% for opt in day_query_opts %}
+                            <li>{{ opt.text }}</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {# Server optimizations accordion if any #}
+            {% set day_server_opts = [] %}
+            {% for opt in optimizations.server %}
+                {% if opt.date == day %}
+                    {% set _ = day_server_opts.append(opt) %}
+                {% endif %}
             {% endfor %}
-            </ul>
+            {% if day_server_opts %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-server-{{ app_id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-server-{{ app_id }}" aria-expanded="false"
+                            aria-controls="collapse-server-{{ app_id }}">
+                        Optimisations serveur ce jour
+                    </button>
+                </h2>
+                <div id="collapse-server-{{ app_id }}" class="accordion-collapse collapse"
+                     aria-labelledby="heading-server-{{ app_id }}" data-bs-parent="#accordion-{{ app_id }}">
+                    <div class="accordion-body">
+                        <ul class="mb-0">
+                        {% for opt in day_server_opts %}
+                            <li><code>{{ opt.text }}</code></li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {# PEV2 accordion always visible #}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-pev2-{{ app_id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-pev2-{{ app_id }}" aria-expanded="false"
+                            aria-controls="collapse-pev2-{{ app_id }}">
+                        Plan d'exécution
+                    </button>
+                </h2>
+                <div id="collapse-pev2-{{ app_id }}" class="accordion-collapse collapse"
+                     aria-labelledby="heading-pev2-{{ app_id }}" data-bs-parent="#accordion-{{ app_id }}">
+                    <div class="accordion-body">
+                        <div id="{{ app_id }}">
+                            <pev2 :plan-source="plan" :plan-query="query"
+                                  style="display: block; aspect-ratio: 16 / 9; width: 100%;"></pev2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Chart accordion always visible #}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-chart-{{ app_id }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-chart-{{ app_id }}" aria-expanded="false"
+                            aria-controls="collapse-chart-{{ app_id }}">
+                        Évolution du temps d'exécution
+                    </button>
+                </h2>
+                <div id="collapse-chart-{{ app_id }}" class="accordion-collapse collapse"
+                     aria-labelledby="heading-chart-{{ app_id }}" data-bs-parent="#accordion-{{ app_id }}">
+                    <div class="accordion-body">
+                        <canvas id="execTimeChart-{{ app_id }}" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
         </div>
-        {% endif %}
-        
-        {# Query plan and text visualization with pev2 #}
-        <div id="{{ app_id }}">
-            <pev2 :plan-source="plan" :plan-query="query"
-                  style="display: block; aspect-ratio: 16 / 9; width: 100%;"></pev2>
-        </div>
-        
-        {# Execution time chart #}
-        <h6 class="mt-3">Évolution du temps d'exécution</h6>
-        <canvas id="execTimeChart-{{ app_id }}" width="400" height="200"></canvas>
     </div>
 </div>
 {% endmacro %}
