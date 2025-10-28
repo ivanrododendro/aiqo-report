@@ -56,9 +56,9 @@
                 <div id="collapse-queryopt-{{ app_id }}" class="accordion-collapse collapse show"
                      aria-labelledby="heading-queryopt-{{ app_id }}">
                     <div class="accordion-body">
-                        <ul class="mb-0">
+                        <ul class="mb-0" id="opt-list-{{ app_id }}">
                         {% for opt in day_query_opts %}
-                            <li>{{ opt.text }}</li>
+                            <li data-opt-date="{{ opt.date }}" data-opt-text="{{ opt.text }}">{{ opt.text }}</li>
                         {% endfor %}
                         </ul>
                     </div>
@@ -85,9 +85,9 @@
                 <div id="collapse-server-{{ app_id }}" class="accordion-collapse collapse show"
                      aria-labelledby="heading-server-{{ app_id }}">
                     <div class="accordion-body">
-                        <ul class="mb-0">
+                        <ul class="mb-0" id="opt-list-server-{{ app_id }}">
                         {% for opt in day_server_opts %}
-                            <li><code>{{ opt.text }}</code></li>
+                            <li data-opt-date="{{ opt.date }}" data-opt-text="{{ opt.text }}"><code>{{ opt.text }}</code></li>
                         {% endfor %}
                         </ul>
                     </div>
