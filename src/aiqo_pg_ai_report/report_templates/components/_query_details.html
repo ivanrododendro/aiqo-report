@@ -12,7 +12,7 @@
     </div>
     <div class="card-body">
         {# Sezione metrica sempre visibile, fuori dall'accordion #}
-        <div id="query-details-card-{{ app_id }}"></div>
+        <div class="alert alert-warning" id="query-details-card-{{ app_id }}"></div>
 
         <div class="accordion" id="accordion-{{ app_id }}">
 
@@ -20,10 +20,10 @@
             {% if report.ai_hints %}
             <div class="accordion-item">
                 <h2 class="accordion-header" id="heading-ai-{{ app_id }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-ai-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-ai-{{ app_id }}">
-                        AI Suggestions
+                        <strong>AI Suggestions</strong>
                     </button>
                 </h2>
                 <div id="collapse-ai-{{ app_id }}" class="accordion-collapse collapse show"
@@ -47,10 +47,10 @@
             {% if day_query_opts %}
             <div class="accordion-item">
                 <h2 class="accordion-header" id="heading-queryopt-{{ app_id }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-queryopt-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-queryopt-{{ app_id }}">
-                        Optimisations appliquées
+                        <strong>Optimisations appliquées</strong>
                     </button>
                 </h2>
                 <div id="collapse-queryopt-{{ app_id }}" class="accordion-collapse collapse show"
@@ -76,10 +76,10 @@
             {% if day_server_opts %}
             <div class="accordion-item">
                 <h2 class="accordion-header" id="heading-server-{{ app_id }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-server-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-server-{{ app_id }}">
-                        Optimisations serveur ce jour
+                        <strong>Optimisations serveur ce jour</strong>
                     </button>
                 </h2>
                 <div id="collapse-server-{{ app_id }}" class="accordion-collapse collapse show"
@@ -98,10 +98,10 @@
             {# PEV2 accordion always visible #}
             <div class="accordion-item">
                 <h2 class="accordion-header" id="heading-pev2-{{ app_id }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-pev2-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-pev2-{{ app_id }}">
-                        Plan d'exécution
+                        <strong>Plan d'exécution</strong>
                     </button>
                 </h2>
                 <div id="collapse-pev2-{{ app_id }}" class="accordion-collapse collapse show"
@@ -118,10 +118,10 @@
             {# Chart accordion always visible #}
             <div class="accordion-item">
                 <h2 class="accordion-header" id="heading-chart-{{ app_id }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-chart-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-chart-{{ app_id }}">
-                        Évolution du temps d'exécution
+                        <strong>Évolution du temps d'exécution</strong>
                     </button>
                 </h2>
                 <div id="collapse-chart-{{ app_id }}" class="accordion-collapse collapse show"
