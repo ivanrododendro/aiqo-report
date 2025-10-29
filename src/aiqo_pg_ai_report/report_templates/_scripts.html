@@ -231,7 +231,9 @@
                                 timestamp: "{{ r.query_timestamp }}",
                                 duration: {{ r.duration|int }},
                                 cost: {{ r.cost|default(None)|tojson }},
-                                rows: {{ r.rows|default(None)|tojson }}
+                                rows: {{ r.rows|default(None)|tojson }},
+                                buffers: {{ r.buffers|default(None)|tojson }},
+                                wal: {{ r.wal|default(None)|tojson }}
                             });
                             {% set found = True %}
                         {% endif %}
@@ -241,10 +243,20 @@
                             timestamp: "{{ d }}",
                             duration: null,
                             cost: null,
-                            rows: null
+                            rows: null,
+                            buffers: null,
+                            wal: null
                         });
                     {% endif %}
                 {% endfor %}
+
+                // Debug: log execution data
+                console.debug('Query {{ report.code }} execution data:', {
+                    totalExecutions: allExecutions.length,
+                    sampleExecution: allExecutions[0],
+                    hasBuffers: allExecutions.some(e => e.buffers && Object.values(e.buffers).some(v => v !== null)),
+                    hasWAL: allExecutions.some(e => e.wal && Object.values(e.wal).some(v => v !== null))
+                });
 
                 // Render execution time chart
                 const chartId = "execTimeChart-{{ app_id }}";
