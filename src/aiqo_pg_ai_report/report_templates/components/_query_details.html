@@ -20,9 +20,12 @@
             {% if report.buffers %}
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-info text-white" title="I/O Statistics (from BUFFERS)
-The number of operations PostgreSQL performed in its memory cache and disk I/O.">
-                        <h6 class="mb-0">Buffer Statistics</h6>
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            Buffer Statistics
+                            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="I/O Statistics (from BUFFERS)
+The number of operations PostgreSQL performed in its memory cache and disk I/O."></i>
+                        </h6>
                     </div>
                     <div class="card-body">
                         <table class="table table-sm table-borderless mb-0">
@@ -77,9 +80,12 @@ The number of 'dirtied' blocks that this query had to write to disk during its e
             {% if report.wal %}
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-success text-white" title="Transaction Log Statistics (from WAL)
-The metrics show how many log records PostgreSQL generated during this query.">
-                        <h6 class="mb-0">WAL Statistics</h6>
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">
+                            WAL Statistics
+                            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Transaction Log Statistics (from WAL)
+The metrics show how many log records PostgreSQL generated during this query."></i>
+                        </h6>
                     </div>
                     <div class="card-body">
                         <table class="table table-sm table-borderless mb-0">
