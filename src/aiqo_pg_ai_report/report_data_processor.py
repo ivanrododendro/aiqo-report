@@ -52,7 +52,9 @@ class ReportDataProcessor:
             "seq_scan_indicator": seq_scan_indicator,
             "duration": duration,
             "cost": log_entry["cost"],
-            "rows": log_entry["rows"]
+            "rows": log_entry["rows"],
+            "buffers": log_entry.get("buffers"),
+            "wal": log_entry.get("wal")
         }
 
     def update_statistics(self, report):

@@ -20,6 +20,7 @@ def parse_log_entry(log_entry_text):
 
     # Extract the timestamp from the first 23 characters of the log entry
     timestamp = log_entry_text[:23].strip()
+    logger.debug(f"Parsing log entry with timestamp: {timestamp}")
     # Extract the block from "Query Text:" to "Settings:"
     match = re.search(r"Query Text:(.*?)$", log_entry_text, re.DOTALL)
     if not match:
@@ -83,7 +84,53 @@ def parse_log_entry(log_entry_text):
                 logger.warning(f"Could not parse rows value from line: {first_cost_line}")
 
     logger.debug(f"Parsed plan line metrics: cost={total_cost}, rows={rows}")
-    return {
+
+    # Parse buffer statistics from the entire log entry
+    buffers = {
+        "shared_hit": None,
+        "shared_read": None,
+        "shared_dirtied": None,
+        "shared_written": None,
+        "temp_read": None,
+        "temp_written": None,
+    }
+    
+    buffers_match = re.search(
+        r"Buffers:\s+shared\s+hit=(\d+)(?:\s+read=(\d+))?(?:\s+dirtied=(\d+))?(?:\s+written=(\d+))?(?:,\s*temp\s+read=(\d+))?(?:\s+written=(\d+))?",
+        log_entry_text
+    )
+    if buffers_match:
+        try:
+            buffers["shared_hit"] = int(buffers_match.group(1)) if buffers_match.group(1) else None
+            buffers["shared_read"] = int(buffers_match.group(2)) if buffers_match.group(2) else None
+            buffers["shared_dirtied"] = int(buffers_match.group(3)) if buffers_match.group(3) else None
+            buffers["shared_written"] = int(buffers_match.group(4)) if buffers_match.group(4) else None
+            buffers["temp_read"] = int(buffers_match.group(5)) if buffers_match.group(5) else None
+            buffers["temp_written"] = int(buffers_match.group(6)) if buffers_match.group(6) else None
+            logger.debug(f"Parsed buffer statistics: {buffers}")
+        except (ValueError, IndexError) as e:
+            logger.warning(f"Could not parse buffer statistics: {e}")
+
+    # Parse WAL statistics from the entire log entry
+    wal = {
+        "records": None,
+        "fpi": None,
+        "bytes": None,
+    }
+    
+    wal_match = re.search(
+        r"WAL:\s+records=(\d+)(?:\s+fpi=(\d+))?(?:\s+bytes=(\d+))?",
+        log_entry_text
+    )
+    if wal_match:
+        try:
+            wal["records"] = int(wal_match.group(1)) if wal_match.group(1) else None
+            wal["fpi"] = int(wal_match.group(2)) if wal_match.group(2) else None
+            wal["bytes"] = int(wal_match.group(3)) if wal_match.group(3) else None
+            logger.debug(f"Parsed WAL statistics: {wal}")
+        except (ValueError, IndexError) as e:
+            logger.warning(f"Could not parse WAL statistics: {e}")
+    result = {
         "timestamp": timestamp,
         "query_name": query_name,
         "job_name": job_name,
@@ -93,7 +140,14 @@ def parse_log_entry(log_entry_text):
         "startup_cost": startup_cost,
         "cost": total_cost,
         "rows": rows,
+        "buffers": buffers,
+        "wal": wal,
     }
+    
+    logger.debug(f"Completed parsing log entry: timestamp={timestamp}, duration={duration_ms}ms, "
+                 f"cost={total_cost}, rows={rows}, buffers={buffers}, wal={wal}")
+    
+    return result
 
 
 def extract_plan_starting_at_line(file_iterator, first_line):

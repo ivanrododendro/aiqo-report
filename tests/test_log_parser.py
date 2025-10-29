@@ -21,6 +21,8 @@ def test_parse_log_entry_basic():
     assert result["startup_cost"] == 0.00
     assert result["cost"] == 1.01
     assert result["rows"] == 1
+    assert "buffers" in result
+    assert "wal" in result
 
 
 def test_parse_log_entry_missing_duration():
@@ -64,6 +66,46 @@ def test_extract_plan_starting_at_line():
     result = log_parser.extract_plan_starting_at_line(file_iter, lines[0])
     assert result.startswith("Query Text:")
     assert "Settings: some_setting=on" in result
+
+
+def test_parse_log_entry_with_buffers_and_wal():
+    log_entry = (
+        "2023-09-06 12:34:56.789 duration: 123.45 ms\n"
+        "Query Text:\n"
+        "SELECT * FROM users;\n"
+        "Seq Scan on users  (cost=0.00..1.01 rows=1 width=4)\n"
+        "  Buffers: shared hit=27378534 read=18805488 dirtied=8212390 written=77793, temp read=983279 written=983279\n"
+        "  WAL: records=16045574 fpi=6001856 bytes=20460302613\n"
+        "Settings: some_setting=on\n"
+    )
+    result = log_parser.parse_log_entry(log_entry)
+    assert result["buffers"]["shared_hit"] == 27378534
+    assert result["buffers"]["shared_read"] == 18805488
+    assert result["buffers"]["shared_dirtied"] == 8212390
+    assert result["buffers"]["shared_written"] == 77793
+    assert result["buffers"]["temp_read"] == 983279
+    assert result["buffers"]["temp_written"] == 983279
+    assert result["wal"]["records"] == 16045574
+    assert result["wal"]["fpi"] == 6001856
+    assert result["wal"]["bytes"] == 20460302613
+
+
+def test_parse_log_entry_partial_buffers():
+    log_entry = (
+        "2023-09-06 12:34:56.789 duration: 123.45 ms\n"
+        "Query Text:\n"
+        "SELECT * FROM users;\n"
+        "Seq Scan on users  (cost=0.00..1.01 rows=1 width=4)\n"
+        "  Buffers: shared hit=1000 read=500\n"
+        "Settings: some_setting=on\n"
+    )
+    result = log_parser.parse_log_entry(log_entry)
+    assert result["buffers"]["shared_hit"] == 1000
+    assert result["buffers"]["shared_read"] == 500
+    assert result["buffers"]["shared_dirtied"] is None
+    assert result["buffers"]["shared_written"] is None
+    assert result["buffers"]["temp_read"] is None
+    assert result["buffers"]["temp_written"] is None
 
 
 def test_logparser_process_plain_text_file(monkeypatch):
