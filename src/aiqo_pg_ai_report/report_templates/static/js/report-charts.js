@@ -445,12 +445,12 @@ class ChartFactory {
         // Add buffer datasets if data exists
         if (processedData.buffers) {
             const bufferColors = {
-                shared_hit: 'rgba(153, 102, 255, 1)',
-                shared_read: 'rgba(255, 99, 132, 1)',
-                shared_dirtied: 'rgba(255, 206, 86, 1)',
-                shared_written: 'rgba(75, 192, 192, 1)',
-                temp_read: 'rgba(54, 162, 235, 1)',
-                temp_written: 'rgba(201, 203, 207, 1)'
+                shared_hit: 'rgba(153, 102, 255, 1)',       // purple
+                shared_read: 'rgba(255, 99, 132, 1)',       // pink/red
+                shared_dirtied: 'rgba(255, 206, 86, 1)',    // yellow
+                shared_written: 'rgba(0, 200, 83, 1)',      // green
+                temp_read: 'rgba(54, 162, 235, 1)',         // blue
+                temp_written: 'rgba(255, 140, 0, 1)'        // orange
             };
 
             Object.entries(processedData.buffers).forEach(([key, data]) => {
@@ -474,9 +474,9 @@ class ChartFactory {
         // Add WAL datasets if data exists
         if (processedData.wal) {
             const walColors = {
-                records: 'rgba(255, 159, 64, 1)',
-                fpi: 'rgba(153, 102, 255, 1)',
-                bytes: 'rgba(255, 99, 132, 1)'
+                records: 'rgba(0, 123, 255, 1)',     // blue
+                fpi: 'rgba(220, 53, 69, 1)',         // red
+                bytes: 'rgba(40, 167, 69, 1)'        // green
             };
 
             Object.entries(processedData.wal).forEach(([key, data]) => {
