@@ -14,6 +14,97 @@
         {# Sezione metrica sempre visibile, fuori dall'accordion #}
         <div class="alert alert-warning" id="query-details-card-{{ app_id }}"></div>
 
+        {# Buffer and WAL Statistics #}
+        {% if report.buffers or report.wal %}
+        <div class="row mb-3">
+            {% if report.buffers %}
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">Buffer Statistics</h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-borderless mb-0">
+                            <tbody>
+                                {% if report.buffers.shared_hit is not none %}
+                                <tr>
+                                    <td><strong>Shared Hit:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.buffers.shared_hit) }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if report.buffers.shared_read is not none %}
+                                <tr>
+                                    <td><strong>Shared Read:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.buffers.shared_read) }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if report.buffers.shared_dirtied is not none %}
+                                <tr>
+                                    <td><strong>Shared Dirtied:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.buffers.shared_dirtied) }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if report.buffers.shared_written is not none %}
+                                <tr>
+                                    <td><strong>Shared Written:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.buffers.shared_written) }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if report.buffers.temp_read is not none %}
+                                <tr>
+                                    <td><strong>Temp Read:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.buffers.temp_read) }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if report.buffers.temp_written is not none %}
+                                <tr>
+                                    <td><strong>Temp Written:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.buffers.temp_written) }}</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if report.wal %}
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">WAL Statistics</h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-borderless mb-0">
+                            <tbody>
+                                {% if report.wal.records is not none %}
+                                <tr>
+                                    <td><strong>Records:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.wal.records) }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if report.wal.fpi is not none %}
+                                <tr>
+                                    <td><strong>FPI:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.wal.fpi) }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if report.wal.bytes is not none %}
+                                <tr>
+                                    <td><strong>Bytes:</strong></td>
+                                    <td class="text-end">{{ "{:,}".format(report.wal.bytes) }} ({{ "%.2f"|format(report.wal.bytes / 1024 / 1024) }} MB)</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <div class="accordion" id="accordion-{{ app_id }}">
 
             {# AI Suggestions accordion only if present #}

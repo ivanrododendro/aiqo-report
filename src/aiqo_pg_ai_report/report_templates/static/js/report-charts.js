@@ -61,6 +61,26 @@ class ScaleHelper {
         };
     }
 
+    static createBufferScale() {
+        return {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'Buffer Operations' },
+            beginAtZero: true,
+            grid: { drawOnChartArea: false }
+        };
+    }
+
+    static createWALScale() {
+        return {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'WAL Operations' },
+            beginAtZero: true,
+            grid: { drawOnChartArea: false }
+        };
+    }
+
     static createCumulatedTimeScale() {
         return {
             type: 'linear',
@@ -360,49 +380,119 @@ class ChartFactory {
             labels: executions.map(e => e.timestamp.split(' ')[0]),
             durations: executions.map(e => e.duration !== null ? e.duration / 3600000 : null),
             costs: executions.map(e => ReportUtils.parseCostValue(e.cost)),
-            rows: executions.map(e => ReportUtils.parseRowsValue(e.rows))
+            rows: executions.map(e => ReportUtils.parseRowsValue(e.rows)),
+            buffers: {
+                shared_hit: executions.map(e => e.buffers?.shared_hit ?? null),
+                shared_read: executions.map(e => e.buffers?.shared_read ?? null),
+                shared_dirtied: executions.map(e => e.buffers?.shared_dirtied ?? null),
+                shared_written: executions.map(e => e.buffers?.shared_written ?? null),
+                temp_read: executions.map(e => e.buffers?.temp_read ?? null),
+                temp_written: executions.map(e => e.buffers?.temp_written ?? null)
+            },
+            wal: {
+                records: executions.map(e => e.wal?.records ?? null),
+                fpi: executions.map(e => e.wal?.fpi ?? null),
+                bytes: executions.map(e => e.wal?.bytes ?? null)
+            }
         };
     }
 
     _createQueryChartData(processedData) {
+        const datasets = [
+            {
+                label: 'Execution Time (hours)',
+                data: processedData.durations,
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                fill: false,
+                tension: 0.1,
+                spanGaps: true,
+                pointRadius: 3,
+                yAxisID: 'y'
+            },
+            {
+                label: 'Cost',
+                data: processedData.costs,
+                borderColor: 'rgba(255, 159, 64, 1)',
+                backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                fill: false,
+                tension: 0.1,
+                spanGaps: true,
+                pointRadius: 3,
+                yAxisID: 'yCost'
+            },
+            {
+                label: 'Rows',
+                data: processedData.rows,
+                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                fill: false,
+                tension: 0.1,
+                spanGaps: true,
+                pointRadius: 3,
+                yAxisID: 'yRows',
+                hidden: true
+            }
+        ];
+
+        // Add buffer datasets if data exists
+        if (processedData.buffers) {
+            const bufferColors = {
+                shared_hit: 'rgba(153, 102, 255, 1)',
+                shared_read: 'rgba(255, 99, 132, 1)',
+                shared_dirtied: 'rgba(255, 206, 86, 1)',
+                shared_written: 'rgba(75, 192, 192, 1)',
+                temp_read: 'rgba(54, 162, 235, 1)',
+                temp_written: 'rgba(201, 203, 207, 1)'
+            };
+
+            Object.entries(processedData.buffers).forEach(([key, data]) => {
+                if (data.some(v => v !== null)) {
+                    datasets.push({
+                        label: `Buffer ${key.replace('_', ' ')}`,
+                        data: data,
+                        borderColor: bufferColors[key],
+                        backgroundColor: bufferColors[key].replace('1)', '0.2)'),
+                        fill: false,
+                        tension: 0.1,
+                        spanGaps: true,
+                        pointRadius: 2,
+                        yAxisID: 'yBuffer',
+                        hidden: true
+                    });
+                }
+            });
+        }
+
+        // Add WAL datasets if data exists
+        if (processedData.wal) {
+            const walColors = {
+                records: 'rgba(255, 159, 64, 1)',
+                fpi: 'rgba(153, 102, 255, 1)',
+                bytes: 'rgba(255, 99, 132, 1)'
+            };
+
+            Object.entries(processedData.wal).forEach(([key, data]) => {
+                if (data.some(v => v !== null)) {
+                    datasets.push({
+                        label: `WAL ${key}`,
+                        data: data,
+                        borderColor: walColors[key],
+                        backgroundColor: walColors[key].replace('1)', '0.2)'),
+                        fill: false,
+                        tension: 0.1,
+                        spanGaps: true,
+                        pointRadius: 2,
+                        yAxisID: 'yWAL',
+                        hidden: true
+                    });
+                }
+            });
+        }
+
         return {
             labels: processedData.labels,
-            datasets: [
-                {
-                    label: 'Execution Time (hours)',
-                    data: processedData.durations,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: false,
-                    tension: 0.1,
-                    spanGaps: true,
-                    pointRadius: 3,
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Cost',
-                    data: processedData.costs,
-                    borderColor: 'rgba(255, 159, 64, 1)',
-                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
-                    fill: false,
-                    tension: 0.1,
-                    spanGaps: true,
-                    pointRadius: 3,
-                    yAxisID: 'yCost'
-                },
-                {
-                    label: 'Rows',
-                    data: processedData.rows,
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    fill: false,
-                    tension: 0.1,
-                    spanGaps: true,
-                    pointRadius: 3,
-                    yAxisID: 'yRows',
-                    hidden: true
-                }
-            ]
+            datasets: datasets
         };
     }
 
@@ -416,11 +506,20 @@ class ChartFactory {
                         const chart = legend.chart;
                         Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
                         const ds = chart.data.datasets[legendItem.datasetIndex];
-                        if (ds && ds.yAxisID === 'yRows') {
+                        
+                        // Toggle visibility of corresponding axis
+                        if (ds) {
                             const isVisible = typeof chart.isDatasetVisible === 'function'
                                 ? chart.isDatasetVisible(legendItem.datasetIndex)
                                 : !ds.hidden;
-                            chart.options.scales.yRows.display = isVisible;
+                            
+                            if (ds.yAxisID === 'yRows') {
+                                chart.options.scales.yRows.display = isVisible;
+                            } else if (ds.yAxisID === 'yBuffer') {
+                                chart.options.scales.yBuffer.display = isVisible;
+                            } else if (ds.yAxisID === 'yWAL') {
+                                chart.options.scales.yWAL.display = isVisible;
+                            }
                             chart.update();
                         }
                     }
@@ -445,7 +544,9 @@ class ChartFactory {
                 },
                 y: ScaleHelper.createTimeScale(),
                 yCost: ScaleHelper.createCostScale(),
-                yRows: ScaleHelper.createRowsScale()
+                yRows: ScaleHelper.createRowsScale(),
+                yBuffer: Object.assign(ScaleHelper.createBufferScale(), { display: false }),
+                yWAL: Object.assign(ScaleHelper.createWALScale(), { display: false })
             }
         };
     }
