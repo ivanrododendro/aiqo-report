@@ -393,7 +393,14 @@ class ChartFactory {
                 records: executions.map(e => e.wal?.records ?? null),
                 fpi: executions.map(e => e.wal?.fpi ?? null),
                 bytes: executions.map(e => e.wal?.bytes ?? null)
-            }
+            },
+            io_total: executions.map(e => {
+                const shared_read = e.buffers?.shared_read ?? 0;
+                const shared_dirtied = e.buffers?.shared_dirtied ?? 0;
+                const wal_bytes = e.wal?.bytes ?? 0;
+                const total = shared_read + shared_dirtied + wal_bytes;
+                return (shared_read || shared_dirtied || wal_bytes) ? total : null;
+            })
         };
     }
 
@@ -487,6 +494,21 @@ class ChartFactory {
                         hidden: true
                     });
                 }
+            });
+        }
+
+        if (processedData.io_total && processedData.io_total.some(v => v !== null)) {
+            datasets.push({
+                label: 'I/O Total (shared read + dirtied + WAL bytes)',
+                data: processedData.io_total,
+                borderColor: 'rgba(0, 128, 128, 1)',
+                backgroundColor: 'rgba(0, 128, 128, 0.2)',
+                fill: false,
+                tension: 0.1,
+                spanGaps: true,
+                pointRadius: 2,
+                yAxisID: 'yWAL',
+                hidden: false
             });
         }
 
