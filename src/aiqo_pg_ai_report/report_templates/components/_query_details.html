@@ -93,7 +93,7 @@
                                 {% if report.wal.bytes is not none %}
                                 <tr>
                                     <td><strong>Bytes:</strong></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.wal.bytes).replace(",", " ") }} ({{ "{:,.2f}".format(report.wal.bytes / 1024 / 1024).replace(",", " ") }} MB)</td>
+                                    <td class="text-end">{{ "{:,.0f}".format(report.wal.bytes).replace(",", " ") }} ({{ "{:,.2f}".format(report.wal.bytes / 1024 / 1024).replace(",", " ").replace(".", ",") }} MB)</td>
                                 </tr>
                                 {% endif %}
                             </tbody>
