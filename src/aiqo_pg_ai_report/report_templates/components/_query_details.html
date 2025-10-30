@@ -34,42 +34,42 @@ The number of operations PostgreSQL performed in its memory cache and disk I/O."
                                 <tr>
                                     <td><strong>Shared Hit:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="shared hit (blocks)
 The number of data blocks (usually 8kB) that PostgreSQL found already in its own RAM cache (the shared buffers). This is very fast."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_hit).replace(",", " ") }}</td>
+                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_hit).replace(",", " ") }} ({{ "{:,.2f}".format(report.buffers.shared_hit / 128).replace(",", " ").replace(".", ",") }} MB)</td>
                                 </tr>
                                 {% endif %}
                                 {% if report.buffers.shared_read is not none %}
                                 <tr>
                                     <td><strong>Shared Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="shared read (blocks)
 The number of data blocks that PostgreSQL had to read from the disk (or the OS cache) because they were not in the shared buffers. This is slow and indicates I/O cost."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_read).replace(",", " ") }}</td>
+                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_read).replace(",", " ") }} ({{ "{:,.2f}".format(report.buffers.shared_read / 128).replace(",", " ").replace(".", ",") }} MB)</td>
                                 </tr>
                                 {% endif %}
                                 {% if report.buffers.shared_dirtied is not none %}
                                 <tr>
                                     <td><strong>Shared Dirtied:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="dirtied (blocks)
 The number of blocks that were modified in RAM by this query (e.g., by an INSERT or UPDATE). These blocks will need to be written to disk later. This represents the total data writing cost."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_dirtied).replace(",", " ") }}</td>
+                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_dirtied).replace(",", " ") }} ({{ "{:,.2f}".format(report.buffers.shared_dirtied / 128).replace(",", " ").replace(".", ",") }} MB)</td>
                                 </tr>
                                 {% endif %}
                                 {% if report.buffers.shared_written is not none %}
                                 <tr>
                                     <td><strong>Shared Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="written (blocks)
 The number of 'dirtied' blocks that this query had to write to disk during its execution. This usually happens if the query modifies so much data that it fills up the available shared buffers."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_written).replace(",", " ") }}</td>
+                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_written).replace(",", " ") }} ({{ "{:,.2f}".format(report.buffers.shared_written / 128).replace(",", " ").replace(".", ",") }} MB)</td>
                                 </tr>
                                 {% endif %}
                                 {% if report.buffers.temp_read is not none %}
                                 <tr>
                                     <td><strong>Temp Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp read (blocks)
 The number of temporary data blocks that were read from temporary files on disk. This happens when a query needs more memory for sorting or joining than is available, and has to spill data to disk."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_read).replace(",", " ") }}</td>
+                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_read).replace(",", " ") }} ({{ "{:,.2f}".format(report.buffers.temp_read / 128).replace(",", " ").replace(".", ",") }} MB)</td>
                                 </tr>
                                 {% endif %}
                                 {% if report.buffers.temp_written is not none %}
                                 <tr>
                                     <td><strong>Temp Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp written (blocks)
 The number of temporary data blocks that were written to temporary files on disk. This is also related to operations like sorting or hash joins that require more memory than available."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_written).replace(",", " ") }}</td>
+                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_written).replace(",", " ") }} ({{ "{:,.2f}".format(report.buffers.temp_written / 128).replace(",", " ").replace(".", ",") }} MB)</td>
                                 </tr>
                                 {% endif %}
                             </tbody>
