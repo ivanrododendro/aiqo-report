@@ -78,12 +78,21 @@ def parse_log_entry(log_entry_text):
                 total_cost = float(cost_match.group(2))
             except ValueError:
                 logger.warning(f"Could not parse cost values from line: {first_cost_line}")
-        rows_match = re.search(r"rows=(\d+)", first_cost_line)
+        # Prefer actual rows over estimated rows
+        rows_match = re.search(r"actual rows=(\d+)", first_cost_line)
         if rows_match:
             try:
                 rows = int(rows_match.group(1))
+                logger.debug(f"Parsed 'actual rows' from first cost line: {rows}")
             except ValueError:
-                logger.warning(f"Could not parse rows value from line: {first_cost_line}")
+                logger.warning(f"Could not parse actual rows value from line: {first_cost_line}")
+        else:
+            rows_match = re.search(r"rows=(\d+)", first_cost_line)
+            if rows_match:
+                try:
+                    rows = int(rows_match.group(1))
+                except ValueError:
+                    logger.warning(f"Could not parse rows value from line: {first_cost_line}")
 
         # If rows count is 0 on an Insert/Update, try to find a better estimate from child nodes
         if rows == 0 and ("Insert" in first_cost_line or "Update" in first_cost_line):
@@ -91,15 +100,15 @@ def parse_log_entry(log_entry_text):
             if first_cost_line_index + 1 < len(plan_lines):
                 for subsequent_line in plan_lines[first_cost_line_index + 1:]:
                     if "actual rows=" in subsequent_line:
-                        new_rows_match = re.search(r"rows=(\d+)", subsequent_line)
+                        new_rows_match = re.search(r"actual rows=(\d+)", subsequent_line)
                         if new_rows_match:
                             try:
                                 new_rows = int(new_rows_match.group(1))
-                                logger.debug(f"Found new rows value on a subsequent node: {new_rows}")
+                                logger.debug(f"Found new rows value from 'actual rows' on a subsequent node: {new_rows}")
                                 rows = new_rows
                                 break  # Stop at the first match
                             except ValueError:
-                                logger.warning(f"Could not parse new rows value from line: {subsequent_line}")
+                                logger.warning(f"Could not parse new actual rows value from line: {subsequent_line}")
                         break  # Stop after checking the first line with 'actual rows='
 
     logger.debug(f"Parsed plan line metrics: cost={total_cost}, rows={rows}")
