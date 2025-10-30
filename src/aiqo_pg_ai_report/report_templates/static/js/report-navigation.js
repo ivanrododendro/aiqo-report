@@ -220,6 +220,7 @@ class NavigationEventHandler {
         this._setupTabHandlers();
         this._setupGlobalQueryRowHandlers();
         this._setupChartClickHandlers();
+        ReportUtils.applyByteFormatting();
     }
 
     /**

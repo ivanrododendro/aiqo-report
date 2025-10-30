@@ -63,5 +63,43 @@ const ReportUtils = {
     safeId(text) {
         if (!text) return '';
         return String(text).replace(/[^a-zA-Z0-9]/g, '-');
+    },
+
+    /**
+     * Format bytes into KB, MB, GB, TB, ensuring the numeric value is less than 1000.
+     * Uses Italian locale for number formatting (space for thousands, comma for decimal).
+     */
+    formatBytes(bytes, decimals = 2) {
+        if (bytes === null || bytes === undefined || isNaN(bytes)) return '';
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        const num = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
+        
+        // Format number with space as thousand separator and comma as decimal separator.
+        const formattedNum = num.toLocaleString('it-IT', {
+            minimumFractionDigits: dm,
+            maximumFractionDigits: dm
+        }).replace(/\./g, ' ');
+
+        return `${formattedNum} ${sizes[i]}`;
+    },
+
+    /**
+     * Applies byte formatting to all elements with data-bytes-to-format attribute.
+     * Replaces the content of the element with the formatted byte string in parentheses.
+     */
+    applyByteFormatting() {
+        document.querySelectorAll('[data-bytes-to-format]').forEach(el => {
+            const bytes = parseInt(el.dataset.bytesToFormat, 10);
+            if (!isNaN(bytes)) {
+                el.textContent = `(${ReportUtils.formatBytes(bytes)})`;
+            }
+        });
     }
 };
