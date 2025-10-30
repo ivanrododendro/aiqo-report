@@ -60,13 +60,15 @@ The number of 'dirtied' blocks that this query had to write to disk during its e
                                 {% endif %}
                                 {% if report.buffers.temp_read is not none %}
                                 <tr>
-                                    <td><strong>Temp Read:</strong></td>
+                                    <td><strong>Temp Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp read (blocks)
+The number of temporary data blocks that were read from temporary files on disk. This happens when a query needs more memory for sorting or joining than is available, and has to spill data to disk."></i></td>
                                     <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_read).replace(",", " ") }}</td>
                                 </tr>
                                 {% endif %}
                                 {% if report.buffers.temp_written is not none %}
                                 <tr>
-                                    <td><strong>Temp Written:</strong></td>
+                                    <td><strong>Temp Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp written (blocks)
+The number of temporary data blocks that were written to temporary files on disk. This is also related to operations like sorting or hash joins that require more memory than available."></i></td>
                                     <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_written).replace(",", " ") }}</td>
                                 </tr>
                                 {% endif %}
