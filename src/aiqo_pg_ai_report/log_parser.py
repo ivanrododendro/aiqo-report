@@ -64,9 +64,11 @@ def parse_log_entry(log_entry_text):
     total_cost = None
     rows = None
     first_cost_line = None
-    for pline in plan_lines:
+    first_cost_line_index = -1
+    for i, pline in enumerate(plan_lines):
         if "cost=" in pline:
             first_cost_line = pline
+            first_cost_line_index = i
             break
     if first_cost_line:
         cost_match = re.search(r"cost=(\d+(?:\.\d+)?)\.\.(\d+(?:\.\d+)?)", first_cost_line)
@@ -82,6 +84,23 @@ def parse_log_entry(log_entry_text):
                 rows = int(rows_match.group(1))
             except ValueError:
                 logger.warning(f"Could not parse rows value from line: {first_cost_line}")
+
+        # If rows count is 0 on an Insert/Update, try to find a better estimate from child nodes
+        if rows == 0 and ("Insert" in first_cost_line or "Update" in first_cost_line):
+            logger.debug(f"Rows is 0 on an Insert/Update node. Searching for a better value in subsequent nodes.")
+            if first_cost_line_index + 1 < len(plan_lines):
+                for subsequent_line in plan_lines[first_cost_line_index + 1:]:
+                    if "actual rows=" in subsequent_line:
+                        new_rows_match = re.search(r"rows=(\d+)", subsequent_line)
+                        if new_rows_match:
+                            try:
+                                new_rows = int(new_rows_match.group(1))
+                                logger.debug(f"Found new rows value on a subsequent node: {new_rows}")
+                                rows = new_rows
+                                break  # Stop at the first match
+                            except ValueError:
+                                logger.warning(f"Could not parse new rows value from line: {subsequent_line}")
+                        break  # Stop after checking the first line with 'actual rows='
 
     logger.debug(f"Parsed plan line metrics: cost={total_cost}, rows={rows}")
 
