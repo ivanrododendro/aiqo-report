@@ -4,6 +4,9 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+BYTES_PER_BUFFER_BLOCK = 8192
+BUFFER_KEYS_FOR_TOTAL_IO = ("shared_read", "shared_dirtied", "shared_written", "temp_read", "temp_written")
+
 
 class ReportDataProcessor:
     """
@@ -489,6 +492,12 @@ class ReportDataProcessor:
                 else:
                     enhanced_report["query_timestamp_utc"] = None
 
+                buffer_bytes, total_io_bytes = self._compute_buffer_metrics(
+                    enhanced_report.get("buffers"), enhanced_report.get("wal")
+                )
+                enhanced_report["buffers_bytes"] = buffer_bytes
+                enhanced_report["total_io_bytes"] = total_io_bytes
+
                 enhanced_reports.append(enhanced_report)
 
             enhanced[day] = enhanced_reports
@@ -513,3 +522,68 @@ class ReportDataProcessor:
                 "queries_by_code": dict(data["queries_by_code"]),
             }
         return serializable
+
+    def _compute_buffer_metrics(self, buffers, wal):
+        """
+        Convert buffer statistics expressed in blocks into bytes and compute total I/O.
+        WAL metrics are already expressed in bytes, so they are added as-is.
+        """
+        buffer_bytes = self._convert_buffers_to_bytes(buffers)
+        wal_bytes = self._normalize_number((wal or {}).get("bytes"))
+
+        total_components = []
+        if buffer_bytes:
+            for key in BUFFER_KEYS_FOR_TOTAL_IO:
+                total_components.append(buffer_bytes.get(key))
+        total_components.append(wal_bytes)
+
+        total_io_bytes = self._sum_optional(total_components)
+        return buffer_bytes, total_io_bytes
+
+    @staticmethod
+    def _convert_buffers_to_bytes(buffers):
+        if not buffers:
+            return None
+
+        converted = {}
+        has_value = False
+        for key, value in buffers.items():
+            converted_value = ReportDataProcessor._blocks_to_bytes(value)
+            converted[key] = converted_value
+            if converted_value is not None:
+                has_value = True
+
+        return converted if has_value else None
+
+    @staticmethod
+    def _blocks_to_bytes(value):
+        if value is None:
+            return None
+        try:
+            numeric_value = int(value)
+        except (TypeError, ValueError):
+            logger.debug(f"Skipping non-numeric buffer value: {value}")
+            return None
+        return numeric_value * BYTES_PER_BUFFER_BLOCK
+
+    @staticmethod
+    def _sum_optional(values):
+        total = 0
+        has_value = False
+        for value in values:
+            if value is None:
+                continue
+            total += value
+            has_value = True
+        return total if has_value else None
+
+    @staticmethod
+    def _normalize_number(value):
+        if value is None:
+            return None
+        try:
+            numeric_value = int(value)
+        except (TypeError, ValueError):
+            logger.debug(f"Skipping non-numeric WAL value: {value}")
+            return None
+        return numeric_value

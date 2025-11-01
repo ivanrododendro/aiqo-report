@@ -100,9 +100,9 @@
 
             // Function to initialize query details
             const initializeQueryDetails = function() {
-                // Initialize query execution details card
-                const detailsCard = document.getElementById("query-details-card-{{ app_id }}");
-                if (detailsCard) {
+                // Initialize general statistics section
+                const generalStatsContainer = document.getElementById("query-details-general-{{ app_id }}");
+                if (generalStatsContainer) {
                     const durationMillis = {{ report.duration|int }};
                     const timestampUtc = {{ report.query_timestamp_utc|default('null') }};
                     let endTime = null;
@@ -135,17 +135,13 @@
                     const costFormatted = (cost !== null && !isNaN(cost)) ? Number(cost).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : 'N/A';
                     const rowsFormatted = (rows !== null && !isNaN(rows)) ? Number(rows).toLocaleString() : 'N/A';
 
-                    detailsCard.innerHTML = `
-                        <div class="card bg-light mb-3">
-                            <div class="card-body">
-                                <div class="row text-nowrap">
-                                    <div class="col-auto"><strong>Début :</strong> ${validStart}</div>
-                                    <div class="col-auto"><strong>Fin :</strong> ${validEnd}</div>
-                                    <div class="col-auto"><strong>Durée :</strong> ${durationFmt}</div>
-                                    <div class="col-auto"><strong>Coût :</strong> ${costFormatted}</div>
-                                    <div class="col-auto"><strong>Lignes :</strong> ${rowsFormatted}</div>
-                                </div>
-                            </div>
+                    generalStatsContainer.innerHTML = `
+                        <div class="row gy-2 gx-3 text-nowrap">
+                            <div class="col-auto"><strong>Début :</strong> ${validStart}</div>
+                            <div class="col-auto"><strong>Fin :</strong> ${validEnd}</div>
+                            <div class="col-auto"><strong>Durée :</strong> ${durationFmt}</div>
+                            <div class="col-auto"><strong>Coût :</strong> ${costFormatted}</div>
+                            <div class="col-auto"><strong>Lignes :</strong> ${rowsFormatted}</div>
                         </div>`;
                 }
 
@@ -233,6 +229,8 @@
                                 cost: {{ r.cost|default(None)|tojson }},
                                 rows: {{ r.rows|default(None)|tojson }},
                                 buffers: {{ r.buffers|default(None)|tojson }},
+                                buffers_bytes: {{ r.buffers_bytes|default(None)|tojson }},
+                                total_io_bytes: {{ r.total_io_bytes|default(None)|tojson }},
                                 wal: {{ r.wal|default(None)|tojson }}
                             });
                             {% set found = True %}
@@ -245,6 +243,8 @@
                             cost: null,
                             rows: null,
                             buffers: null,
+                            buffers_bytes: null,
+                            total_io_bytes: null,
                             wal: null
                         });
                     {% endif %}

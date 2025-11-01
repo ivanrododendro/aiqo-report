@@ -11,118 +11,125 @@
         </h6>
     </div>
     <div class="card-body">
-        {# Sezione metrica sempre visibile, fuori dall'accordion #}
-        <div class="alert alert-warning" id="query-details-card-{{ app_id }}"></div>
+        {# Statistics, AI insights, execution plan and charts grouped inside a single accordion #}
+        <div class="accordion mb-3" id="accordion-{{ app_id }}">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-stats-{{ app_id }}">
+                    <button class="accordion-button fw-bold" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-stats-{{ app_id }}" aria-expanded="true"
+                            aria-controls="collapse-stats-{{ app_id }}">
+                        Statistics
+                    </button>
+                </h2>
+                <div id="collapse-stats-{{ app_id }}" class="accordion-collapse collapse show"
+                     aria-labelledby="heading-stats-{{ app_id }}">
+                    <div class="accordion-body">
+                        <div class="mb-4">
+                            <h6 class="fw-bold mb-3 px-2 py-1 rounded bg-primary bg-opacity-10 text-dark d-inline-block">General Statistics</h6>
+                            <div id="query-details-general-{{ app_id }}"></div>
+                        </div>
 
-        {# Buffer and WAL Statistics #}
-        {% if report.buffers or report.wal %}
-        <div class="row mb-3">
-            {% if report.buffers %}
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0">
-                            Buffer Statistics
-                            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="I/O Statistics (from BUFFERS)
+                        {% if report.buffers or report.wal %}
+                        <div class="row g-3">
+                            {% if report.buffers %}
+                            <div class="col-12 col-lg-6">
+                                <div class="h-100">
+                                    <h6 class="fw-bold d-flex align-items-center mb-3 px-2 py-1 rounded bg-info bg-opacity-10 text-dark d-inline-flex align-items-center">
+                                        Buffer Statistics
+                                        <i class="bi bi-info-circle ms-2" data-bs-toggle="tooltip" data-bs-placement="top" title="I/O Statistics (from BUFFERS)
 The number of operations PostgreSQL performed in its memory cache and disk I/O."></i>
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-sm table-borderless mb-0">
-                            <tbody>
-                                {% if report.buffers.shared_hit is not none %}
-                                <tr>
-                                    <td><strong>Shared Hit:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="shared hit (blocks)
+                                    </h6>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tbody>
+                                            {% if report.buffers.shared_hit is not none %}
+                                            <tr>
+                                                <td><strong>Shared Hit:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="shared hit (blocks)
 The number of data blocks (usually 8kB) that PostgreSQL found already in its own RAM cache (the shared buffers). This is very fast."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_hit).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_hit * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_hit / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
-                                </tr>
-                                {% endif %}
-                                {% if report.buffers.shared_read is not none %}
-                                <tr>
-                                    <td><strong>Shared Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="shared read (blocks)
+                                                <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_hit).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_hit * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_hit / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if report.buffers.shared_read is not none %}
+                                            <tr>
+                                                <td><strong>Shared Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="shared read (blocks)
 The number of data blocks that PostgreSQL had to read from the disk (or the OS cache) because they were not in the shared buffers. This is slow and indicates I/O cost."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_read).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_read * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_read / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
-                                </tr>
-                                {% endif %}
-                                {% if report.buffers.shared_dirtied is not none %}
-                                <tr>
-                                    <td><strong>Shared Dirtied:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="dirtied (blocks)
+                                                <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_read).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_read * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_read / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if report.buffers.shared_dirtied is not none %}
+                                            <tr>
+                                                <td><strong>Shared Dirtied:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="dirtied (blocks)
 The number of blocks that were modified in RAM by this query (e.g., by an INSERT or UPDATE). These blocks will need to be written to disk later. This represents the total data writing cost."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_dirtied).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_dirtied * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_dirtied / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
-                                </tr>
-                                {% endif %}
-                                {% if report.buffers.shared_written is not none %}
-                                <tr>
-                                    <td><strong>Shared Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="written (blocks)
+                                                <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_dirtied).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_dirtied * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_dirtied / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if report.buffers.shared_written is not none %}
+                                            <tr>
+                                                <td><strong>Shared Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="written (blocks)
 The number of 'dirtied' blocks that this query had to write to disk during its execution. This usually happens if the query modifies so much data that it fills up the available shared buffers."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_written).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_written * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_written / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
-                                </tr>
-                                {% endif %}
-                                {% if report.buffers.temp_read is not none %}
-                                <tr>
-                                    <td><strong>Temp Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp read (blocks)
-The number of temporary data blocks that were read from temporary files on disk. This happens when a query needs more memory for sorting or joining than is available, and has to spill data to disk."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_read).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.temp_read * 8192 }}">({{ "{:,.2f}".format(report.buffers.temp_read / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
-                                </tr>
-                                {% endif %}
-                                {% if report.buffers.temp_written is not none %}
-                                <tr>
-                                    <td><strong>Temp Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp written (blocks)
+                                                <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_written).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_written * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_written / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if report.buffers.temp_read is not none %}
+                                            <tr>
+                                                <td><strong>Temp Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp read (blocks)
+The number of temporary data blocks that PostgreSQL had to read from disk because the query required more working memory than was available."></i></td>
+                                                <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_read).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.temp_read * 8192 }}">({{ "{:,.2f}".format(report.buffers.temp_read / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if report.buffers.temp_written is not none %}
+                                            <tr>
+                                                <td><strong>Temp Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp written (blocks)
 The number of temporary data blocks that were written to temporary files on disk. This is also related to operations like sorting or hash joins that require more memory than available."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_written).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.temp_written * 8192 }}">({{ "{:,.2f}".format(report.buffers.temp_written / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
-                                </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            {% if report.wal %}
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h6 class="mb-0">
-                            WAL Statistics
-                            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="Transaction Log Statistics (from WAL)
-The metrics show how many log records PostgreSQL generated during this query."></i>
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-sm table-borderless mb-0">
-                            <tbody>
-                                {% if report.wal.records is not none %}
-                                <tr>
-                                    <td><strong>Records:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL records (count)
-The total number of 'change records' generated by this query and written to the Write-Ahead Log (WAL)."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.wal.records).replace(",", " ") }}</td>
-                                </tr>
-                                {% endif %}
-                                {% if report.wal.fpi is not none %}
-                                <tr>
-                                    <td><strong>FPI:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL fpi (count)
-The number of 'Full Page Images' (FPI) written to the WAL. This is a special, larger type of WAL record that is generated the first time a block is modified after a checkpoint."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.wal.fpi).replace(",", " ") }}</td>
-                                </tr>
-                                {% endif %}
-                                {% if report.wal.bytes is not none %}
-                                <tr>
-                                    <td><strong>Bytes:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL bytes (bytes)
-The total size (in bytes) of all WAL records generated by this query. This is a direct measure of the I/O cost for transaction logging and replication."></i></td>
-                                    <td class="text-end">{{ "{:,.0f}".format(report.wal.bytes).replace(",", " ") }} <span data-bytes-to-format="{{ report.wal.bytes }}">({{ "{:,.2f}".format(report.wal.bytes / 1024 / 1024).replace(",", " ").replace(".", ",") }} MB)</span></td>
-                                </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
+                                                <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_written).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.temp_written * 8192 }}">({{ "{:,.2f}".format(report.buffers.temp_written / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endif %}
 
-        <div class="accordion" id="accordion-{{ app_id }}">
+                            {% if report.wal %}
+                            <div class="col-12 col-lg-6">
+                                <div class="h-100">
+                                    <h6 class="fw-bold d-flex align-items-center mb-3 px-2 py-1 rounded bg-success bg-opacity-10 text-dark d-inline-flex align-items-center">
+                                        WAL Statistics
+                                        <i class="bi bi-info-circle ms-2" data-bs-toggle="tooltip" data-bs-placement="top" title="Transaction Log Statistics (from WAL)
+The metrics show how many log records PostgreSQL generated during this query."></i>
+                                    </h6>
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tbody>
+                                            {% if report.wal.records is not none %}
+                                            <tr>
+                                                <td><strong>Records:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL records (count)
+The total number of 'change records' generated by this query and written to the Write-Ahead Log (WAL)."></i></td>
+                                                <td class="text-end">{{ "{:,.0f}".format(report.wal.records).replace(",", " ") }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if report.wal.fpi is not none %}
+                                            <tr>
+                                                <td><strong>FPI:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL fpi (count)
+The number of 'Full Page Images' (FPI) written to the WAL. This is a special, larger type of WAL record that is generated the first time a block is modified after a checkpoint."></i></td>
+                                                <td class="text-end">{{ "{:,.0f}".format(report.wal.fpi).replace(",", " ") }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if report.wal.bytes is not none %}
+                                            <tr>
+                                                <td><strong>Bytes:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL bytes (bytes)
+The total size (in bytes) of all WAL records generated by this query. This is a direct measure of the I/O cost for transaction logging and replication."></i></td>
+                                                <td class="text-end">{{ "{:,.0f}".format(report.wal.bytes).replace(",", " ") }} <span data-bytes-to-format="{{ report.wal.bytes }}">({{ "{:,.2f}".format(report.wal.bytes / 1024 / 1024).replace(",", " ").replace(".", ",") }} MB)</span></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
 
             {# AI Suggestions accordion only if present #}
             {% if report.ai_hints %}
@@ -131,7 +138,7 @@ The total size (in bytes) of all WAL records generated by this query. This is a 
                     <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-ai-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-ai-{{ app_id }}">
-                        <strong>AI Suggestions</strong>
+                        AI Suggestions
                     </button>
                 </h2>
                 <div id="collapse-ai-{{ app_id }}" class="accordion-collapse collapse show"
@@ -158,7 +165,7 @@ The total size (in bytes) of all WAL records generated by this query. This is a 
                     <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-queryopt-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-queryopt-{{ app_id }}">
-                        <strong>Optimisations appliquées</strong>
+                        Optimisations appliquées
                     </button>
                 </h2>
                 <div id="collapse-queryopt-{{ app_id }}" class="accordion-collapse collapse show"
@@ -187,7 +194,7 @@ The total size (in bytes) of all WAL records generated by this query. This is a 
                     <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-server-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-server-{{ app_id }}">
-                        <strong>Optimisations serveur ce jour</strong>
+                        Optimisations serveur ce jour
                     </button>
                 </h2>
                 <div id="collapse-server-{{ app_id }}" class="accordion-collapse collapse show"
@@ -209,7 +216,7 @@ The total size (in bytes) of all WAL records generated by this query. This is a 
                     <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-pev2-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-pev2-{{ app_id }}">
-                        <strong>Plan d'exécution</strong>
+                        Plan d'exécution
                     </button>
                 </h2>
                 <div id="collapse-pev2-{{ app_id }}" class="accordion-collapse collapse show"
@@ -229,7 +236,7 @@ The total size (in bytes) of all WAL records generated by this query. This is a 
                     <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-chart-{{ app_id }}" aria-expanded="false"
                             aria-controls="collapse-chart-{{ app_id }}">
-                        <strong>Évolution du temps d'exécution</strong>
+                        Évolution du temps d'exécution
                     </button>
                 </h2>
                 <div id="collapse-chart-{{ app_id }}" class="accordion-collapse collapse show"

@@ -1,6 +1,9 @@
 /**
  * Chart configurations
  */
+const BYTES_PER_BUFFER_BLOCK = 8192;
+const BUFFER_KEYS_FOR_TOTAL_IO = ['shared_read', 'shared_dirtied', 'shared_written', 'temp_read', 'temp_written'];
+
 const CHART_CONFIGS = {
     dailyCumulatedTime: {
         type: 'line',
@@ -43,6 +46,7 @@ class ScaleHelper {
         return {
             type: 'linear',
             position: 'right',
+            display: false,
             title: { display: true, text: 'Cost' },
             beginAtZero: true,
             grid: { drawOnChartArea: false }
@@ -330,7 +334,8 @@ class ChartFactory {
                     backgroundColor: 'rgba(153, 102, 255, 0.5)',
                     borderColor: 'rgba(153, 102, 255, 1)',
                     borderWidth: 1,
-                    yAxisID: 'yAxisRightTotalQueries'
+                    yAxisID: 'yAxisRightTotalQueries',
+                    hidden: true
                 }
             ]
         };
@@ -341,6 +346,22 @@ class ChartFactory {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
+                legend: {
+                    display: true,
+                    onClick: (e, legendItem, legend) => {
+                        const chart = legend.chart;
+                        Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                        const ds = chart.data.datasets[legendItem.datasetIndex];
+
+                        if (ds && ds.yAxisID === 'yAxisRightTotalQueries') {
+                            const isVisible = typeof chart.isDatasetVisible === 'function'
+                                ? chart.isDatasetVisible(legendItem.datasetIndex)
+                                : !ds.hidden;
+                            chart.options.scales.yAxisRightTotalQueries.display = isVisible;
+                            chart.update();
+                        }
+                    }
+                },
                 title: {
                     display: true,
                     text: 'Daily Cumulated Time and Query Count Trends'
@@ -368,13 +389,46 @@ class ChartFactory {
                     title: { display: true, text: 'Date' }
                 },
                 y: ScaleHelper.createCumulatedTimeScale(),
-                yAxisRightTotalQueries: ScaleHelper.createQueryCountScale()
+                yAxisRightTotalQueries: Object.assign(ScaleHelper.createQueryCountScale(), { display: false })
             }
         };
     }
 
     _processExecutionData(executions) {
         executions.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+        const normalizeNumber = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
+        const bufferToBytes = (execution, key) => {
+            if (!execution) return null;
+            const precomputed = normalizeNumber(execution.buffers_bytes?.[key]);
+            if (precomputed !== null) {
+                return precomputed;
+            }
+
+            const rawBlocks = normalizeNumber(execution.buffers?.[key]);
+            return rawBlocks !== null ? rawBlocks * BYTES_PER_BUFFER_BLOCK : null;
+        };
+        const computeTotalIo = (execution) => {
+            const precomputed = normalizeNumber(execution?.total_io_bytes);
+            if (precomputed !== null) {
+                return precomputed;
+            }
+
+            const components = BUFFER_KEYS_FOR_TOTAL_IO
+                .map((key) => bufferToBytes(execution, key))
+                .filter((value) => value !== null);
+
+            const walBytes = normalizeNumber(execution?.wal?.bytes);
+            if (walBytes !== null) {
+                components.push(walBytes);
+            }
+
+            if (components.length === 0) {
+                return null;
+            }
+
+            return components.reduce((sum, value) => sum + value, 0);
+        };
 
         return {
             labels: executions.map(e => e.timestamp.split(' ')[0]),
@@ -394,13 +448,7 @@ class ChartFactory {
                 fpi: executions.map(e => e.wal?.fpi ?? null),
                 bytes: executions.map(e => e.wal?.bytes ?? null)
             },
-            io_total: executions.map(e => {
-                const shared_read = e.buffers?.shared_read ?? 0;
-                const shared_dirtied = e.buffers?.shared_dirtied ?? 0;
-                const wal_bytes = e.wal?.bytes ?? 0;
-                const total = shared_read + shared_dirtied + wal_bytes;
-                return (shared_read || shared_dirtied || wal_bytes) ? total : null;
-            })
+            io_total: executions.map(execution => computeTotalIo(execution))
         };
     }
 
@@ -426,7 +474,8 @@ class ChartFactory {
                 tension: 0.1,
                 spanGaps: true,
                 pointRadius: 3,
-                yAxisID: 'yCost'
+                yAxisID: 'yCost',
+                hidden: true
             },
             {
                 label: 'Rows',
@@ -508,7 +557,7 @@ class ChartFactory {
                 spanGaps: true,
                 pointRadius: 2,
                 yAxisID: 'yWAL',
-                hidden: false
+                hidden: true
             });
         }
 
@@ -528,14 +577,16 @@ class ChartFactory {
                         const chart = legend.chart;
                         Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
                         const ds = chart.data.datasets[legendItem.datasetIndex];
-                        
+
                         // Toggle visibility of corresponding axis
                         if (ds) {
                             const isVisible = typeof chart.isDatasetVisible === 'function'
                                 ? chart.isDatasetVisible(legendItem.datasetIndex)
                                 : !ds.hidden;
-                            
-                            if (ds.yAxisID === 'yRows') {
+
+                            if (ds.yAxisID === 'yCost') {
+                                chart.options.scales.yCost.display = isVisible;
+                            } else if (ds.yAxisID === 'yRows') {
                                 chart.options.scales.yRows.display = isVisible;
                             } else if (ds.yAxisID === 'yBuffer') {
                                 chart.options.scales.yBuffer.display = isVisible;
