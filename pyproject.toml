@@ -14,7 +14,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8.1,<4.0"
+python = ">=3.11,<4.0"
 sqlparse = "^0.4.4"
 Jinja2 = "^3.1.2"
 litellm = "^1.75.9"

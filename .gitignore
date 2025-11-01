@@ -9,3 +9,6 @@ api_keys.txt
 /.aider.tags.cache.v4/cache.db-wal
 .aider*
 __pycache__/
+src/.DS_Store
+.DS_Store
+.vscode/launch.json
