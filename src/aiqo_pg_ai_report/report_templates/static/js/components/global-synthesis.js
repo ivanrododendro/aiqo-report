@@ -1,0 +1,90 @@
+/**
+ * Global Synthesis component: renders the daily chart, legend, and formats global stats.
+ */
+;(function () {
+  window.AIQO = window.AIQO || {};
+  AIQO.Components = AIQO.Components || {};
+
+  const GlobalSynthesis = {
+    _initialized: false,
+    init() {
+      if (this._initialized) return;
+      this._initialized = true;
+
+      this._renderDailyChart();
+      this._attachDailyChartClick();
+      this._populateOptimizationLegend();
+      this._formatGlobalQueryDurations();
+    },
+
+    _renderDailyChart() {
+      try {
+        if (window.reportChartManager) {
+          window.reportChartManager.renderDailyCumulatedTimeChart();
+        }
+      } catch (e) {
+        console.error('Daily chart render failed:', e);
+      }
+    },
+
+    _attachDailyChartClick() {
+      const dailyChartCanvas = document.getElementById('dailyCumulatedTimeChart');
+      if (!dailyChartCanvas) return;
+      dailyChartCanvas.onclick = (evt) => {
+        const chart = window.reportChartManager && window.reportChartManager.charts
+          ? window.reportChartManager.charts.dailyCumulatedTime
+          : null;
+        if (!chart) return;
+        const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
+        if (!points.length) return;
+        const idx = points[0].index;
+        const day = chart.data.labels[idx];
+        if (window.reportNavigator) {
+          window.reportNavigator.navigateToDay(day);
+        }
+      };
+    },
+
+    _populateOptimizationLegend() {
+      const container = document.getElementById('genericOptimizationLegend');
+      if (!container) return;
+      const legendEntries = (window.reportData && reportData.optimizations && reportData.optimizations.annotations &&
+        reportData.optimizations.annotations.legend_entries && reportData.optimizations.annotations.legend_entries.generic) || [];
+
+      if (legendEntries.length > 0) {
+        let html = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
+        legendEntries
+          .slice()
+          .sort((a, b) => a.id.localeCompare(b.id))
+          .forEach((entry) => {
+            html += `<li><strong>${entry.id}</strong>`;
+            if (entry.query_code) {
+              html += ` [${String(entry.query_code).substring(0, 6)}]`;
+            }
+            if (entry.type === 'Serveur') {
+              html += `: <code>${entry.text}</code></li>`;
+            } else {
+              html += `: ${entry.text}</li>`;
+            }
+          });
+        html += '</ul>';
+        container.innerHTML = html;
+      } else {
+        container.innerHTML = '<p>Aucune optimisation enregistrée.</p>';
+      }
+    },
+
+    _formatGlobalQueryDurations() {
+      const stats = (window.reportData && reportData.statistics && reportData.statistics.global_query_stats) || [];
+      stats.forEach((stat) => {
+        const safeCode = ReportUtils.safeId(stat.code);
+        const el = document.getElementById('cumulated-time-' + safeCode);
+        if (el) {
+          el.innerHTML = Duration.fromMillis(stat.cumulated_time).toFormat("h'h'm'm's's'");
+        }
+      });
+    },
+  };
+
+  AIQO.Components.GlobalSynthesis = GlobalSynthesis;
+})();

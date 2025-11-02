@@ -1,18 +1,5 @@
-<!-- Inline JavaScript to produce a fully self-contained HTML report -->
+<!-- Minimal bootstrap: fragments include their own JS; we just run init -->
 <script>
-{% include 'static/js/report-utils.js' %}
-{# Charts core: split modules (namespaced under AIQO.Core) #}
-{% include 'static/js/charts/scale-helper.js' %}
-{% include 'static/js/charts/data-validator.js' %}
-{% include 'static/js/charts/annotation-builder.js' %}
-{% include 'static/js/charts/chart-factory.js' %}
-{% include 'static/js/charts/report-chart-manager.js' %}
-{% include 'static/js/report-navigation.js' %}
-{% include 'static/js/components/tabs.js' %}
-{% include 'static/js/components/global-synthesis.js' %}
-{% include 'static/js/components/query-details.js' %}
-{% include 'static/js/components/split-layout.js' %}
 {% include 'static/js/app-init.js' %}
- 
-    document.addEventListener('DOMContentLoaded', function() { AIQO.Init.run(); });
+document.addEventListener('DOMContentLoaded', function() { AIQO.Init.run(); });
 </script>

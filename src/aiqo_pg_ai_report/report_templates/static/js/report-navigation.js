@@ -1,7 +1,11 @@
 /**
  * Tab navigation utilities
  */
-class TabNavigator {
+;(function(){
+  window.AIQO = window.AIQO || {};
+  AIQO.Core = AIQO.Core || {};
+
+  AIQO.Core.TabNavigator = class TabNavigator {
     constructor(reportData) {
         this.reportData = reportData;
     }
@@ -143,7 +147,7 @@ class TabNavigator {
 /**
  * Date tab content updater (renamed from DailyTabUpdater for TAPPA 6)
  */
-class DateTabUpdater {
+AIQO.Core.DateTabUpdater = class DateTabUpdater {
     constructor(reportData) {
         this.reportData = reportData;
     }
@@ -206,7 +210,7 @@ class DateTabUpdater {
 /**
  * Event handler setup for navigation
  */
-class NavigationEventHandler {
+AIQO.Core.NavigationEventHandler = class NavigationEventHandler {
     constructor(reportData, tabNavigator, tabUpdater) {
         this.reportData = reportData;
         this.tabNavigator = tabNavigator;
@@ -219,7 +223,7 @@ class NavigationEventHandler {
     setupAllHandlers() {
         this._setupTabHandlers();
         this._setupGlobalQueryRowHandlers();
-        this._setupChartClickHandlers();
+        // Daily chart click handled by GlobalSynthesis component
         ReportUtils.applyByteFormatting();
     }
 
@@ -300,39 +304,18 @@ class NavigationEventHandler {
     /**
      * Setup click handlers for charts
      */
-    _setupChartClickHandlers() {
-        const dailyChart = document.getElementById('dailyCumulatedTimeChart');
-        if (dailyChart) {
-            dailyChart.onclick = (evt) => this._handleDailyChartClick(evt);
-        }
-    }
-
-    /**
-     * Handle daily chart click
-     */
-    _handleDailyChartClick(evt) {
-        const chart = window.reportChartManager.charts.dailyCumulatedTime;
-        if (!chart) return;
-
-        const points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, false);
-        if (!points.length) return;
-
-        const idx = points[0].index;
-        const day = chart.data.labels[idx];
-        // console.log(`📊 Click sul grafico per il giorno: ${day}`);
-        this.tabNavigator.navigateToDay(day);
-    }
+    // Daily chart click is now bound in the GlobalSynthesis component
 }
 
 /**
  * Main navigation manager for the report
  */
-class ReportNavigator {
+AIQO.Core.ReportNavigator = class ReportNavigator {
     constructor(reportData) {
         this.reportData = reportData;
-        this.tabNavigator = new TabNavigator(reportData);
-        this.tabUpdater = new DateTabUpdater(reportData);
-        this.eventHandler = new NavigationEventHandler(reportData, this.tabNavigator, this.tabUpdater);
+        this.tabNavigator = new AIQO.Core.TabNavigator(reportData);
+        this.tabUpdater = new AIQO.Core.DateTabUpdater(reportData);
+        this.eventHandler = new AIQO.Core.NavigationEventHandler(reportData, this.tabNavigator, this.tabUpdater);
     }
 
     /**
@@ -377,3 +360,5 @@ class ReportNavigator {
         this.eventHandler.setupAllHandlers();
     }
 }
+
+})();

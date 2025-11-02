@@ -74,6 +74,18 @@
     {% endfor %}
 </div>
 
+{# JS includes specific to tabs, navigation, split and query details #}
+<script>
+{% include 'static/js/report-utils.js' %}
+{% include 'static/js/charts/scale-helper.js' %}
+{% include 'static/js/charts/data-validator.js' %}
+{% include 'static/js/charts/annotation-builder.js' %}
+{% include 'static/js/charts/chart-factory.js' %}
+{% include 'static/js/charts/report-chart-manager.js' %}
+{% include 'static/js/report-navigation.js' %}
+{% include 'static/js/components/tabs.js' %}
+{% include 'static/js/components/query-details.js' %}
+</script>
 {# Contenuto dei tab giorni #}
 {% set last_year = date_hierarchy.all_years[-1] %}
 {% set last_year_months = date_hierarchy.years[last_year].months.items()|sort %}
@@ -155,32 +167,7 @@
                                             </div>
                                         </div>
 
-                                        <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
-                                        <script>
-                                            document.addEventListener('DOMContentLoaded', function() {
-                                                const containerId = '#split-container-{{ day | safe_id }}';
-                                                const leftPane = containerId + ' .split:nth-child(1)';
-                                                const rightPane = containerId + ' .split:nth-child(2)';
-
-                                                // Inizializza Split solo se esistono entrambi i pannelli
-                                                if (document.querySelector(leftPane) && document.querySelector(rightPane)) {
-                                                    Split([leftPane, rightPane], {
-                                                        sizes: [30, 70],
-                                                        minSize: [150, 300],
-                                                        gutterSize: 6,
-                                                        cursor: 'col-resize',
-                                                        gutter: function (index, direction) {
-                                                            const gutter = document.createElement('div');
-                                                            gutter.className = 'gutter gutter-' + direction;
-                                                            gutter.style.background = '#ddd';
-                                                            gutter.style.cursor = 'col-resize';
-                                                            gutter.style.width = '6px';
-                                                            return gutter;
-                                                        }
-                                                    });
-                                                }
-                                            });
-                                        </script>
+                                        {# Split initialization moved to JS component (SplitLayout) #}
                                     </div>
                                 {% else %}
                                     <div class="card card-body mt-3">
@@ -192,73 +179,3 @@
                         </div>
         {% endfor %}
     {% endfor %}
-
-<script>
-// Gestione della visibilità dei tab mese e giorno
-document.addEventListener('DOMContentLoaded', function() {
-    // Quando cambia l'anno, mostra i mesi corrispondenti
-    document.querySelectorAll('[id^="tab-year-"]').forEach(yearTab => {
-        yearTab.addEventListener('shown.bs.tab', function(e) {
-            const year = e.target.id.match(/tab-year-(\d+)-tab/)[1];
-            
-            // Nascondi tutti i container dei mesi
-            document.querySelectorAll('.month-tabs-container').forEach(el => el.classList.add('d-none'));
-            // Mostra solo il container del mese per l'anno selezionato
-            const monthContainer = document.getElementById(`month-tabs-container-${year}`);
-            if (monthContainer) {
-                monthContainer.classList.remove('d-none');
-                // Attiva l'ultimo tab del mese (quello più recente)
-                const monthTabs = monthContainer.querySelectorAll('.nav-link');
-                if (monthTabs.length > 0) {
-                    const lastMonthTab = monthTabs[monthTabs.length - 1];
-                    bootstrap.Tab.getOrCreateInstance(lastMonthTab).show();
-                }
-            }
-        });
-    });
-    
-    // Quando cambia il mese, mostra i giorni corrispondenti
-    document.querySelectorAll('[id^="tab-month-"]').forEach(monthTab => {
-        monthTab.addEventListener('shown.bs.tab', function(e) {
-            const yearMonth = e.target.id.match(/tab-month-(.+)-tab/)[1];
-            
-            // Nascondi tutti i container dei giorni
-            document.querySelectorAll('.day-tabs-container').forEach(el => el.classList.add('d-none'));
-            // Mostra solo il container del giorno per il mese selezionato
-            const dayContainer = document.getElementById(`day-tabs-container-${yearMonth}`);
-            if (dayContainer) {
-                dayContainer.classList.remove('d-none');
-                // Attiva l'ultimo tab del giorno (quello più recente)
-                const dayTabs = dayContainer.querySelectorAll('.nav-link');
-                if (dayTabs.length > 0) {
-                    const lastDayTab = dayTabs[dayTabs.length - 1];
-                    bootstrap.Tab.getOrCreateInstance(lastDayTab).show();
-                }
-            }
-            
-            // Nascondi tutti i contenuti dei tab giorni
-            document.querySelectorAll('.day-tab-content').forEach(el => el.classList.add('d-none'));
-            // Mostra solo il contenuto dei tab giorni per il mese selezionato
-            const dayTabContent = document.getElementById(`dayTabContent-${yearMonth}`);
-            if (dayTabContent) {
-                dayTabContent.classList.remove('d-none');
-            }
-        });
-    });
-    // Doppio click su un bottone query -> copia codice corto negli appunti
-    document.querySelectorAll('.query-tabs .nav-link').forEach(btn => {
-        btn.addEventListener('dblclick', function() {
-            const fullCode = this.dataset.queryCode;
-            if (!fullCode) return;
-            const shortCode = fullCode.substring(0, 8);
-            navigator.clipboard.writeText(shortCode).then(() => {
-                const toast = document.createElement('div');
-                toast.className = 'alert alert-success position-fixed top-0 end-0 m-3 py-2 px-3 shadow';
-                toast.textContent = `Codice corto "${shortCode}" copiato negli appunti!`;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 2000);
-            }).catch(err => console.error('Clipboard error:', err));
-        });
-    });
-});
-</script>

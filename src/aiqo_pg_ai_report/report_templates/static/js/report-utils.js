@@ -1,7 +1,11 @@
+;(() => {
 /**
- * Utility functions for the report
+ * Utility functions for the report (namespaced + global alias)
  */
-const ReportUtils = {
+  window.AIQO = window.AIQO || {};
+  AIQO.Core = AIQO.Core || {};
+
+  const ReportUtils = {
     /**
      * Generate a random RGB color
      */
@@ -9,7 +13,7 @@ const ReportUtils = {
         const r = Math.floor(Math.random() * 255);
         const g = Math.floor(Math.random() * 255);
         const b = Math.floor(Math.random() * 255);
-        return `rgb(${r}, ${g}, ${b})`;
+        return 'rgb(' + r + ', ' + g + ', ' + b + ')';
     },
 
     /**
@@ -87,7 +91,7 @@ const ReportUtils = {
             maximumFractionDigits: dm
         }).replace(/\./g, ' ');
 
-        return `${formattedNum} ${sizes[i]}`;
+        return formattedNum + ' ' + sizes[i];
     },
 
     /**
@@ -98,8 +102,13 @@ const ReportUtils = {
         document.querySelectorAll('[data-bytes-to-format]').forEach(el => {
             const bytes = parseInt(el.dataset.bytesToFormat, 10);
             if (!isNaN(bytes)) {
-                el.textContent = `(${ReportUtils.formatBytes(bytes)})`;
+                el.textContent = '(' + this.formatBytes(bytes) + ')';
             }
         });
     }
-};
+  };
+
+  // Namespace + global alias for backward compatibility
+  AIQO.Core.ReportUtils = ReportUtils;
+  window.ReportUtils = ReportUtils;
+})();

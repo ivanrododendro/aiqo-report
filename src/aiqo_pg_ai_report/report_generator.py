@@ -131,12 +131,16 @@ class ReportGenerator:
         )
 
         # Serialize context for JavaScript
+        # Expose a JS-friendly subset of the context. Include reports.by_day
+        # so that client-side components (e.g., QueryDetails) can render
+        # PEV2 and per-query charts without inline JS loops.
         context["context_json"] = json.dumps(
             {
                 "statistics": context["statistics"],
                 "charts": context["charts"],
                 "optimizations": context["optimizations"],
                 "date_hierarchy": context["date_hierarchy"],
+                "reports": {"by_day": context["reports"]["by_day"]},
             }
         )
 

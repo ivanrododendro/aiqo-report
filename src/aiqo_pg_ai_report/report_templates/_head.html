@@ -10,6 +10,26 @@
 <link rel="stylesheet" href="https://unpkg.com/pev2/dist/pev2.css"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@latest/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://unpkg.com/split.js/dist/split.min.js"></script>
+
+<!-- Global report data and legacy variables -->
+<script>
+    const {createApp} = Vue;
+    const {Duration} = luxon;
+    
+    // Global report data prepared by backend
+    const reportData = {{ context_json | safe }};
+    
+    // Expose reportData globally for debugging and navigation
+    window.reportData = reportData;
+    
+    // Legacy compatibility - keep these for backward compatibility with inline scripts
+    const dailyQueryStats = reportData.statistics.daily_stats;
+    const globalQueryStats = reportData.statistics.global_query_stats;
+    const queryOptimizations = reportData.optimizations.query;
+    const serverOptimizations = reportData.optimizations.server;
+    const eventOptimizations = reportData.optimizations.event;
+</script>
 
 <!-- Custom report styles - embedded and minified -->
 <style>
