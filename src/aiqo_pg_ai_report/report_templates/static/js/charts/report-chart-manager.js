@@ -38,6 +38,23 @@
     return this.charts[canvasId];
   }
 
+  // Update annotations on an existing query chart based on toggle options
+  updateQueryAnnotations(canvasId, queryCode, selectedDay, options) {
+    const chart = this.charts[canvasId];
+    if (!chart) return;
+    const labels = Array.isArray(chart.data && chart.data.labels) ? chart.data.labels : [];
+    const annotations = this.chartFactory.annotationService.buildQueryAnnotations(
+      queryCode,
+      labels,
+      selectedDay,
+      options || {}
+    );
+    if (!chart.options.plugins) chart.options.plugins = {};
+    if (!chart.options.plugins.annotation) chart.options.plugins.annotation = {};
+    chart.options.plugins.annotation.annotations = annotations;
+    chart.update('none');
+  }
+
   destroyChart(chartId) {
     if (this.charts[chartId]) {
       this.charts[chartId].destroy();

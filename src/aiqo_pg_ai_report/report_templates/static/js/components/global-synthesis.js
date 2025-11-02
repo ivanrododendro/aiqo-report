@@ -52,25 +52,17 @@
         reportData.optimizations.annotations.legend_entries && reportData.optimizations.annotations.legend_entries.generic) || [];
 
       if (legendEntries.length > 0) {
-        let html = '<p>Les lettres sur les graphiques correspondent aux optimisations suivantes :</p><ul>';
+        let html = '';
         legendEntries
           .slice()
           .sort((a, b) => a.id.localeCompare(b.id))
           .forEach((entry) => {
-            html += `<li><strong>${entry.id}</strong>`;
-            if (entry.query_code) {
-              html += ` [${String(entry.query_code).substring(0, 6)}]`;
-            }
-            if (entry.type === 'Serveur') {
-              html += `: <code>${entry.text}</code></li>`;
-            } else {
-              html += `: ${entry.text}</li>`;
-            }
+            const content = entry.type === 'Serveur' ? `<code>${entry.text}</code>` : entry.text;
+            html += `(<strong>${entry.id}</strong>) ${content} <span class="badge bg-secondary bg-opacity-75 ms-2">${entry.date}</span><br/>`;
           });
-        html += '</ul>';
         container.innerHTML = html;
       } else {
-        container.innerHTML = '<p>Aucune optimisation enregistrée.</p>';
+        container.innerHTML = '';
       }
     },
 

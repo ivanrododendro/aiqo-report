@@ -207,6 +207,29 @@
           window.reportNavigator.navigateToQuery(report.code, clickedDay);
         }
       };
+
+      // Wire annotation toggles for this chart instance
+      const elQuery = document.getElementById(`toggle-ann-query-${appId}`);
+      const elServer = document.getElementById(`toggle-ann-server-${appId}`);
+      const elGeneric = document.getElementById(`toggle-ann-generic-${appId}`);
+
+      const applyToggles = () => {
+        const options = {
+          includeQuery: !elQuery || !!elQuery.checked,
+          includeServer: !elServer || !!elServer.checked,
+          includeGeneric: !!(elGeneric && elGeneric.checked),
+        };
+        if (window.reportChartManager) {
+          window.reportChartManager.updateQueryAnnotations(chartId, report.code, day, options);
+        }
+      };
+
+      if (elQuery) elQuery.addEventListener('change', applyToggles);
+      if (elServer) elServer.addEventListener('change', applyToggles);
+      if (elGeneric) elGeneric.addEventListener('change', applyToggles);
+
+      // Initial application to ensure defaults are reflected
+      applyToggles();
     }
   }
 
