@@ -11,13 +11,13 @@
   AIQO.Core.ChartFactory = class ChartFactory {
   constructor(reportData) {
     this.reportData = reportData;
-    this.annotationBuilder = new AIQO.Core.AnnotationBuilder(reportData);
+    this.annotationService = new AIQO.Core.AnnotationService(reportData);
   }
 
   createDailyCumulatedTimeChart(ctx) {
     try {
       const chartData = AIQO.Core.DataValidator.validateChartData(this.reportData.charts.daily_trends);
-      const annotations = this.annotationBuilder.buildGenericAnnotations();
+      const annotations = this.annotationService.buildDailyAnnotations();
       return new Chart(ctx, {
         type: 'line',
         data: this._createDailyChartData(chartData),
@@ -33,7 +33,7 @@
     try {
       const validExecutions = AIQO.Core.DataValidator.validateExecutionData(allExecutions);
       const processedData = this._processExecutionData(validExecutions);
-      const annotations = this.annotationBuilder.buildQueryAnnotations(canvasId, processedData.labels);
+      const annotations = this.annotationService.buildQueryAnnotations(queryCode, processedData.labels, selectedDay);
       return new Chart(ctx, {
         type: 'line',
         data: this._createQueryChartData(processedData),
@@ -111,7 +111,15 @@
         annotation: { annotations },
       },
       scales: {
-        x: { title: { display: true, text: 'Date' } },
+        x: {
+          type: 'time',
+          time: {
+            unit: 'day',
+            tooltipFormat: 'yyyy-LL-dd',
+            displayFormats: { day: 'yyyy-LL-dd' }
+          },
+          title: { display: true, text: 'Date' }
+        },
         y: AIQO.Core.ScaleHelper.createCumulatedTimeScale(),
         yAxisRightTotalQueries: Object.assign(AIQO.Core.ScaleHelper.createQueryCountScale(), { display: false }),
       },
@@ -293,13 +301,18 @@
       },
       scales: {
         x: {
-          type: 'category',
+          type: 'time',
+          time: {
+            unit: 'day',
+            tooltipFormat: 'yyyy-LL-dd',
+            displayFormats: { day: 'yyyy-LL-dd' }
+          },
           title: { display: true, text: 'Timestamp' },
           ticks: {
             autoSkip: true,
             maxTicksLimit: 10,
             font: (ctx) => {
-              const lbl = ctx.tick && ctx.tick.label;
+              const lbl = ctx && ctx.tick && ctx.tick.label;
               if (lbl === selectedDay) return { weight: 'bold' };
               return {};
             },
