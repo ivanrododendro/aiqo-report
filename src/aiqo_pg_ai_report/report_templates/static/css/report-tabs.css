@@ -41,3 +41,18 @@
 .tab-content {
     clear: both;
 }
+
+/* Simple fade/height animation for toggled sections */
+.fade-toggle {
+    transition: max-height 0.2s ease, opacity 0.2s ease;
+    overflow: hidden;
+}
+.fade-toggle.is-hidden {
+    max-height: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+}
+.fade-toggle.is-shown {
+    max-height: 2000px;
+    opacity: 1;
+}

@@ -53,20 +53,28 @@
         {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
         <div class="flex-grow-1 day-tabs-container {% if month_data.year_month != last_month %}d-none{% endif %}" 
              id="day-tabs-container-{{ month_data.year_month }}">
+            {% set ns = namespace(last_day_with_reports=None) %}
+            {% for d in month_data.days %}
+                {% if reports.by_day.get(d) %}
+                    {% set ns.last_day_with_reports = d %}
+                {% endif %}
+            {% endfor %}
             <ul class="nav nav-tabs day-tabs flex-wrap" id="dayTabs-{{ month_data.year_month }}" role="tablist">
                 {% for day in month_data.days %}
+                {% if reports.by_day.get(day) %}
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link {% if loop.last %}active{% endif %}" 
+                    <button class="nav-link {% if day == ns.last_day_with_reports %}active{% endif %}" 
                             id="tab-day-{{ day | safe_id }}-tab" 
                             data-bs-toggle="tab" 
                             data-bs-target="#tab-day-{{ day | safe_id }}" 
                             type="button" 
                             role="tab" 
                             aria-controls="tab-day-{{ day | safe_id }}" 
-                            aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
+                            aria-selected="{% if day == ns.last_day_with_reports %}true{% else %}false{% endif %}">
                         {{ day.split('-')[2] }}
                     </button>
                 </li>
+                {% endif %}
                 {% endfor %}
             </ul>
         </div>
@@ -93,14 +101,20 @@
 {% for year in date_hierarchy.all_years %}
     {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
         <div class="tab-content day-tab-content {% if month_data.year_month != last_month %}d-none{% endif %}" id="dayTabContent-{{ month_data.year_month }}">
+                            {% set ns2 = namespace(last_day_with_reports=None) %}
+                            {% for dtmp in month_data.days %}
+                                {% if reports.by_day.get(dtmp) %}
+                                    {% set ns2.last_day_with_reports = dtmp %}
+                                {% endif %}
+                            {% endfor %}
                             {% for day in month_data.days %}
-                            <div class="tab-pane fade {% if loop.last %}show active{% endif %}" 
+                            {% if reports.by_day.get(day) %}
+                            <div class="tab-pane fade {% if day == ns2.last_day_with_reports %}show active{% endif %}" 
                                  id="tab-day-{{ day | safe_id }}" 
                                  role="tabpanel" 
                                  aria-labelledby="tab-day-{{ day | safe_id }}-tab">
                                 
-                                {% if day in reports.by_day %}
-                                    {% set reports_list = reports.by_day[day] %}
+                                    {% set reports_list = reports.by_day.get(day) %}
                                     <div class="card card-body mt-3">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <h6 class="mb-0">Détail des requêtes individuelles pour le {{ day }}</h6>
@@ -169,12 +183,8 @@
 
                                         {# Split initialization moved to JS component (SplitLayout) #}
                                     </div>
-                                {% else %}
-                                    <div class="card card-body mt-3">
-                                        <p class="text-muted">Nessuna query registrata per questo giorno.</p>
-                                    </div>
-                                {% endif %}
                             </div>
+                            {% endif %}
                             {% endfor %}
                         </div>
         {% endfor %}

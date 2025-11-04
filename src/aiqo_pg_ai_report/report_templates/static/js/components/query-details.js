@@ -213,6 +213,18 @@
       const elServer = document.getElementById(`toggle-ann-server-${appId}`);
       const elGeneric = document.getElementById(`toggle-ann-generic-${appId}`);
 
+      const toggleSection = (el, show) => {
+        if (!el) return;
+        el.classList.add('fade-toggle');
+        if (show) {
+          el.classList.remove('is-hidden');
+          el.classList.add('is-shown');
+        } else {
+          el.classList.remove('is-shown');
+          el.classList.add('is-hidden');
+        }
+      };
+
       const applyToggles = () => {
         const options = {
           includeQuery: !elQuery || !!elQuery.checked,
@@ -222,6 +234,12 @@
         if (window.reportChartManager) {
           window.reportChartManager.updateQueryAnnotations(chartId, report.code, day, options);
         }
+
+        // Also toggle the under-chart lists with a quick animation
+        const serverList = document.getElementById(`under-chart-server-list-${appId}`);
+        const eventList = document.getElementById(`under-chart-event-list-${appId}`);
+        toggleSection(serverList, !!(elServer && elServer.checked));
+        toggleSection(eventList, !!(elGeneric && elGeneric.checked));
       };
 
       if (elQuery) elQuery.addEventListener('change', applyToggles);

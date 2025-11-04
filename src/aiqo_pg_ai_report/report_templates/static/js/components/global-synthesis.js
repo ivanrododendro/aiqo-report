@@ -58,7 +58,7 @@
           .sort((a, b) => a.id.localeCompare(b.id))
           .forEach((entry) => {
             const content = entry.type === 'Serveur' ? `<code>${entry.text}</code>` : entry.text;
-            html += `(<strong>${entry.id}</strong>) ${content} <span class="badge bg-secondary bg-opacity-75 ms-2">${entry.date}</span><br/>`;
+            html += `(<strong>${entry.id}</strong>) ${content}<br/>`;
           });
         container.innerHTML = html;
       } else {
