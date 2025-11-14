@@ -5,7 +5,6 @@ import json
 from datetime import datetime
 import re
 import base64
-from htmlmin import minify
 
 from .report_data_processor import ReportDataProcessor
 
@@ -148,5 +147,15 @@ class ReportGenerator:
         )
 
         html_report = self.template.render(**context)
-        html_report = minify(html_report, remove_empty_space=True)
+        html_report = self._minify_html(html_report)
         Path(output_path).write_text(html_report, encoding="utf-8", newline="\n")
+
+    def _minify_html(self, html_content: str) -> str:
+        """Perform a lightweight HTML minification."""
+        # Remove HTML comments but keep conditional comments
+        html_content = re.sub(r'<!--(?!\[if).*?-->', '', html_content, flags=re.DOTALL)
+        # Collapse whitespace between tags (avoid touching script/style contents)
+        html_content = re.sub(r'>\s+<', '><', html_content)
+        # Remove redundant blank lines outside of tags
+        html_content = re.sub(r'\n{2,}', '\n', html_content)
+        return html_content.strip()
