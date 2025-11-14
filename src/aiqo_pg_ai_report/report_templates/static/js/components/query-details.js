@@ -274,6 +274,41 @@
     fn();
   }
 
+  function getVisibleDaySafeId() {
+    const visibleDayContent = document.querySelector('.day-tab-content:not(.d-none)');
+    if (visibleDayContent) {
+      const activePane = visibleDayContent.querySelector('.tab-pane.show.active');
+      if (activePane && activePane.id && activePane.id.indexOf('tab-day-') === 0) {
+        return activePane.id.replace('tab-day-', '');
+      }
+    }
+
+    const activeDayInVisibleContainer = document.querySelector(
+      '.day-tabs-container:not(.d-none) .day-tabs .nav-link.active'
+    );
+    if (activeDayInVisibleContainer) {
+      return activeDayInVisibleContainer.id.replace('tab-day-', '').replace(/-tab$/, '');
+    }
+
+    const fallbackActive = document.querySelector('.day-tabs .nav-link.active');
+    if (fallbackActive) {
+      return fallbackActive.id.replace('tab-day-', '').replace(/-tab$/, '');
+    }
+    return null;
+  }
+
+  function findQueryTabForDay(safeDay) {
+    if (!safeDay) return null;
+    const dayPane = document.getElementById(`tab-day-${safeDay}`);
+    if (dayPane) {
+      const activeQuery = dayPane.querySelector('.query-tabs .nav-link.active');
+      if (activeQuery) return activeQuery;
+      const fallbackQuery = dayPane.querySelector('.query-tabs .nav-link');
+      if (fallbackQuery) return fallbackQuery;
+    }
+    return document.querySelector(`[id^="query-tab-${safeDay}-"]`);
+  }
+
   function initListeners() {
     // Initialize on query tab shown
     document.querySelectorAll('[id^="query-tab-"]').forEach((tabEl) => {
@@ -283,13 +318,11 @@
     });
 
     // Initialize the first query for the currently active day (if any)
-    const activeDayTab = document.querySelector('.day-tabs .nav-link.active');
-    if (activeDayTab) {
-      const targetPaneId = activeDayTab.getAttribute('data-bs-target').substring(1); // tab-day-YYYY-MM-DD
-      const safeDay = targetPaneId.replace('tab-day-', '');
-      const firstQueryTab = document.querySelector(`[id^="query-tab-${safeDay}-"]`);
-      if (firstQueryTab) {
-        setTimeout(() => safeInitForTab(firstQueryTab), 100);
+    const safeDay = getVisibleDaySafeId();
+    if (safeDay) {
+      const initialQueryTab = findQueryTabForDay(safeDay);
+      if (initialQueryTab) {
+        setTimeout(() => safeInitForTab(initialQueryTab), 100);
       }
     }
 
@@ -298,11 +331,9 @@
       if (!/-tab$/.test(dayTabBtn.id)) return;
       dayTabBtn.addEventListener('shown.bs.tab', function () {
         const safeDay = dayTabBtn.id.replace('tab-day-', '').replace(/-tab$/, '');
-        const firstQueryTab = document.querySelector(
-          `[id^="query-tab-${safeDay}-"]`
-        );
-        if (firstQueryTab) {
-          setTimeout(() => safeInitForTab(firstQueryTab), 100);
+        const targetQueryTab = findQueryTabForDay(safeDay);
+        if (targetQueryTab) {
+          setTimeout(() => safeInitForTab(targetQueryTab), 100);
         }
       });
     });
