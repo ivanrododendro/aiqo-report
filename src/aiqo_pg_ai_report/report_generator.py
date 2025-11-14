@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 import re
 import base64
+from htmlmin import minify
 
 from .report_data_processor import ReportDataProcessor
 
@@ -19,7 +20,9 @@ class ReportGenerator:
         templates_path = Path(template_base_path) / "report_templates"
         self.env = Environment(
             loader=FileSystemLoader(str(templates_path)),
-            autoescape=select_autoescape(["html", "xml"])
+            autoescape=select_autoescape(["html", "xml"]),
+            trim_blocks=True,
+            lstrip_blocks=True,
         )
         self._setup_custom_filters()
         self._setup_minification_filters()
@@ -145,4 +148,5 @@ class ReportGenerator:
         )
 
         html_report = self.template.render(**context)
-        Path(output_path).write_text(html_report, encoding="utf-8")
+        html_report = minify(html_report, remove_empty_space=True)
+        Path(output_path).write_text(html_report, encoding="utf-8", newline="\n")
