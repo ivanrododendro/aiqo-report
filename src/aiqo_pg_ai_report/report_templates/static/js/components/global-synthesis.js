@@ -46,24 +46,41 @@
     },
 
     _populateOptimizationLegend() {
-      const container = document.getElementById('genericOptimizationLegend');
-      if (!container) return;
-      const legendEntries = (window.reportData && reportData.optimizations && reportData.optimizations.annotations &&
-        reportData.optimizations.annotations.legend_entries && reportData.optimizations.annotations.legend_entries.generic) || [];
+      const legendEntries =
+        (window.reportData &&
+          reportData.optimizations &&
+          reportData.optimizations.annotations &&
+          reportData.optimizations.annotations.legend_entries &&
+          reportData.optimizations.annotations.legend_entries.generic) ||
+        [];
 
-      if (legendEntries.length > 0) {
-        let html = '';
-        legendEntries
-          .slice()
-          .sort((a, b) => a.id.localeCompare(b.id))
-          .forEach((entry) => {
-            const content = entry.type === 'Serveur' ? `<code>${entry.text}</code>` : entry.text;
-            html += `(<strong>${entry.id}</strong>) ${content}<br/>`;
-          });
-        container.innerHTML = html;
-      } else {
-        container.innerHTML = '';
-      }
+      const serverContainer = document.getElementById('genericOptimizationLegendServer');
+      const eventsContainer = document.getElementById('genericOptimizationLegendEvents');
+      if (!serverContainer || !eventsContainer) return;
+
+      const badge = (date) =>
+        date ? `<span class="badge bg-secondary bg-opacity-75 ms-2">${date}</span>` : '';
+
+      const serverEntries = legendEntries
+        .filter((entry) => entry.type === 'Serveur')
+        .sort((a, b) => a.id.localeCompare(b.id));
+      const eventEntries = legendEntries
+        .filter((entry) => entry.type === 'Événement')
+        .sort((a, b) => a.id.localeCompare(b.id));
+
+      serverContainer.innerHTML = serverEntries
+        .map(
+          (entry) =>
+            `(<strong>${entry.id}</strong>) <code>${entry.text}</code>${badge(entry.date)}`
+        )
+        .join('<br/>');
+
+      eventsContainer.innerHTML = eventEntries
+        .map(
+          (entry) =>
+            `(<strong>${entry.id}</strong>) ${entry.text}${badge(entry.date)}`
+        )
+        .join('<br/>');
     },
 
     _formatGlobalQueryDurations() {

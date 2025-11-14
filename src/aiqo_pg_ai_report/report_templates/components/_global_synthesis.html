@@ -60,9 +60,22 @@
              aria-labelledby="headingDailyCumulatedTimeChartCollapse" 
              data-bs-parent="#accordionGlobalSynthesis">
             <div class="accordion-body">
-                {{ chart_container('dailyCumulatedTimeChart') }}
-                <div class="card card-body">
-                    <div id="genericOptimizationLegend"></div>
+                <div class="mb-3">
+                    {{ chart_container('dailyCumulatedTimeChart') }}
+                </div>
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <div class="card card-body h-100">
+                            <h6 class="fw-bold mb-2">Ottimizzazioni Server</h6>
+                            <div id="genericOptimizationLegendServer" class="small"></div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="card card-body h-100">
+                            <h6 class="fw-bold mb-2">Eventi</h6>
+                            <div id="genericOptimizationLegendEvents" class="small"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
