@@ -15,6 +15,7 @@
       this._attachDailyChartClick();
       this._populateOptimizationLegend();
       this._formatGlobalQueryDurations();
+      this._setupAnnotationToggles();
     },
 
     _renderDailyChart() {
@@ -58,8 +59,13 @@
       const eventsContainer = document.getElementById('genericOptimizationLegendEvents');
       if (!serverContainer || !eventsContainer) return;
 
-      const badge = (date) =>
-        date ? `<span class="badge bg-secondary bg-opacity-75 ms-2">${date}</span>` : '';
+      const badge = (date, type) => {
+        if (!date) return '';
+        let cls = 'badge-annotation-event';
+        if (type === 'Serveur') cls = 'badge-annotation-server';
+        else if (type === 'Requête') cls = 'badge-annotation-query';
+        return `<span class="badge ${cls} ms-2">${date}</span>`;
+      };
 
       const serverEntries = legendEntries
         .filter((entry) => entry.type === 'Serveur')
@@ -71,14 +77,14 @@
       serverContainer.innerHTML = serverEntries
         .map(
           (entry) =>
-            `(<strong>${entry.id}</strong>) <code>${entry.text}</code>${badge(entry.date)}`
+            `(<strong>${entry.id}</strong>) <code>${entry.text}</code>${badge(entry.date, entry.type)}`
         )
         .join('<br/>');
 
       eventsContainer.innerHTML = eventEntries
         .map(
           (entry) =>
-            `(<strong>${entry.id}</strong>) ${entry.text}${badge(entry.date)}`
+            `(<strong>${entry.id}</strong>) ${entry.text}${badge(entry.date, entry.type)}`
         )
         .join('<br/>');
     },
@@ -92,6 +98,36 @@
           el.innerHTML = Duration.fromMillis(stat.cumulated_time).toFormat("h'h'm'm's's'");
         }
       });
+    },
+
+    _setupAnnotationToggles() {
+      const serverToggle = document.getElementById('toggle-global-server');
+      const eventsToggle = document.getElementById('toggle-global-events');
+      const serverCard = document.getElementById('legend-server-card');
+      const eventsCard = document.getElementById('legend-events-card');
+
+      const apply = () => {
+        const includeServer = !serverToggle || !!serverToggle.checked;
+        const includeEvents = !eventsToggle || !!eventsToggle.checked;
+
+        if (window.reportChartManager && typeof window.reportChartManager.updateDailyAnnotations === 'function') {
+          window.reportChartManager.updateDailyAnnotations({
+            includeServer,
+            includeEvents,
+          });
+        }
+
+        if (serverCard) {
+          serverCard.classList.toggle('d-none', !includeServer);
+        }
+        if (eventsCard) {
+          eventsCard.classList.toggle('d-none', !includeEvents);
+        }
+      };
+
+      if (serverToggle) serverToggle.addEventListener('change', apply);
+      if (eventsToggle) eventsToggle.addEventListener('change', apply);
+      apply();
     },
   };
 

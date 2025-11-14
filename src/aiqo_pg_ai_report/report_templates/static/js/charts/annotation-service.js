@@ -7,9 +7,9 @@
 
   AIQO.Core.AnnotationService = class AnnotationService {
     static COLORS = {
-      query: 'rgba(255, 0, 0, 0.8)',
-      server: 'rgba(0, 0, 255, 0.8)',
-      generic: 'rgba(128, 128, 128, 0.6)'
+      query: 'rgba(25, 135, 84, 0.8)',   // green
+      server: 'rgba(13, 110, 253, 0.8)', // blue
+      generic: 'rgba(108, 117, 125, 0.8)' // grey for events
     };
 
     constructor(reportData) {
@@ -17,18 +17,33 @@
     }
 
     // Build annotations for the daily chart from generic optimizations
-    buildDailyAnnotations() {
+    buildDailyAnnotations(options = {}) {
       const annotations = {};
       const root = (this.reportData.optimizations && this.reportData.optimizations.annotations) || {};
       const list = Array.isArray(root.generic) ? root.generic
                  : (root.annotations && Array.isArray(root.annotations.generic) ? root.annotations.generic : []);
       if (!list || list.length === 0) return annotations;
 
+      const includeServer = options.includeServer !== false;
+      const includeEvents = options.includeEvents !== false;
+
       let i = 0;
       list.forEach((ann) => {
         const date = (ann && ann.date) ? ann.date : null;
         if (!date) return;
-        annotations['ann_' + (i++)] = this._lineOnDate(date, ann && ann.id, ann && ann.border_color);
+        const type = ann && ann.type ? ann.type : null;
+        if (type === 'Serveur' && !includeServer) return;
+        if (type === 'Événement' && !includeEvents) return;
+        const isServer = type === 'Serveur';
+        const filled = isServer;
+        annotations['ann_' + (i++)] = this._lineOnDate(
+          date,
+          ann && ann.id,
+          ann && ann.border_color,
+          filled,
+          isServer,
+          0
+        );
       });
       return annotations;
     }

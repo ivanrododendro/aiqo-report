@@ -56,3 +56,19 @@
     max-height: 2000px;
     opacity: 1;
 }
+
+/* Annotation badge palette */
+.badge-annotation-query {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.badge-annotation-server {
+    background-color: #cfe2ff;
+    color: #084298;
+}
+
+.badge-annotation-event {
+    background-color: #e2e3e5;
+    color: #41464b;
+}

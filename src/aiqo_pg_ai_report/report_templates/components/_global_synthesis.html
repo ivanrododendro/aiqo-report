@@ -61,17 +61,27 @@
              data-bs-parent="#accordionGlobalSynthesis">
             <div class="accordion-body">
                 <div class="mb-3">
+                    <div class="d-flex flex-wrap align-items-center gap-3 mb-2 small">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="toggle-global-server" checked>
+                            <label class="form-check-label" for="toggle-global-server">Ottimizzazioni Server</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="toggle-global-events">
+                            <label class="form-check-label" for="toggle-global-events">Eventi</label>
+                        </div>
+                    </div>
                     {{ chart_container('dailyCumulatedTimeChart') }}
                 </div>
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
-                        <div class="card card-body h-100">
+                        <div class="card card-body h-100" id="legend-server-card">
                             <h6 class="fw-bold mb-2">Ottimizzazioni Server</h6>
                             <div id="genericOptimizationLegendServer" class="small"></div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
-                        <div class="card card-body h-100">
+                        <div class="card card-body h-100" id="legend-events-card">
                             <h6 class="fw-bold mb-2">Eventi</h6>
                             <div id="genericOptimizationLegendEvents" class="small"></div>
                         </div>

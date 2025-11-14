@@ -55,6 +55,16 @@
     chart.update('none');
   }
 
+  updateDailyAnnotations(options) {
+    const chart = this.charts.dailyCumulatedTime;
+    if (!chart) return;
+    const annotations = this.chartFactory.annotationService.buildDailyAnnotations(options || {});
+    if (!chart.options.plugins) chart.options.plugins = {};
+    if (!chart.options.plugins.annotation) chart.options.plugins.annotation = {};
+    chart.options.plugins.annotation.annotations = annotations;
+    chart.update('none');
+  }
+
   destroyChart(chartId) {
     if (this.charts[chartId]) {
       this.charts[chartId].destroy();

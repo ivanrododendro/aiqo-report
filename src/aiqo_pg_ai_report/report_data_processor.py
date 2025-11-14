@@ -392,7 +392,12 @@ class ReportDataProcessor:
                 }
             )
             annotations["generic"].append(
-                {"id": annotation_id, "date": opt["date"], "border_color": "rgba(0, 0, 255, 0.8)"}
+                {
+                    "id": annotation_id,
+                    "date": opt["date"],
+                    "type": "Serveur",
+                    "border_color": "rgba(13, 110, 253, 0.8)",
+                }
             )
             counter += 1
 
@@ -412,7 +417,12 @@ class ReportDataProcessor:
                 }
             )
             annotations["generic"].append(
-                {"id": annotation_id, "date": opt["date"], "border_color": "rgba(0, 128, 0, 0.8)"}
+                {
+                    "id": annotation_id,
+                    "date": opt["date"],
+                    "type": "Événement",
+                    "border_color": "rgba(108, 117, 125, 0.8)",
+                }
             )
             counter += 1
 
