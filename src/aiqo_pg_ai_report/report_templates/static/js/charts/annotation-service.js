@@ -44,10 +44,35 @@
 
       const reportOpts = (this.reportData.optimizations || {});
       const queryMap = reportOpts.query || {};
-      const serverList = Array.isArray(reportOpts.server) ? reportOpts.server : [];
-      const genericList = ((reportOpts.annotations && Array.isArray(reportOpts.annotations.generic)) ? reportOpts.annotations.generic
-                        : (reportOpts.annotations && reportOpts.annotations.annotations && Array.isArray(reportOpts.annotations.annotations.generic)) ? reportOpts.annotations.annotations.generic
-                        : []);
+      const annotationsRoot = reportOpts.annotations || {};
+      const genericAnnotations = Array.isArray(annotationsRoot.generic)
+        ? annotationsRoot.generic
+        : (annotationsRoot.annotations && Array.isArray(annotationsRoot.annotations.generic))
+        ? annotationsRoot.annotations.generic
+        : [];
+      const legendEntries = (annotationsRoot.legend_entries && Array.isArray(annotationsRoot.legend_entries.generic))
+        ? annotationsRoot.legend_entries.generic
+        : [];
+
+      const legendById = {};
+      legendEntries.forEach((entry) => {
+        if (entry && entry.id) {
+          legendById[entry.id] = entry;
+        }
+      });
+
+      const serverAnnotations = [];
+      const eventAnnotations = [];
+      genericAnnotations.forEach((ann) => {
+        if (!ann || !ann.id) return;
+        const meta = legendById[ann.id];
+        if (!meta) return;
+        if (meta.type === 'Serveur') {
+          serverAnnotations.push({ ann, meta });
+        } else if (meta.type === 'Événement') {
+          eventAnnotations.push({ ann, meta });
+        }
+      });
 
       const includeQuery = (options && typeof options.includeQuery === 'boolean') ? options.includeQuery : true;
       const includeServer = (options && typeof options.includeServer === 'boolean') ? options.includeServer : true;
@@ -67,30 +92,42 @@
         });
       }
 
-      // Server annotations for the selected day only (prefixed S1..)
+      // Server annotations across the full date range
       if (includeServer) {
         let sIdx = 1;
-        if (selectedDay) {
-          serverList
-            .filter((opt) => opt && opt.date === selectedDay)
-            .forEach((opt) => {
-              const date = selectedDay;
-              if (labels.indexOf(date) === -1) return;
-              // Raise labels slightly for per-query server annotations as well
-              annotations['s_' + sIdx] = this._lineOnDate(date, 'S' + String(sIdx), AIQO.Core.AnnotationService.COLORS.server, true, true, 0);
-              sIdx += 1;
-            });
-        }
+        serverAnnotations.forEach(({ ann, meta }) => {
+          const date = ann && ann.date ? String(ann.date).split(' ')[0] : null;
+          if (!date) return;
+          if (labels.indexOf(date) === -1) return;
+          const labelText = meta && meta.id ? String(meta.id) : 'S' + String(sIdx);
+          annotations['s_' + labelText] = this._lineOnDate(
+            date,
+            labelText,
+            (ann && ann.border_color) || AIQO.Core.AnnotationService.COLORS.server,
+            true,
+            true,
+            0
+          );
+          sIdx += 1;
+        });
       }
 
       // Optional: Generic annotations layer (global context)
-      if (includeGeneric && Array.isArray(genericList) && genericList.length > 0) {
+      if (includeGeneric && eventAnnotations.length > 0) {
         let gIdx = 1;
-        genericList.forEach((ann) => {
-          const date = (ann && ann.date) ? String(ann.date).split(' ')[0] : null;
+        eventAnnotations.forEach(({ ann, meta }) => {
+          const date = ann && ann.date ? String(ann.date).split(' ')[0] : null;
           if (!date) return;
           if (labels.indexOf(date) === -1) return;
-          annotations['g_' + gIdx] = this._lineOnDate(date, ann && ann.id ? String(ann.id) : 'G' + String(gIdx), AIQO.Core.AnnotationService.COLORS.generic, false, false, 0);
+          const labelText = meta && meta.id ? String(meta.id) : 'G' + String(gIdx);
+          annotations['g_' + labelText] = this._lineOnDate(
+            date,
+            labelText,
+            (ann && ann.border_color) || AIQO.Core.AnnotationService.COLORS.generic,
+            false,
+            false,
+            0
+          );
           gIdx += 1;
         });
       }

@@ -180,34 +180,7 @@ class ReportDataProcessor:
         return context
 
     def _collect_all_dates(self, daily_query_stats, query_optimizations, server_optimizations, event_optimizations):
-        """Collect all unique dates from various sources and return sorted list."""
-        all_dates_set = set()
-
-        # From daily stats
-        dates_from_stats = set(daily_query_stats.keys())
-        logger.info(f"Dates from daily_query_stats: {sorted(dates_from_stats)}")
-        all_dates_set.update(dates_from_stats)
-
-        # From query optimizations
-        dates_from_query_opts = set()
-        for query_code, opts in query_optimizations.items():
-            for opt in opts:
-                dates_from_query_opts.add(opt["date"])
-        logger.info(f"Dates from query_optimizations: {sorted(dates_from_query_opts)}")
-        all_dates_set.update(dates_from_query_opts)
-
-        # From server optimizations
-        dates_from_server_opts = {opt["date"] for opt in server_optimizations}
-        logger.info(f"Dates from server_optimizations: {sorted(dates_from_server_opts)}")
-        all_dates_set.update(dates_from_server_opts)
-
-        # From event optimizations
-        dates_from_event_opts = {opt["date"] for opt in event_optimizations}
-        logger.info(f"Dates from event_optimizations: {sorted(dates_from_event_opts)}")
-        all_dates_set.update(dates_from_event_opts)
-
-        # Normalize all collected dates to "YYYY-MM-DD" and replace in optimizations too
-        normalized = set()
+        """Collect unique dates from query reports only and normalize optimization dates."""
 
         def _normalize_date(ds):
             try:
@@ -217,17 +190,7 @@ class ReportDataProcessor:
                 logger.warning(f"Unexpected date format encountered: {ds}")
                 return ds.replace(".", "-")
 
-        for d in all_dates_set:
-            normalized.add(_normalize_date(d))
-
-        # Filter out unwanted placeholder dates (1 gennaio)
-        unwanted_dates = {'2024-01-01', '2025-01-01'}
-        filtered_dates = {d for d in normalized if d not in unwanted_dates}
-        
-        if unwanted_dates & normalized:
-            logger.warning(f"Filtered out placeholder dates: {sorted(unwanted_dates & normalized)}")
-
-        # update opt["date"] everywhere to normalized version
+        # Normalize optimization dates in-place for consistency
         for opts_dict in (query_optimizations,):
             for q, opts in opts_dict.items():
                 for opt in opts:
@@ -236,7 +199,18 @@ class ReportDataProcessor:
             for opt in opt_list:
                 opt["date"] = _normalize_date(opt["date"])
 
-        return sorted(list(filtered_dates))
+        # Build the date range strictly from query statistics (i.e., actual report days)
+        normalized_stats = {_normalize_date(day) for day in daily_query_stats.keys()}
+        logger.info(f"Dates from daily_query_stats: {sorted(normalized_stats)}")
+
+        # Filter out unwanted placeholder dates (1 gennaio)
+        unwanted_dates = {'2024-01-01', '2025-01-01'}
+        filtered_dates = {d for d in normalized_stats if d not in unwanted_dates}
+
+        if unwanted_dates & normalized_stats:
+            logger.warning(f"Filtered out placeholder dates: {sorted(unwanted_dates & normalized_stats)}")
+
+        return sorted(filtered_dates)
 
     def _build_date_hierarchy(self, all_dates):
         """
@@ -372,6 +346,7 @@ class ReportDataProcessor:
         }
 
         legend_entries = {"query": [], "generic": []}
+        valid_dates = set(all_dates)
 
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         counter = 0
@@ -379,6 +354,8 @@ class ReportDataProcessor:
         # Process query-specific optimizations
         for query_code, opts in query_optimizations.items():
             for opt in opts:
+                if opt["date"] not in valid_dates:
+                    continue
                 annotation_id = alphabet[counter % len(alphabet)]
                 legend_entries["query"].append(
                     {
@@ -401,7 +378,10 @@ class ReportDataProcessor:
 
         # Process server optimizations
         for opt in server_optimizations:
+            if opt["date"] not in valid_dates:
+                continue
             annotation_id = alphabet[counter % len(alphabet)]
+            opt["display_id"] = annotation_id
             legend_entries["generic"].append(
                 {
                     "id": annotation_id,
@@ -418,7 +398,10 @@ class ReportDataProcessor:
 
         # Process event optimizations
         for opt in event_optimizations:
+            if opt["date"] not in valid_dates:
+                continue
             annotation_id = alphabet[counter % len(alphabet)]
+            opt["display_id"] = annotation_id
             legend_entries["generic"].append(
                 {
                     "id": annotation_id,
