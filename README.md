@@ -129,6 +129,17 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py /path/to/your
 
 This will generate an HTML report in the current working directory (or `output/` if it exists), named similarly to `pg-ai-report_<timestamp>.html`.
 
+## Building Standalone Executables with Nuitka
+
+To distribute the analyzer as a single binary per platform without requiring a system-wide Python installation, we rely on [Nuitka](https://nuitka.net/). Install dev dependencies (which now include Nuitka) and run the platform-specific build on the corresponding operating system:
+
+```bash
+poetry install --with dev
+./scripts/build_nuitka.sh <linux|macos-silicon|windows>
+```
+
+The script wraps the Nuitka invocation, bundles the prompt/template assets, and writes binaries to `dist/`. **Run the script on the same OS you are targeting** (e.g., run it on Windows to produce `pg_autoexplain.exe`).
+
 ### Advanced Usage
 
 You can customize the analysis using various command-line arguments:

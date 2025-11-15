@@ -12,3 +12,5 @@ __pycache__/
 src/.DS_Store
 .DS_Store
 .vscode/launch.json
+dist/
+nuitka-crash-report.xml
