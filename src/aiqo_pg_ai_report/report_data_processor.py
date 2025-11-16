@@ -351,6 +351,26 @@ class ReportDataProcessor:
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         counter = 0
 
+        date_range = None
+        if all_dates:
+            try:
+                date_range = (
+                    datetime.strptime(all_dates[0], "%Y-%m-%d"),
+                    datetime.strptime(all_dates[-1], "%Y-%m-%d"),
+                )
+            except ValueError:
+                logger.warning("Unable to parse log date range for annotations filter")
+
+        def _within_log_range(date_str):
+            if not date_range:
+                return False
+            try:
+                current = datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                logger.warning(f"Unexpected annotation date format: {date_str}")
+                return False
+            return date_range[0] <= current <= date_range[1]
+
         # Process query-specific optimizations
         for query_code, opts in query_optimizations.items():
             for opt in opts:
@@ -378,7 +398,7 @@ class ReportDataProcessor:
 
         # Process server optimizations
         for opt in server_optimizations:
-            if opt["date"] not in valid_dates:
+            if not _within_log_range(opt["date"]):
                 continue
             annotation_id = alphabet[counter % len(alphabet)]
             opt["display_id"] = annotation_id
@@ -403,7 +423,7 @@ class ReportDataProcessor:
 
         # Process event optimizations
         for opt in event_optimizations:
-            if opt["date"] not in valid_dates:
+            if not _within_log_range(opt["date"]):
                 continue
             annotation_id = alphabet[counter % len(alphabet)]
             opt["display_id"] = annotation_id

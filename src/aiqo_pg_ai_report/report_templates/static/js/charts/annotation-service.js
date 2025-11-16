@@ -139,7 +139,6 @@
         serverAnnotations.forEach(({ ann, meta }) => {
           const date = ann && ann.date ? String(ann.date).split(' ')[0] : null;
           if (!date) return;
-          if (labels.indexOf(date) === -1) return;
           const labelText = meta && meta.id ? String(meta.id) : 'S' + String(sIdx);
           annotations['s_' + labelText] = this._lineOnDate(
             date,
@@ -159,7 +158,6 @@
         eventAnnotations.forEach(({ ann, meta }) => {
           const date = ann && ann.date ? String(ann.date).split(' ')[0] : null;
           if (!date) return;
-          if (labels.indexOf(date) === -1) return;
           const labelText = meta && meta.id ? String(meta.id) : 'G' + String(gIdx);
           annotations['g_' + labelText] = this._lineOnDate(
             date,
