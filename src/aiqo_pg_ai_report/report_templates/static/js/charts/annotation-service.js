@@ -184,7 +184,7 @@
         xMin: dateStr,
         xMax: dateStr,
         borderColor: color,
-        borderWidth: 2,
+        borderWidth: 1,
         label: {
           display: true,
           content: labelText || '',
