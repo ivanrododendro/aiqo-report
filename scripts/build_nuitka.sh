@@ -43,6 +43,7 @@ case "$TARGET_OS" in
     ;;
   windows)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
+      --assume-yes-for-downloads \
       --output-filename=aiqo-report.exe "$ENTRY_POINT"
     ;;
   *)
