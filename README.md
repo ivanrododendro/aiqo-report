@@ -17,7 +17,7 @@ The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed
 
 ## Dependencies & Requirements
 
-*   Python 3.8+
+*   Python 3.11+
 *   The project uses `poetry` for dependency management.
 *   Key Python packages: `litellm`, `sqlparse`, `Jinja2`.
 
