@@ -5,6 +5,15 @@
   window.AIQO = window.AIQO || {};
   AIQO.Components = AIQO.Components || {};
 
+  const normalizeType = (value) => {
+    if (!value && value !== 0) return null;
+    const normalized = String(value).trim().toLowerCase();
+    if (['server', 'serveur'].includes(normalized)) return 'Server';
+    if (['query', 'requete', 'requête'].includes(normalized)) return 'Query';
+    if (['event', 'événement', 'evenement', 'evento'].includes(normalized)) return 'Event';
+    return value;
+  };
+
   const GlobalSynthesis = {
     _initialized: false,
     init() {
@@ -61,17 +70,24 @@
 
       const badge = (date, type) => {
         if (!date) return '';
+        const normalizedType = normalizeType(type);
         let cls = 'badge-annotation-event';
-        if (type === 'Serveur') cls = 'badge-annotation-server';
-        else if (type === 'Requête') cls = 'badge-annotation-query';
+        if (normalizedType === 'Server') cls = 'badge-annotation-server';
+        else if (normalizedType === 'Query') cls = 'badge-annotation-query';
         return `<span class="badge ${cls} ms-2">${date}</span>`;
       };
 
-      const serverEntries = legendEntries
-        .filter((entry) => entry.type === 'Serveur')
+      const normalizedEntries = legendEntries.map((entry) => {
+        if (!entry || typeof entry !== 'object') return entry;
+        if (!('type' in entry)) return entry;
+        return Object.assign({}, entry, { type: normalizeType(entry.type) });
+      });
+
+      const serverEntries = normalizedEntries
+        .filter((entry) => entry && entry.type === 'Server')
         .sort((a, b) => a.id.localeCompare(b.id));
-      const eventEntries = legendEntries
-        .filter((entry) => entry.type === 'Événement')
+      const eventEntries = normalizedEntries
+        .filter((entry) => entry && entry.type === 'Event')
         .sort((a, b) => a.id.localeCompare(b.id));
 
       serverContainer.innerHTML = serverEntries

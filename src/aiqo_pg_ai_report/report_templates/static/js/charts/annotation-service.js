@@ -5,6 +5,15 @@
   window.AIQO = window.AIQO || {};
   AIQO.Core = AIQO.Core || {};
 
+  const normalizeType = (value) => {
+    if (!value && value !== 0) return null;
+    const normalized = String(value).trim().toLowerCase();
+    if (['server', 'serveur'].includes(normalized)) return 'Server';
+    if (['query', 'requete', 'requête'].includes(normalized)) return 'Query';
+    if (['event', 'événement', 'evenement', 'evento'].includes(normalized)) return 'Event';
+    return value;
+  };
+
   AIQO.Core.AnnotationService = class AnnotationService {
     static COLORS = {
       query: 'rgba(25, 135, 84, 0.8)',   // green
@@ -24,17 +33,23 @@
                  : (root.annotations && Array.isArray(root.annotations.generic) ? root.annotations.generic : []);
       if (!list || list.length === 0) return annotations;
 
+      const normalizedList = list.map((entry) => {
+        if (!entry || typeof entry !== 'object') return entry;
+        if (!('type' in entry)) return entry;
+        return Object.assign({}, entry, { type: normalizeType(entry.type) });
+      });
+
       const includeServer = options.includeServer !== false;
       const includeEvents = options.includeEvents !== false;
 
       let i = 0;
-      list.forEach((ann) => {
+      normalizedList.forEach((ann) => {
         const date = (ann && ann.date) ? ann.date : null;
         if (!date) return;
         const type = ann && ann.type ? ann.type : null;
-        if (type === 'Serveur' && !includeServer) return;
-        if (type === 'Événement' && !includeEvents) return;
-        const isServer = type === 'Serveur';
+        if (type === 'Server' && !includeServer) return;
+        if (type === 'Event' && !includeEvents) return;
+        const isServer = type === 'Server';
         const filled = isServer;
         annotations['ann_' + (i++)] = this._lineOnDate(
           date,
@@ -70,7 +85,13 @@
         : [];
 
       const legendById = {};
-      legendEntries.forEach((entry) => {
+      const normalizedLegendEntries = legendEntries.map((entry) => {
+        if (!entry || typeof entry !== 'object') return entry;
+        if (!('type' in entry)) return entry;
+        return Object.assign({}, entry, { type: normalizeType(entry.type) });
+      });
+
+      normalizedLegendEntries.forEach((entry) => {
         if (entry && entry.id) {
           legendById[entry.id] = entry;
         }
@@ -78,13 +99,18 @@
 
       const serverAnnotations = [];
       const eventAnnotations = [];
-      genericAnnotations.forEach((ann) => {
+      const normalizedGenericAnnotations = genericAnnotations.map((ann) => {
+        if (!ann || typeof ann !== 'object') return ann;
+        if (!('type' in ann)) return ann;
+        return Object.assign({}, ann, { type: normalizeType(ann.type) });
+      });
+      normalizedGenericAnnotations.forEach((ann) => {
         if (!ann || !ann.id) return;
         const meta = legendById[ann.id];
         if (!meta) return;
-        if (meta.type === 'Serveur') {
+        if (meta.type === 'Server') {
           serverAnnotations.push({ ann, meta });
-        } else if (meta.type === 'Événement') {
+        } else if (meta.type === 'Event') {
           eventAnnotations.push({ ann, meta });
         }
       });

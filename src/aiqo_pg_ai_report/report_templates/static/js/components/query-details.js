@@ -74,11 +74,11 @@
 
     container.innerHTML = `
       <div class="row gy-2 gx-3 text-nowrap">
-        <div class="col-auto"><strong>Début :</strong> ${validStart}</div>
-        <div class="col-auto"><strong>Fin :</strong> ${validEnd}</div>
-        <div class="col-auto"><strong>Durée :</strong> ${durationFmt}</div>
-        <div class="col-auto"><strong>Coût :</strong> ${costFormatted}</div>
-        <div class="col-auto"><strong>Lignes :</strong> ${rowsFormatted}</div>
+        <div class="col-auto"><strong>Start:</strong> ${validStart}</div>
+        <div class="col-auto"><strong>End:</strong> ${validEnd}</div>
+        <div class="col-auto"><strong>Duration:</strong> ${durationFmt}</div>
+        <div class="col-auto"><strong>Cost:</strong> ${costFormatted}</div>
+        <div class="col-auto"><strong>Rows:</strong> ${rowsFormatted}</div>
       </div>`;
   }
 
@@ -92,15 +92,15 @@
       const queryData = report.query_text;
 
       if (!planData) {
-        container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione non disponibile</div>';
+        container.innerHTML = '<div class="alert alert-warning">Execution plan unavailable</div>';
         return;
       }
       if (typeof planData === 'string' && planData.trim().length === 0) {
-        container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione vuoto</div>';
+        container.innerHTML = '<div class="alert alert-warning">Execution plan is empty</div>';
         return;
       }
       if (typeof planData === 'object' && Object.keys(planData).length === 0) {
-        container.innerHTML = '<div class="alert alert-warning">Piano di esecuzione vuoto</div>';
+        container.innerHTML = '<div class="alert alert-warning">Execution plan is empty</div>';
         return;
       }
 
@@ -112,11 +112,11 @@
           planString = JSON.stringify(planData, null, 2);
         } catch (e) {
           console.error('Error stringifying plan data:', e);
-          container.innerHTML = '<div class="alert alert-danger">Errore nella conversione del piano di esecuzione</div>';
+          container.innerHTML = '<div class="alert alert-danger">Error converting execution plan</div>';
           return;
         }
       } else {
-        container.innerHTML = '<div class="alert alert-danger">Formato del piano di esecuzione non valido</div>';
+        container.innerHTML = '<div class="alert alert-danger">Invalid execution plan format</div>';
         return;
       }
 
@@ -133,7 +133,7 @@
       app.mount(`#${appId}`);
     } catch (error) {
       console.error(`Error mounting pev2 for ${appId}:`, error);
-      container.innerHTML = `<div class="alert alert-danger">Errore nel caricamento del piano di esecuzione: ${error.message}</div>`;
+      container.innerHTML = `<div class="alert alert-danger">Error loading execution plan: ${error.message}</div>`;
     }
   }
 

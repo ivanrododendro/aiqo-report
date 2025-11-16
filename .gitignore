@@ -2,12 +2,6 @@
 .venv/
 api_keys.txt
 /.aider.chat.history.md
-/.aider.input.history
-/.aider.tags.cache.v3/cache.db
-/.aider.tags.cache.v4/cache.db
-/.aider.tags.cache.v4/cache.db-shm
-/.aider.tags.cache.v4/cache.db-wal
-.aider*
 __pycache__/
 src/.DS_Store
 .DS_Store

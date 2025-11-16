@@ -1,6 +1,6 @@
 {% from '_macros.html' import accordion_card, stats_table, chart_container %}
 
-<h2>Synthèse globale</h2>
+<h2>Global Summary</h2>
 <div class="accordion" id="accordionGlobalSynthesis">
     <div class="accordion-item">
         <h2 class="accordion-header" id="headingRequestCollapse">
@@ -10,7 +10,7 @@
                     data-bs-target="#requestCollapse" 
                     aria-expanded="false" 
                     aria-controls="requestCollapse">
-                <h3>Requêtes les plus coûteuses (toutes périodes confondues)</h3>
+                <h3>Most expensive queries (all periods)</h3>
             </button>
         </h2>
         <div id="requestCollapse" 
@@ -22,8 +22,8 @@
                     <table class='table table-bordered table-striped table-hover'>
                         <thead>
                             <tr>
-                                <th scope='col'>Requête</th>
-                                <th scope='col'>Temps cumulé</th>
+                                <th scope='col'>Query</th>
+                                <th scope='col'>Cumulative time</th>
                                 <th scope='col'># occurrences</th>
                             </tr>
                         </thead>
@@ -52,7 +52,7 @@
                     data-bs-target="#dailyCumulatedTimeChartCollapse" 
                     aria-expanded="false" 
                     aria-controls="dailyCumulatedTimeChartCollapse">
-                <h3>Tendances quotidiennes du temps cumulé et du nombre de requêtes</h3>
+                <h3>Daily cumulative time and query volume trends</h3>
             </button>
         </h2>
         <div class="accordion-collapse collapse" 
@@ -64,11 +64,11 @@
                     <div class="d-flex flex-wrap align-items-center gap-3 mb-2 small">
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="checkbox" id="toggle-global-server" checked>
-                            <label class="form-check-label" for="toggle-global-server">Ottimizzazioni Server</label>
+                            <label class="form-check-label" for="toggle-global-server">Server Optimizations</label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="checkbox" id="toggle-global-events">
-                            <label class="form-check-label" for="toggle-global-events">Eventi</label>
+                            <label class="form-check-label" for="toggle-global-events">Events</label>
                         </div>
                     </div>
                     {{ chart_container('dailyCumulatedTimeChart') }}
@@ -76,13 +76,13 @@
                 <div class="row g-3">
                     <div class="col-12 col-md-6">
                         <div class="card card-body h-100" id="legend-server-card">
-                            <h6 class="fw-bold mb-2">Ottimizzazioni Server</h6>
+                            <h6 class="fw-bold mb-2">Server Optimizations</h6>
                             <div id="genericOptimizationLegendServer" class="small"></div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card card-body h-100" id="legend-events-card">
-                            <h6 class="fw-bold mb-2">Eventi</h6>
+                            <h6 class="fw-bold mb-2">Events</h6>
                             <div id="genericOptimizationLegendEvents" class="small"></div>
                         </div>
                     </div>

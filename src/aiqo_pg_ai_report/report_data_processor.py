@@ -361,7 +361,7 @@ class ReportDataProcessor:
                     {
                         "id": annotation_id,
                         "date": opt["date"],
-                        "type": "Requête",
+                        "type": "Query",
                         "query_code": query_code,
                         "text": opt["text"],
                     }
@@ -386,7 +386,7 @@ class ReportDataProcessor:
                 {
                     "id": annotation_id,
                     "date": opt["date"],
-                    "type": "Serveur",
+                    "type": "Server",
                     "query_code": None,
                     "text": opt["text"],
                 }
@@ -395,7 +395,7 @@ class ReportDataProcessor:
                 {
                     "id": annotation_id,
                     "date": opt["date"],
-                    "type": "Serveur",
+                    "type": "Server",
                     "border_color": "rgba(13, 110, 253, 0.8)",
                 }
             )
@@ -411,7 +411,7 @@ class ReportDataProcessor:
                 {
                     "id": annotation_id,
                     "date": opt["date"],
-                    "type": "Événement",
+                    "type": "Event",
                     "query_code": None,
                     "text": opt["text"],
                 }
@@ -420,7 +420,7 @@ class ReportDataProcessor:
                 {
                     "id": annotation_id,
                     "date": opt["date"],
-                    "type": "Événement",
+                    "type": "Event",
                     "border_color": "rgba(108, 117, 125, 0.8)",
                 }
             )

@@ -117,8 +117,8 @@
                                     {% set reports_list = reports.by_day.get(day) %}
                                     <div class="card card-body mt-3">
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <h6 class="mb-0">Détail des requêtes individuelles pour le {{ day }}</h6>
-                                            <p class="text-muted mb-0 ms-3">Nombre de requêtes: {{ reports_list|length }}</p>
+                                            <h6 class="mb-0">Individual query details for {{ day }}</h6>
+                                            <p class="text-muted mb-0 ms-3">Query count: {{ reports_list|length }}</p>
                                         </div>
                                         
                                         {# Layout a 2 colonne - Responsive #}
@@ -152,13 +152,13 @@
                                                         </div>
                                                         <div class="flex-shrink-0 ms-2">
                                                             {% if report.has_query_optimizations %}
-                                                            <i class="bi bi-lightning" title="Optimisations disponibles"></i>
+                                                            <i class="bi bi-lightning" title="Optimizations available"></i>
                                                             {% endif %}
                                                             {% if report.seq_scan_indicator %}
-                                                            <i class="bi bi-database-exclamation" title="La requête contient un Seq Scan"></i>
+                                                            <i class="bi bi-database-exclamation" title="Query contains a Seq Scan"></i>
                                                             {% endif %}
                                                             {% if report.has_ai_hints %}
-                                                            <i class="bi bi-chat-left-text" title="Analyse AI disponibile"></i>
+                                                            <i class="bi bi-chat-left-text" title="AI insight available"></i>
                                                             {% endif %}
                                                         </div>
                                                     </button>
