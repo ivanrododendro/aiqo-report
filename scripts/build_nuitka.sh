@@ -33,16 +33,16 @@ mkdir -p dist
 
 case "$TARGET_OS" in
   linux)
-    poetry run python3.13 -m nuitka "${COMMON_ARGS[@]}" \
+    poetry run python -m nuitka "${COMMON_ARGS[@]}" \
       --output-filename=aiqo-report-linux "$ENTRY_POINT"
     ;;
   macos-silicon)
-    poetry run python3.13 -m nuitka "${COMMON_ARGS[@]}" \
+    poetry run python -m nuitka "${COMMON_ARGS[@]}" \
       --macos-target-arch=arm64 \
       --output-filename=aiqo-report-macos-arm64 "$ENTRY_POINT"
     ;;
   windows)
-    poetry run python3.13 -m nuitka "${COMMON_ARGS[@]}" \
+    poetry run python -m nuitka "${COMMON_ARGS[@]}" \
       --output-filename=aiqo-report.exe "$ENTRY_POINT"
     ;;
   *)

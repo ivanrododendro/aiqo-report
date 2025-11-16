@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev --no-interaction
+
+      - name: Run tests
+        run: poetry run pytest
+
+      - name: Build distribution
+        run: poetry build
+
+  release-binaries:
+    name: Release ${{ matrix.label }}
+    needs: test
+    if: github.event_name == 'release' && github.event.action == 'published'
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            artifact: dist/aiqo-report-linux
+            label: Linux Binary
+          - os: macos-latest
+            target: macos-silicon
+            artifact: dist/aiqo-report-macos-arm64
+            label: macOS Binary
+          - os: windows-latest
+            target: windows
+            artifact: dist/aiqo-report.exe
+            label: Windows Binary
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install build dependencies
+        run: poetry install --with dev --no-interaction
+
+      - name: Build native binary
+        run: bash scripts/build_nuitka.sh ${{ matrix.target }}
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}
