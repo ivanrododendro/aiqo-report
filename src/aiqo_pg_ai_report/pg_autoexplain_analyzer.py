@@ -59,7 +59,7 @@ class PGAutoExplainAnalyzer:
             logger.error(str(exc))
             sys.exit(1)
         # Pass the base path of the current script to ReportGenerator
-        self.report_generator = ReportGenerator(self.context_loader.script_base_path)
+        self.report_generator = ReportGenerator(self.context_loader.script_base_path, debug=args.debug)
         
         # Initialize the data processor
         from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor

@@ -6,6 +6,11 @@ from datetime import datetime
 import re
 import base64
 
+try:
+    from minify_html import minify as minify_html_lib
+except ImportError:
+    minify_html_lib = None
+
 from .report_data_processor import ReportDataProcessor
 
 logger = logging.getLogger(__name__)
@@ -14,7 +19,7 @@ QUERY_NAME_LIMIT = 140
 
 
 class ReportGenerator:
-    def __init__(self, template_base_path):
+    def __init__(self, template_base_path, debug: bool = False):
         # Ensure correct templates folder for Jinja loader
         templates_path = Path(template_base_path) / "report_templates"
         self.env = Environment(
@@ -27,6 +32,7 @@ class ReportGenerator:
         self._setup_minification_filters()
         self.template = self.env.get_template("report_template.html")
         self.data_processor = ReportDataProcessor()
+        self.debug = debug
 
     def _setup_custom_filters(self):
         """Setup custom Jinja2 filters for common transformations."""
@@ -152,6 +158,22 @@ class ReportGenerator:
 
     def _minify_html(self, html_content: str) -> str:
         """Perform a lightweight HTML minification."""
+        if not html_content:
+            return ""
+
+        if not self.debug and minify_html_lib:
+            try:
+                return minify_html_lib(
+                    html_content,
+                    minify_css=True,
+                    minify_js=True,
+                    keep_comments=False,
+                    do_not_minify_doctype=True,
+                )
+            except Exception as exc:
+                # Fall back to the legacy minifier if the library fails
+                logger.warning("minify-html failed, using fallback minifier: %s", exc)
+
         # Remove HTML comments but keep conditional comments
         html_content = re.sub(r'<!--(?!\[if).*?-->', '', html_content, flags=re.DOTALL)
         # Collapse whitespace between tags (avoid touching script/style contents)
