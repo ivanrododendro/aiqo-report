@@ -11,6 +11,16 @@ try:
 except ImportError:
     minify_html_lib = None
 
+try:
+    import rcssmin
+except ImportError:
+    rcssmin = None
+
+try:
+    import rjsmin
+except ImportError:
+    rjsmin = None
+
 from .report_data_processor import ReportDataProcessor
 
 logger = logging.getLogger(__name__)
@@ -80,24 +90,33 @@ class ReportGenerator:
         """Setup minification filters for CSS and JS."""
         
         def minify_css(css_content):
-            """Simple CSS minification."""
-            # Remove comments
+            """Minify CSS; prefer rcssmin if available."""
+            if self.debug:
+                return css_content
+            if rcssmin:
+                try:
+                    return rcssmin.cssmin(css_content)
+                except Exception as exc:
+                    logger.warning("rcssmin failed, using fallback CSS minifier: %s", exc)
+            # Fallback simple minifier
             css_content = re.sub(r'/\*.*?\*/', '', css_content, flags=re.DOTALL)
-            # Remove whitespace
             css_content = re.sub(r'\s+', ' ', css_content)
-            # Remove spaces around special characters
             css_content = re.sub(r'\s*([{}:;,>+~])\s*', r'\1', css_content)
             return css_content.strip()
         
         def minify_js(js_content):
-            """Simple JavaScript minification."""
-            # Remove single-line comments (but preserve URLs)
+            """Minify JavaScript; prefer rjsmin if available."""
+            if self.debug:
+                return js_content
+            if rjsmin:
+                try:
+                    return rjsmin.jsmin(js_content)
+                except Exception as exc:
+                    logger.warning("rjsmin failed, using fallback JS minifier: %s", exc)
+            # Fallback simple minifier
             js_content = re.sub(r'(?<!:)//.*?$', '', js_content, flags=re.MULTILINE)
-            # Remove multi-line comments
             js_content = re.sub(r'/\*.*?\*/', '', js_content, flags=re.DOTALL)
-            # Remove excessive whitespace (but preserve necessary spaces)
             js_content = re.sub(r'\s+', ' ', js_content)
-            # Remove spaces around operators and punctuation
             js_content = re.sub(r'\s*([{}();,:\[\]])\s*', r'\1', js_content)
             return js_content.strip()
         
@@ -160,6 +179,9 @@ class ReportGenerator:
         """Perform a lightweight HTML minification."""
         if not html_content:
             return ""
+
+        if self.debug:
+            return html_content
 
         if not self.debug and minify_html_lib:
             try:
