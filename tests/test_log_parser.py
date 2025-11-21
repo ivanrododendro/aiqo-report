@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from aiqo_pg_ai_report.log_parser import LogParser
+from aiqo_pg_ai_report.log_parser import AbstractLogParser, LogParser
 
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -38,3 +38,7 @@ def test_parse_log_file_with_full_text_plan():
         "temp_written": None,
     }
     assert entry["wal"] == {"records": None, "fpi": None, "bytes": None}
+
+
+def test_log_parser_is_subclass_of_abstract_base():
+    assert issubclass(LogParser, AbstractLogParser)
