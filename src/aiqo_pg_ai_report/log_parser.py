@@ -1,5 +1,6 @@
 import gzip
 import io
+import json
 import logging
 import re
 import zipfile
@@ -227,7 +228,7 @@ def extract_plan_starting_at_line(file_iterator, first_line):
     return "".join(plan_lines)
 
 
-class LogParser(AbstractLogParser):
+class TextLogParser(AbstractLogParser):
     def __init__(self):
         super().__init__()
 
@@ -249,3 +250,126 @@ class LogParser(AbstractLogParser):
                 except Exception as e:
                     logger.error(f"Unexpected error processing log entry at line {line_number} in {log_file_path}: {e}")
                     continue
+
+
+def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
+    # Extract duration
+    duration_ms = None
+    first_line = log_entry_text.splitlines()[0]
+    duration_match = re.search(r"duration: (\d+\.?\d*) ms", first_line)
+    if duration_match:
+        try:
+            duration_ms = float(duration_match.group(1))
+        except ValueError:
+            logger.warning(f"Could not parse duration from line: {first_line}")
+
+    # Timestamp from first 23 characters, consistent with text parser
+    timestamp = log_entry_text[:23].strip()
+    logger.debug(f"Parsing JSON log entry with timestamp: {timestamp}")
+
+    match = re.search(r"Query Text:(.*)$", log_entry_text, re.DOTALL)
+    if not match:
+        raise ValueError("Could not parse JSON log entry: Missing query text or execution plan.")
+
+    full_block = match.group(1)
+
+    # Separate query section from plan JSON
+    plan_start = full_block.find("[")
+    if plan_start == -1:
+        raise ValueError("Could not parse JSON log entry: Missing JSON plan payload.")
+
+    query_section = full_block[:plan_start].strip()
+    plan_section = full_block[plan_start:].strip()
+
+    query_lines = [line.strip() for line in query_section.splitlines() if line.strip()]
+    if len(query_lines) >= 2 and query_lines[0].startswith("--") and query_lines[1].startswith("--"):
+        job_name = query_lines[0]
+        query_name = query_lines[1]
+        query_text = "\n".join(query_lines[2:]).strip()
+    else:
+        job_name = ""
+        query_name = query_lines[0] if query_lines else ""
+        query_text = "\n".join(query_lines[1:]).strip()
+
+    job_name = job_name.replace("\t", "").replace("\n", "")
+    query_name = query_name.replace("\t", "").replace("\n", "")
+
+    try:
+        plan_json = json.loads(plan_section)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Could not decode JSON plan: {exc}") from exc
+
+    if not isinstance(plan_json, list) or not plan_json:
+        raise ValueError("JSON plan payload is not in expected list format.")
+
+    plan_root = plan_json[0].get("Plan", {})
+    startup_cost = plan_root.get("Startup Cost")
+    total_cost = plan_root.get("Total Cost")
+
+    rows = plan_root.get("Actual Rows") if plan_root.get("Actual Rows") is not None else plan_root.get("Plan Rows")
+
+    buffers = {
+        "shared_hit": plan_root.get("Shared Hit Blocks"),
+        "shared_read": plan_root.get("Shared Read Blocks"),
+        "shared_dirtied": plan_root.get("Shared Dirtied Blocks"),
+        "shared_written": plan_root.get("Shared Written Blocks"),
+        "temp_read": plan_root.get("Temp Read Blocks"),
+        "temp_written": plan_root.get("Temp Written Blocks"),
+    }
+
+    result = {
+        "timestamp": timestamp,
+        "query_name": query_name,
+        "job_name": job_name,
+        "query_text": query_text,
+        "execution_plan": json.dumps(plan_json, indent=2),
+        "duration": duration_ms,
+        "startup_cost": startup_cost,
+        "cost": total_cost,
+        "rows": rows,
+        "buffers": buffers,
+        "wal": {"records": None, "fpi": None, "bytes": None},
+    }
+
+    logger.debug(
+        f"Completed parsing JSON log entry: timestamp={timestamp}, duration={duration_ms}ms, "
+        f"cost={total_cost}, rows={rows}, buffers={buffers}"
+    )
+
+    return result
+
+
+class JsonLogParser(AbstractLogParser):
+    def __init__(self):
+        super().__init__()
+
+    def _process_plain_text_file(self, file_obj, log_file_path):
+        logger.info(f"Processing JSON log file {file_obj.name} from {log_file_path}")
+        buffer_lines: list[str] = []
+        in_plan = False
+        for line in file_obj:
+            if not in_plan and "plan:" in line:
+                in_plan = True
+                buffer_lines = [line]
+                continue
+
+            if in_plan:
+                if re.match(r"^\d{4}-\d{2}-\d{2} ", line):
+                    # Next log entry reached; parse current buffer and continue with new entry
+                    try:
+                        log_entry_text = "".join(buffer_lines)
+                        yield parse_json_log_entry(log_entry_text)
+                    except ValueError as e:
+                        logger.warning(f"Skipping JSON log entry due to parsing error: {e}")
+                    buffer_lines = [line]
+                    in_plan = "plan:" in line
+                else:
+                    buffer_lines.append(line)
+
+        # Handle final buffered entry if any
+        if buffer_lines and in_plan:
+            try:
+                log_entry_text = "".join(buffer_lines)
+                yield parse_json_log_entry(log_entry_text)
+            except ValueError as e:
+                logger.warning(f"Skipping JSON log entry due to parsing error: {e}")
