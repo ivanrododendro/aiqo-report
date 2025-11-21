@@ -33,6 +33,13 @@ class ReportDataProcessor:
         timestamp = log_entry["timestamp"]
         duration = log_entry["duration"]
 
+        def _truncate_title(text: str, limit: int = 180) -> str:
+            """Trim title to avoid overly long headings."""
+            return text if len(text) <= limit else text[:limit] + "..."
+
+        full_title = (job_name + " " + query_name).strip()
+        title = _truncate_title(full_title)
+
         # Validate and sanitize execution plan
         if execution_plan is None or execution_plan == "":
             execution_plan = "No execution plan available"
@@ -43,7 +50,7 @@ class ReportDataProcessor:
             seq_scan_indicator = "Seq Scan" in plan_str
 
         return {
-            "title": job_name + " " + query_name,
+            "title": title,
             "ai_hints": ai_hints,
             "plan": execution_plan,
             "query_text": log_entry["query_text"],
