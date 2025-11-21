@@ -312,10 +312,11 @@ def parse_cli_arguments():
     )
     parser.add_argument(
         "--format",
+        "-fmt",
         type=str,
-        default="json",
+        default="text",
         choices=["json", "text", "yaml"],
-        help="Log format to parse: json (default), text, yaml (unsupported).",
+        help="Log format to parse: text (default), json, yaml (unsupported).",
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging (default: false)")
 
