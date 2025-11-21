@@ -201,16 +201,8 @@ class ReportDataProcessor:
 
         # Build the date range strictly from query statistics (i.e., actual report days)
         normalized_stats = {_normalize_date(day) for day in daily_query_stats.keys()}
-        logger.info(f"Dates from daily_query_stats: {sorted(normalized_stats)}")
 
-        # Filter out unwanted placeholder dates (1 gennaio)
-        unwanted_dates = {'2024-01-01', '2025-01-01'}
-        filtered_dates = {d for d in normalized_stats if d not in unwanted_dates}
-
-        if unwanted_dates & normalized_stats:
-            logger.warning(f"Filtered out placeholder dates: {sorted(unwanted_dates & normalized_stats)}")
-
-        return sorted(filtered_dates)
+        return sorted(normalized_stats)
 
     def _build_date_hierarchy(self, all_dates):
         """
