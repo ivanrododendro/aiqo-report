@@ -241,7 +241,9 @@ class TextLogParser(AbstractLogParser):
                 try:
                     # Pass the file_obj (iterator) and the current line
                     log_entry_text = extract_plan_starting_at_line(file_obj, line)
-                    yield parse_log_entry(log_entry_text)
+                    parsed_entry = parse_log_entry(log_entry_text)
+                    parsed_entry["source_line"] = line_number
+                    yield parsed_entry
                 except ValueError as e:
                     logger.warning(
                         f"Skipping log entry at line {line_number} in {log_file_path} due to parsing error: {e}"
@@ -347,10 +349,12 @@ class JsonLogParser(AbstractLogParser):
         logger.info(f"Processing JSON log file {file_obj.name} from {log_file_path}")
         buffer_lines: list[str] = []
         in_plan = False
-        for line in file_obj:
+        current_entry_line: int | None = None
+        for line_number, line in enumerate(file_obj, start=1):
             if not in_plan and "plan:" in line:
                 in_plan = True
                 buffer_lines = [line]
+                current_entry_line = line_number
                 continue
 
             if in_plan:
@@ -358,11 +362,14 @@ class JsonLogParser(AbstractLogParser):
                     # Next log entry reached; parse current buffer and continue with new entry
                     try:
                         log_entry_text = "".join(buffer_lines)
-                        yield parse_json_log_entry(log_entry_text)
+                        parsed_entry = parse_json_log_entry(log_entry_text)
+                        parsed_entry["source_line"] = current_entry_line
+                        yield parsed_entry
                     except ValueError as e:
                         logger.warning(f"Skipping JSON log entry due to parsing error: {e}")
                     buffer_lines = [line]
                     in_plan = "plan:" in line
+                    current_entry_line = line_number if in_plan else None
                 else:
                     buffer_lines.append(line)
 
@@ -370,6 +377,8 @@ class JsonLogParser(AbstractLogParser):
         if buffer_lines and in_plan:
             try:
                 log_entry_text = "".join(buffer_lines)
-                yield parse_json_log_entry(log_entry_text)
+                parsed_entry = parse_json_log_entry(log_entry_text)
+                parsed_entry["source_line"] = current_entry_line
+                yield parsed_entry
             except ValueError as e:
                 logger.warning(f"Skipping JSON log entry due to parsing error: {e}")

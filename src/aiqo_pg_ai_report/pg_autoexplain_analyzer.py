@@ -125,7 +125,12 @@ class PGAutoExplainAnalyzer:
 
         # Charge toujours les optimisations spécifiques à la requête dans le cache, indépendamment de l'analyse AI.
         # Cela garantit qu'elles sont disponibles pour l'affichage du rapport.
-        self.context_loader.get_query_optimizations(query_code)
+        self.context_loader.get_query_optimizations(
+            query_code,
+            source_line=log_entry.get("source_line"),
+            query_timestamp=log_entry.get("timestamp"),
+            query_title=(log_entry["job_name"] + " " + log_entry["query_name"]).strip(),
+        )
 
         should_perform_ai_call, ai_hints = self._determine_ai_analysis_status(log_entry, query_code)
 
