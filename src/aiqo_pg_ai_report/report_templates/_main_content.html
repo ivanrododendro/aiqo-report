@@ -8,7 +8,9 @@
         <h3 class="text-start text-muted">Report date: {{ metadata.timestamp | default("N/A") }}</h3>
     </div>
     <div class="flex-shrink-0">
-        <img src="data:image/png;base64,{{ 'static/img/aiqo-report-large.png' | embed_image }}" alt="AIQO Logo" style="max-height: 120px; height: auto;">
+        <a href="https://aiqueryoptimizer.com">
+            <img src="data:image/png;base64,{{ 'static/img/aiqo-report-large.png' | embed_image }}" alt="AIQO Logo" style="max-height: 120px; height: auto;">
+        </a>
     </div>
 </div>
 {% include 'components/_tabs.html' %}
