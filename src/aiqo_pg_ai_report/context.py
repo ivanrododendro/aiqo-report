@@ -150,9 +150,25 @@ class ContextLoader:
                     self.optimization_base_path / "INFRA.txt", "Infrastructure context", required=False
                 )
 
-    def get_query_optimizations(self, query_code: str):
+    def get_query_optimizations(
+        self,
+        query_code: str,
+        *,
+        source_line: int | None = None,
+        query_timestamp: str | None = None,
+        query_title: str | None = None,
+    ):
         """Retrieves or loads query-specific optimizations for a given query code."""
-        logger.info("Query code : " + query_code[:6])  # Log only the first 6 characters
+
+        def _truncate(text: str | None, limit: int = 40) -> str:
+            if not text:
+                return ""
+            return text if len(text) <= limit else text[:limit] + "..."
+
+        line_info = f", line: {source_line}" if source_line is not None else ""
+        timestamp_info = f", date: {query_timestamp}" if query_timestamp else ""
+        title_info = f", title: {_truncate(query_title)}" if query_title else ""
+        logger.info(f"Query code : {query_code[:6]}{line_info}{timestamp_info}{title_info}")
 
         if not self.optimization_base_path or not self.optimization_base_path.is_dir():
             return []

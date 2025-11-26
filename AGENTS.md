@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+reply alway in italian
+code comments in english 
+log messages in english 
+ 
 ## Project Structure & Module Organization
 The CLI lives in `src/aiqo_pg_ai_report`, with `pg_autoexplain_analyzer.py` orchestrating log parsing, AI calls, and report generation. Supporting modules such as `log_parser.py`, `report_data_processor.py`, and `report_generator.py` sit alongside prompt assets in `prompts/` and HTML templates in `report_templates/`. Pytest suites reside in `tests/`, while Sphinx docs and template references are in `docs/`.
 
@@ -11,7 +15,7 @@ The CLI lives in `src/aiqo_pg_ai_report`, with `pg_autoexplain_analyzer.py` orch
 - `poetry run sphinx-build docs docs/_build/html` — build the contributor documentation locally.
 
 ## Coding Style & Naming Conventions
-Favor Python 3.8+ syntax with type hints; mypy runs in strict mode, so keep signatures and return types explicit. Adopt Black defaults (120-character lines) and respect the ignored rules in `.flake8`. Use snake_case for modules, functions, and variables, PascalCase for classes, and keep filenames descriptive (`report_data_processor.py`, `test_log_parser.py`). Template and prompt assets should mirror their runtime usage names.
+Favor Python 3.11+ syntax with type hints; mypy runs in strict mode, so keep signatures and return types explicit. Adopt Black defaults (120-character lines) and respect the ignored rules in `.flake8`. Use snake_case for modules, functions, and variables, PascalCase for classes, and keep filenames descriptive (`report_data_processor.py`, `test_log_parser.py`). Template and prompt assets should mirror their runtime usage names.
 
 ## Testing Guidelines
 Place new tests under `tests/` using the `test_*.py` pattern, grouping helpers via fixtures when needed. Exercise both successful parsing paths and failure branches (e.g., malformed log lines). Run `poetry run pytest -k <name>` for focused suites. When introducing AI-facing logic, mock `litellm` integrations to keep tests offline and deterministic.

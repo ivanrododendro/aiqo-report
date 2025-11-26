@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Import classes and necessary constants from their new modules
 from aiqo_pg_ai_report.ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT
-from aiqo_pg_ai_report.log_parser import LogParser
+from aiqo_pg_ai_report.log_parser import JsonLogParser, TextLogParser
 from aiqo_pg_ai_report.report_generator import ReportGenerator
 from aiqo_pg_ai_report.sql_utils import SQLUtils
 from aiqo_pg_ai_report.context import ContextLoader
@@ -53,9 +53,13 @@ class PGAutoExplainAnalyzer:
             prompts={},  # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
             debug=args.debug
         )
-        self.log_parser = LogParser()
+        try:
+            self.log_parser = self._create_log_parser(args.format)
+        except ValueError as exc:
+            logger.error(str(exc))
+            sys.exit(1)
         # Pass the base path of the current script to ReportGenerator
-        self.report_generator = ReportGenerator(self.context_loader.script_base_path)
+        self.report_generator = ReportGenerator(self.context_loader.script_base_path, debug=args.debug)
         
         # Initialize the data processor
         from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
@@ -121,7 +125,12 @@ class PGAutoExplainAnalyzer:
 
         # Charge toujours les optimisations spécifiques à la requête dans le cache, indépendamment de l'analyse AI.
         # Cela garantit qu'elles sont disponibles pour l'affichage du rapport.
-        self.context_loader.get_query_optimizations(query_code)
+        self.context_loader.get_query_optimizations(
+            query_code,
+            source_line=log_entry.get("source_line"),
+            query_timestamp=log_entry.get("timestamp"),
+            query_title=(log_entry["job_name"] + " " + log_entry["query_name"]).strip(),
+        )
 
         should_perform_ai_call, ai_hints = self._determine_ai_analysis_status(log_entry, query_code)
 
@@ -235,6 +244,17 @@ class PGAutoExplainAnalyzer:
 
         self.ai_caller.show_stats()
 
+    @staticmethod
+    def _create_log_parser(log_format: str):
+        log_format_normalized = log_format.lower()
+        if log_format_normalized == "json":
+            return JsonLogParser()
+        if log_format_normalized == "text":
+            return TextLogParser()
+        if log_format_normalized == "yaml":
+            raise ValueError(f"format {log_format_normalized} unsupported.")
+        raise ValueError(f"format {log_format} unsupported.")
+
 
 def parse_cli_arguments():
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
@@ -294,6 +314,14 @@ def parse_cli_arguments():
         type=str,
         default=None,
         help="Path to a directory containing optimization context files (SERVER.txt, EVENTS.txt, query-specific .txt files). Overrides the default 'CONTEXT' subfolder behavior.",
+    )
+    parser.add_argument(
+        "--format",
+        "-fmt",
+        type=str,
+        default="text",
+        choices=["json", "text", "yaml"],
+        help="Log format to parse: text (default), json, yaml (unsupported).",
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging (default: false)")
 

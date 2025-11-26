@@ -33,6 +33,13 @@ class ReportDataProcessor:
         timestamp = log_entry["timestamp"]
         duration = log_entry["duration"]
 
+        def _truncate_title(text: str, limit: int = 180) -> str:
+            """Trim title to avoid overly long headings."""
+            return text if len(text) <= limit else text[:limit] + "..."
+
+        full_title = (job_name + " " + query_name).strip()
+        title = _truncate_title(full_title)
+
         # Validate and sanitize execution plan
         if execution_plan is None or execution_plan == "":
             execution_plan = "No execution plan available"
@@ -43,7 +50,7 @@ class ReportDataProcessor:
             seq_scan_indicator = "Seq Scan" in plan_str
 
         return {
-            "title": job_name + " " + query_name,
+            "title": title,
             "ai_hints": ai_hints,
             "plan": execution_plan,
             "query_text": log_entry["query_text"],
@@ -201,16 +208,8 @@ class ReportDataProcessor:
 
         # Build the date range strictly from query statistics (i.e., actual report days)
         normalized_stats = {_normalize_date(day) for day in daily_query_stats.keys()}
-        logger.info(f"Dates from daily_query_stats: {sorted(normalized_stats)}")
 
-        # Filter out unwanted placeholder dates (1 gennaio)
-        unwanted_dates = {'2024-01-01', '2025-01-01'}
-        filtered_dates = {d for d in normalized_stats if d not in unwanted_dates}
-
-        if unwanted_dates & normalized_stats:
-            logger.warning(f"Filtered out placeholder dates: {sorted(unwanted_dates & normalized_stats)}")
-
-        return sorted(filtered_dates)
+        return sorted(normalized_stats)
 
     def _build_date_hierarchy(self, all_dates):
         """

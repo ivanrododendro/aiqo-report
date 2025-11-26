@@ -1,10 +1,47 @@
+import gzip
+import io
+import json
 import logging
 import re
-import io
-import gzip
 import zipfile
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, Iterator, Protocol
 
 logger = logging.getLogger(__name__)
+
+
+class LogParserInterface(Protocol):
+    def parse_log_file(self, log_file_path: str | Path) -> Iterator[dict[str, Any]]:
+        ...
+
+
+class AbstractLogParser(LogParserInterface, ABC):
+    @abstractmethod
+    def _process_plain_text_file(self, file_obj: io.TextIOBase, log_file_path: str | Path) -> Iterator[dict[str, Any]]:
+        """
+        Process a plain text file-like object and yield parsed entries.
+        """
+
+    def parse_log_file(self, log_file_path: str | Path) -> Iterator[dict[str, Any]]:
+        """
+        Handle file opening and decompression before delegating to the concrete parser implementation.
+        """
+        if str(log_file_path).endswith(".gz"):
+            logger.info(f"Uncompressing and parsing gzip file: {log_file_path}")
+            with gzip.open(log_file_path, "rt", encoding="utf-8") as f:
+                yield from self._process_plain_text_file(f, log_file_path)
+        elif str(log_file_path).endswith(".zip"):
+            logger.info(f"Uncompressing and parsing zip file: {log_file_path}")
+            with zipfile.ZipFile(log_file_path, "r") as zip_ref:
+                for file_name in zip_ref.namelist():
+                    with zip_ref.open(file_name) as raw_f:
+                        f = io.TextIOWrapper(raw_f, encoding="utf-8", errors="replace")
+                        yield from self._process_plain_text_file(f, log_file_path)
+        else:
+            logger.info(f"Parsing plain text log file: {log_file_path}")
+            with open(log_file_path, "r", encoding="utf-8") as f:
+                yield from self._process_plain_text_file(f, log_file_path)
 
 
 def parse_log_entry(log_entry_text):
@@ -181,19 +218,21 @@ def parse_log_entry(log_entry_text):
 def extract_plan_starting_at_line(file_iterator, first_line):
     """
     Extracts a full PostgreSQL autoexplain plan block starting from first_line
-    until a line starting with "Settings:" is found.
+    until a line starting with "Settings:" is found or a new log entry starts.
     """
     plan_lines = [first_line]
     for line in file_iterator:
+        if re.match(r"^\d{4}-\d{2}-\d{2} ", line):
+            break
         plan_lines.append(line)
         if line.strip().startswith("Settings:"):
             break
     return "".join(plan_lines)
 
 
-class LogParser:
+class TextLogParser(AbstractLogParser):
     def __init__(self):
-        pass
+        super().__init__()
 
     def _process_plain_text_file(self, file_obj, log_file_path):
         logger.info(f"Processing plain text file {file_obj.name} from {log_file_path}")
@@ -204,7 +243,12 @@ class LogParser:
                 try:
                     # Pass the file_obj (iterator) and the current line
                     log_entry_text = extract_plan_starting_at_line(file_obj, line)
-                    yield parse_log_entry(log_entry_text)
+                    if re.search(r'"Query Text"\s*:', log_entry_text):
+                        parsed_entry = parse_json_log_entry(log_entry_text)
+                    else:
+                        parsed_entry = parse_log_entry(log_entry_text)
+                    parsed_entry["source_line"] = line_number
+                    yield parsed_entry
                 except ValueError as e:
                     logger.warning(
                         f"Skipping log entry at line {line_number} in {log_file_path} due to parsing error: {e}"
@@ -214,20 +258,163 @@ class LogParser:
                     logger.error(f"Unexpected error processing log entry at line {line_number} in {log_file_path}: {e}")
                     continue
 
-    def parse_log_file(self, log_file_path):
-        if str(log_file_path).endswith(".gz"):
-            logger.info(f"Uncompressing and parsing gzip file: {log_file_path}")
-            with gzip.open(log_file_path, "rt", encoding="utf-8") as f:
-                yield from self._process_plain_text_file(f, log_file_path)
-        elif str(log_file_path).endswith(".zip"):
-            logger.info(f"Uncompressing and parsing zip file: {log_file_path}")
-            with zipfile.ZipFile(log_file_path, "r") as zip_ref:
-                for file_name in zip_ref.namelist():
-                    with zip_ref.open(file_name) as raw_f:
-                        # Wrap the raw bytes file with TextIOWrapper for UTF-8 decoding
-                        f = io.TextIOWrapper(raw_f, encoding="utf-8", errors="replace")
-                        yield from self._process_plain_text_file(f, log_file_path)
+
+def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
+    # Extract duration
+    duration_ms = None
+    first_line = log_entry_text.splitlines()[0]
+    duration_match = re.search(r"duration: (\d+\.?\d*) ms", first_line)
+    if duration_match:
+        try:
+            duration_ms = float(duration_match.group(1))
+        except ValueError:
+            logger.warning(f"Could not parse duration from line: {first_line}")
+
+    # Timestamp from first 23 characters, consistent with text parser
+    timestamp = log_entry_text[:23].strip()
+    logger.debug(f"Parsing JSON log entry with timestamp: {timestamp}")
+
+    json_start = log_entry_text.find("{")
+    if json_start == -1:
+        raise ValueError("Could not parse JSON log entry: Missing JSON plan payload.")
+
+    json_section = log_entry_text[json_start:]
+
+    try:
+        plan_json_obj = json.loads(json_section)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Could not decode JSON plan: {exc}") from exc
+
+    if not isinstance(plan_json_obj, dict):
+        raise ValueError("JSON plan payload is not in expected object format.")
+
+    query_text_raw = plan_json_obj.get("Query Text", "")
+    job_name = ""
+    query_name = ""
+    query_text = query_text_raw.strip() if isinstance(query_text_raw, str) else ""
+
+    if isinstance(query_text_raw, str):
+        # Prefer extracting job/task comments when present in a single line
+        comment_pattern = re.compile(
+            r"--\s*Job:\s*(?P<job>.*?)\s+--\s*Task\s*(?P<task>.*?)(?P<sql>(?:update|insert|select|delete|with|create|alter|drop)\b.*)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        comment_match = comment_pattern.match(query_text_raw.strip())
+        if comment_match:
+            job_name = f"-- Job: {comment_match.group('job').strip()}"
+            query_name = f"-- Task {comment_match.group('task').strip()}"
+            query_text = comment_match.group("sql").strip()
         else:
-            logger.info(f"Parsing plain text log file: {log_file_path}")
-            with open(log_file_path, "r", encoding="utf-8") as f:
-                yield from self._process_plain_text_file(f, log_file_path)
+            query_lines = [line.strip() for line in query_text_raw.splitlines() if line.strip()]
+            if len(query_lines) >= 2 and query_lines[0].startswith("--") and query_lines[1].startswith("--"):
+                job_name = query_lines[0]
+                query_name = query_lines[1]
+                query_text = "\n".join(query_lines[2:]).strip()
+            elif query_lines:
+                query_text = "\n".join(query_lines[1:]).strip() if query_lines[0].startswith("--") else "\n".join(query_lines)
+
+    job_name = job_name.replace("\t", "").replace("\n", "")
+    query_name = query_name.replace("\t", "").replace("\n", "")
+
+    plan_root = plan_json_obj.get("Plan")
+    if not isinstance(plan_root, dict):
+        raise ValueError("JSON plan payload is missing a Plan object.")
+
+    startup_cost = plan_root.get("Startup Cost")
+    total_cost = plan_root.get("Total Cost")
+
+    rows = plan_root.get("Actual Rows") if plan_root.get("Actual Rows") is not None else plan_root.get("Plan Rows")
+
+    def _first_actual_rows(node: dict[str, Any]) -> int | None:
+        """Return the first non-zero Actual Rows found depth-first in child plans."""
+        plans = node.get("Plans")
+        if not isinstance(plans, list):
+            return None
+        for child in plans:
+            if not isinstance(child, dict):
+                continue
+            actual = child.get("Actual Rows")
+            if isinstance(actual, (int, float)) and actual > 0:
+                return int(actual)
+            fallback = _first_actual_rows(child)
+            if fallback is not None:
+                return fallback
+        return None
+
+    if rows == 0:
+        nested_rows = _first_actual_rows(plan_root)
+        if nested_rows is not None:
+            rows = nested_rows
+
+    buffers = {
+        "shared_hit": plan_root.get("Shared Hit Blocks"),
+        "shared_read": plan_root.get("Shared Read Blocks"),
+        "shared_dirtied": plan_root.get("Shared Dirtied Blocks"),
+        "shared_written": plan_root.get("Shared Written Blocks"),
+        "temp_read": plan_root.get("Temp Read Blocks"),
+        "temp_written": plan_root.get("Temp Written Blocks"),
+    }
+
+    result = {
+        "timestamp": timestamp,
+        "query_name": query_name,
+        "job_name": job_name,
+        "query_text": query_text,
+        "execution_plan": json.dumps(plan_json_obj, indent=2),
+        "duration": duration_ms,
+        "startup_cost": startup_cost,
+        "cost": total_cost,
+        "rows": rows,
+        "buffers": buffers,
+        "wal": {"records": None, "fpi": None, "bytes": None},
+    }
+
+    logger.debug(
+        f"Completed parsing JSON log entry: timestamp={timestamp}, duration={duration_ms}ms, "
+        f"cost={total_cost}, rows={rows}, buffers={buffers}"
+    )
+
+    return result
+
+
+class JsonLogParser(AbstractLogParser):
+    def __init__(self):
+        super().__init__()
+
+    def _process_plain_text_file(self, file_obj, log_file_path):
+        logger.info(f"Processing JSON log file {file_obj.name} from {log_file_path}")
+        buffer_lines: list[str] = []
+        in_plan = False
+        current_entry_line: int | None = None
+        for line_number, line in enumerate(file_obj, start=1):
+            if not in_plan and "plan:" in line:
+                in_plan = True
+                buffer_lines = [line]
+                current_entry_line = line_number
+                continue
+
+            if in_plan:
+                if re.match(r"^\d{4}-\d{2}-\d{2} ", line):
+                    # Next log entry reached; parse current buffer and continue with new entry
+                    try:
+                        log_entry_text = "".join(buffer_lines)
+                        parsed_entry = parse_json_log_entry(log_entry_text)
+                        parsed_entry["source_line"] = current_entry_line
+                        yield parsed_entry
+                    except ValueError as e:
+                        logger.warning(f"Skipping JSON log entry due to parsing error: {e}")
+                    buffer_lines = [line]
+                    in_plan = "plan:" in line
+                    current_entry_line = line_number if in_plan else None
+                else:
+                    buffer_lines.append(line)
+
+        # Handle final buffered entry if any
+        if buffer_lines and in_plan:
+            try:
+                log_entry_text = "".join(buffer_lines)
+                parsed_entry = parse_json_log_entry(log_entry_text)
+                parsed_entry["source_line"] = current_entry_line
+                yield parsed_entry
+            except ValueError as e:
+                logger.warning(f"Skipping JSON log entry due to parsing error: {e}")

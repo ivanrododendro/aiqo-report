@@ -6,6 +6,21 @@ from datetime import datetime
 import re
 import base64
 
+try:
+    from minify_html import minify as minify_html_lib
+except ImportError:
+    minify_html_lib = None
+
+try:
+    import rcssmin
+except ImportError:
+    rcssmin = None
+
+try:
+    import rjsmin
+except ImportError:
+    rjsmin = None
+
 from .report_data_processor import ReportDataProcessor
 
 logger = logging.getLogger(__name__)
@@ -14,7 +29,7 @@ QUERY_NAME_LIMIT = 140
 
 
 class ReportGenerator:
-    def __init__(self, template_base_path):
+    def __init__(self, template_base_path, debug: bool = False):
         # Ensure correct templates folder for Jinja loader
         templates_path = Path(template_base_path) / "report_templates"
         self.env = Environment(
@@ -27,6 +42,7 @@ class ReportGenerator:
         self._setup_minification_filters()
         self.template = self.env.get_template("report_template.html")
         self.data_processor = ReportDataProcessor()
+        self.debug = debug
 
     def _setup_custom_filters(self):
         """Setup custom Jinja2 filters for common transformations."""
@@ -74,24 +90,33 @@ class ReportGenerator:
         """Setup minification filters for CSS and JS."""
         
         def minify_css(css_content):
-            """Simple CSS minification."""
-            # Remove comments
+            """Minify CSS; prefer rcssmin if available."""
+            if self.debug:
+                return css_content
+            if rcssmin:
+                try:
+                    return rcssmin.cssmin(css_content)
+                except Exception as exc:
+                    logger.warning("rcssmin failed, using fallback CSS minifier: %s", exc)
+            # Fallback simple minifier
             css_content = re.sub(r'/\*.*?\*/', '', css_content, flags=re.DOTALL)
-            # Remove whitespace
             css_content = re.sub(r'\s+', ' ', css_content)
-            # Remove spaces around special characters
             css_content = re.sub(r'\s*([{}:;,>+~])\s*', r'\1', css_content)
             return css_content.strip()
         
         def minify_js(js_content):
-            """Simple JavaScript minification."""
-            # Remove single-line comments (but preserve URLs)
+            """Minify JavaScript; prefer rjsmin if available."""
+            if self.debug:
+                return js_content
+            if rjsmin:
+                try:
+                    return rjsmin.jsmin(js_content)
+                except Exception as exc:
+                    logger.warning("rjsmin failed, using fallback JS minifier: %s", exc)
+            # Fallback simple minifier
             js_content = re.sub(r'(?<!:)//.*?$', '', js_content, flags=re.MULTILINE)
-            # Remove multi-line comments
             js_content = re.sub(r'/\*.*?\*/', '', js_content, flags=re.DOTALL)
-            # Remove excessive whitespace (but preserve necessary spaces)
             js_content = re.sub(r'\s+', ' ', js_content)
-            # Remove spaces around operators and punctuation
             js_content = re.sub(r'\s*([{}();,:\[\]])\s*', r'\1', js_content)
             return js_content.strip()
         
@@ -152,6 +177,25 @@ class ReportGenerator:
 
     def _minify_html(self, html_content: str) -> str:
         """Perform a lightweight HTML minification."""
+        if not html_content:
+            return ""
+
+        if self.debug:
+            return html_content
+
+        if not self.debug and minify_html_lib:
+            try:
+                return minify_html_lib(
+                    html_content,
+                    minify_css=True,
+                    minify_js=True,
+                    keep_comments=False,
+                    do_not_minify_doctype=True,
+                )
+            except Exception as exc:
+                # Fall back to the legacy minifier if the library fails
+                logger.warning("minify-html failed, using fallback minifier: %s", exc)
+
         # Remove HTML comments but keep conditional comments
         html_content = re.sub(r'<!--(?!\[if).*?-->', '', html_content, flags=re.DOTALL)
         # Collapse whitespace between tags (avoid touching script/style contents)

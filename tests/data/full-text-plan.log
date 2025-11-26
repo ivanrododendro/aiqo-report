@@ -1,0 +1,46 @@
+2025-10-24 22:31:57 CEST [112260]: [28-1] db=mdm,user=data_location,client=10.203.23.2,appname=Semarchy xDM LOG:  duration: 5830959.445 ms  plan:
+Query Text:
+-- Job: RDA
+-- Task /Match and Find Duplicates/Redevabilite/Notify referencing that my SDPK has changed/Notify Referencing MI AssocieInterloCoordRede that my Golden Id has changed
+
+update MI_ASSOCIE_INTERLO_COORD_RED as T
+set
+B_PENDINGACTIONS = 'HANDLE_DATA_CHANGE',
+B_BATCHID = 61579,
+F_REDEVABILITE = S.F_REDEVABILITE
+from (
+select
+distinct
+REFING.B_PUBID,
+REFING.B_SOURCEID,
+REFED.REDEVABILITE_ID F_REDEVABILITE
+from
+MI_REDEVABILITE REFED
+inner join MI_REDEVABILITE REFED2
+on (
+REFED.REDEVABILITE_ID = REFED2.REDEVABILITE_ID
+and REFED2.B_BATCHID = 61579
+and REFED.B_CLASSNAME = 'Redevabilite'
+and (REFED2.B_OLDSDPK is null or REFED2.B_OLDSDPK <> REFED2.REDEVABILITE_ID)
+)
+inner join MI_ASSOCIE_INTERLO_COORD_RED REFING
+on (
+REFED.B_PUBID = REFING.FP_REDEVABILITE
+and REFED.B_SOURCEID = REFING.FS_REDEVABILITE
+)
+where
+REFING.B_BATCHID <= 61579
+and REFED.B_BATCHID = 61579
+and REFED.B_CLASSNAME = 'Redevabilite'
+and REFING.B_CLASSNAME in (
+'AssocieInterloCoordRede'
+)
+) as S
+where
+T.B_PUBID = S.B_PUBID and T.B_SOURCEID = S.B_SOURCEID
+
+Limit  (cost=29563.14..44521.37 rows=100 width=738) (actual rows=2 loops=1)
+  Buffers: shared hit=17250 read=0 dirtied=0 written=0
+  ->  Seq Scan on gd_redevabilite s  (cost=0.44..2.13 rows=1 width=635) (actual rows=2 loops=1)
+        Buffers: shared hit=17250 read=0 dirtied=0 written=0
+Settings:
