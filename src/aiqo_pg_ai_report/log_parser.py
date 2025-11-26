@@ -218,10 +218,12 @@ def parse_log_entry(log_entry_text):
 def extract_plan_starting_at_line(file_iterator, first_line):
     """
     Extracts a full PostgreSQL autoexplain plan block starting from first_line
-    until a line starting with "Settings:" is found.
+    until a line starting with "Settings:" is found or a new log entry starts.
     """
     plan_lines = [first_line]
     for line in file_iterator:
+        if re.match(r"^\d{4}-\d{2}-\d{2} ", line):
+            break
         plan_lines.append(line)
         if line.strip().startswith("Settings:"):
             break
@@ -241,7 +243,10 @@ class TextLogParser(AbstractLogParser):
                 try:
                     # Pass the file_obj (iterator) and the current line
                     log_entry_text = extract_plan_starting_at_line(file_obj, line)
-                    parsed_entry = parse_log_entry(log_entry_text)
+                    if re.search(r'"Query Text"\s*:', log_entry_text):
+                        parsed_entry = parse_json_log_entry(log_entry_text)
+                    else:
+                        parsed_entry = parse_log_entry(log_entry_text)
                     parsed_entry["source_line"] = line_number
                     yield parsed_entry
                 except ValueError as e:
@@ -269,46 +274,77 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
     timestamp = log_entry_text[:23].strip()
     logger.debug(f"Parsing JSON log entry with timestamp: {timestamp}")
 
-    match = re.search(r"Query Text:(.*)$", log_entry_text, re.DOTALL)
-    if not match:
-        raise ValueError("Could not parse JSON log entry: Missing query text or execution plan.")
-
-    full_block = match.group(1)
-
-    # Separate query section from plan JSON
-    plan_start = full_block.find("[")
-    if plan_start == -1:
+    json_start = log_entry_text.find("{")
+    if json_start == -1:
         raise ValueError("Could not parse JSON log entry: Missing JSON plan payload.")
 
-    query_section = full_block[:plan_start].strip()
-    plan_section = full_block[plan_start:].strip()
+    json_section = log_entry_text[json_start:]
 
-    query_lines = [line.strip() for line in query_section.splitlines() if line.strip()]
-    if len(query_lines) >= 2 and query_lines[0].startswith("--") and query_lines[1].startswith("--"):
-        job_name = query_lines[0]
-        query_name = query_lines[1]
-        query_text = "\n".join(query_lines[2:]).strip()
-    else:
-        job_name = ""
-        query_name = query_lines[0] if query_lines else ""
-        query_text = "\n".join(query_lines[1:]).strip()
+    try:
+        plan_json_obj = json.loads(json_section)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Could not decode JSON plan: {exc}") from exc
+
+    if not isinstance(plan_json_obj, dict):
+        raise ValueError("JSON plan payload is not in expected object format.")
+
+    query_text_raw = plan_json_obj.get("Query Text", "")
+    job_name = ""
+    query_name = ""
+    query_text = query_text_raw.strip() if isinstance(query_text_raw, str) else ""
+
+    if isinstance(query_text_raw, str):
+        # Prefer extracting job/task comments when present in a single line
+        comment_pattern = re.compile(
+            r"--\s*Job:\s*(?P<job>.*?)\s+--\s*Task\s*(?P<task>.*?)(?P<sql>(?:update|insert|select|delete|with|create|alter|drop)\b.*)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        comment_match = comment_pattern.match(query_text_raw.strip())
+        if comment_match:
+            job_name = f"-- Job: {comment_match.group('job').strip()}"
+            query_name = f"-- Task {comment_match.group('task').strip()}"
+            query_text = comment_match.group("sql").strip()
+        else:
+            query_lines = [line.strip() for line in query_text_raw.splitlines() if line.strip()]
+            if len(query_lines) >= 2 and query_lines[0].startswith("--") and query_lines[1].startswith("--"):
+                job_name = query_lines[0]
+                query_name = query_lines[1]
+                query_text = "\n".join(query_lines[2:]).strip()
+            elif query_lines:
+                query_text = "\n".join(query_lines[1:]).strip() if query_lines[0].startswith("--") else "\n".join(query_lines)
 
     job_name = job_name.replace("\t", "").replace("\n", "")
     query_name = query_name.replace("\t", "").replace("\n", "")
 
-    try:
-        plan_json = json.loads(plan_section)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Could not decode JSON plan: {exc}") from exc
+    plan_root = plan_json_obj.get("Plan")
+    if not isinstance(plan_root, dict):
+        raise ValueError("JSON plan payload is missing a Plan object.")
 
-    if not isinstance(plan_json, list) or not plan_json:
-        raise ValueError("JSON plan payload is not in expected list format.")
-
-    plan_root = plan_json[0].get("Plan", {})
     startup_cost = plan_root.get("Startup Cost")
     total_cost = plan_root.get("Total Cost")
 
     rows = plan_root.get("Actual Rows") if plan_root.get("Actual Rows") is not None else plan_root.get("Plan Rows")
+
+    def _first_actual_rows(node: dict[str, Any]) -> int | None:
+        """Return the first non-zero Actual Rows found depth-first in child plans."""
+        plans = node.get("Plans")
+        if not isinstance(plans, list):
+            return None
+        for child in plans:
+            if not isinstance(child, dict):
+                continue
+            actual = child.get("Actual Rows")
+            if isinstance(actual, (int, float)) and actual > 0:
+                return int(actual)
+            fallback = _first_actual_rows(child)
+            if fallback is not None:
+                return fallback
+        return None
+
+    if rows == 0:
+        nested_rows = _first_actual_rows(plan_root)
+        if nested_rows is not None:
+            rows = nested_rows
 
     buffers = {
         "shared_hit": plan_root.get("Shared Hit Blocks"),
@@ -324,7 +360,7 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
         "query_name": query_name,
         "job_name": job_name,
         "query_text": query_text,
-        "execution_plan": json.dumps(plan_json, indent=2),
+        "execution_plan": json.dumps(plan_json_obj, indent=2),
         "duration": duration_ms,
         "startup_cost": startup_cost,
         "cost": total_cost,
