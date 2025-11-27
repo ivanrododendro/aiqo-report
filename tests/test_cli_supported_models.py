@@ -30,6 +30,21 @@ def test_supported_models_success(monkeypatch, capsys):
     assert "- text-dummy" in out
 
 
+def test_supported_models_via_model_list(monkeypatch, capsys):
+    fake_litellm = types.SimpleNamespace(
+        model_list=["alpha", "beta"],
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer, "litellm", fake_litellm)
+
+    with pytest.raises(SystemExit) as exc:
+        pg_autoexplain_analyzer.parse_cli_arguments(["-sm"])
+
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "- alpha" in out
+    assert "- beta" in out
+
+
 def test_supported_models_failure(monkeypatch, capsys):
     class ErrLitellm:
         @staticmethod

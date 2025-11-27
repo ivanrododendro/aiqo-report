@@ -28,6 +28,39 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+def _show_supported_models_and_exit() -> None:
+    """Print supported models from litellm and terminate execution."""
+    models_data = None
+    try:
+        models_callable = getattr(litellm, "models", None)
+        if callable(models_callable):
+            models_data = models_callable()
+        elif hasattr(litellm, "model_list"):
+            models_data = getattr(litellm, "model_list")
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.error("Unable to retrieve supported models from litellm: %s", exc)
+
+    if models_data is None:
+        print("Unable to retrieve supported models from litellm.")
+        sys.exit(1)
+
+    print("Supported models:")
+    if not models_data:
+        print("- none reported")
+        sys.exit(0)
+
+    for model in models_data:
+        if isinstance(model, dict):
+            name = str(model.get("model_name") or model.get("id") or model.get("name") or model)
+            provider = model.get("litellm_provider") or model.get("provider")
+            suffix = f" (provider: {provider})" if provider else ""
+            print(f"- {name}{suffix}")
+        else:
+            print(f"- {model}")
+
+    sys.exit(0)
+
+
 class PGAutoExplainAnalyzer:
     def __init__(self, args):
         self.args = args
@@ -373,8 +406,6 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         logger.info(f"L'exécution est en mode fichier unique pour le chemin : {args.log_filename}")
 
     return args
-
-
 def main():
     args = parse_cli_arguments()
 
@@ -393,29 +424,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-def _show_supported_models_and_exit() -> None:
-    """Print supported models from litellm and terminate execution."""
-    try:
-        models_data = litellm.models()
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        logger.error("Unable to retrieve supported models from litellm: %s", exc)
-        print("Unable to retrieve supported models from litellm.")
-        sys.exit(1)
-
-    print("Supported models:")
-    if not models_data:
-        print("- none reported")
-        sys.exit(0)
-
-    for model in models_data:
-        if isinstance(model, dict):
-            name = str(model.get("model_name") or model.get("id") or model.get("name") or model)
-            provider = model.get("litellm_provider") or model.get("provider")
-            suffix = f" (provider: {provider})" if provider else ""
-            print(f"- {name}{suffix}")
-        else:
-            print(f"- {model}")
-
-    sys.exit(0)
