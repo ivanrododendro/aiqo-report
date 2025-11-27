@@ -14,15 +14,38 @@ if ! command -v poetry >/dev/null 2>&1; then
   exit 1
 fi
 
+export PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENTRY_POINT="src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py"
 
 export PYTHONPATH="src:${PYTHONPATH:-}"
+
+# Precompute version for frozen builds to avoid setuptools_scm at runtime
+export VERSION_FILE="$PROJECT_ROOT/src/aiqo_pg_ai_report/_version_generated.txt"
+poetry run python - <<'PY'
+import os
+from importlib import import_module
+from pathlib import Path
+
+project_root = Path(os.environ["PROJECT_ROOT"])
+version_file = Path(os.environ["VERSION_FILE"])
+
+try:
+    scm = import_module("setuptools_scm")
+    version = scm.get_version(root=project_root, fallback_version="0.0.0")
+except Exception as exc:  # noqa: BLE001
+    print(f"Warning: could not compute version via setuptools_scm: {exc}")
+    version = "0.0.0"
+
+version_file.write_text(version, encoding="utf-8")
+print(f"Wrote embedded version {version} to {version_file}")
+PY
 
 COMMON_ARGS=(
   "--onefile"
   "--standalone"
   "--include-package=aiqo_pg_ai_report"
-  "--include-module=litellm"
+  "--include-package=litellm"
+  "--include-package-data=litellm"
   "--no-debug-c-warnings"
   "--include-data-dir=src/aiqo_pg_ai_report/prompts=prompts"
   "--include-data-dir=src/aiqo_pg_ai_report/report_templates=report_templates"

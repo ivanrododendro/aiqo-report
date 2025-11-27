@@ -6,6 +6,8 @@ import sys  # Import sys for exit
 from collections import defaultdict
 from pathlib import Path
 
+import litellm
+
 # Ensure package imports resolve when run as a script
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -15,6 +17,7 @@ from aiqo_pg_ai_report.log_parser import JsonLogParser, TextLogParser
 from aiqo_pg_ai_report.report_generator import ReportGenerator
 from aiqo_pg_ai_report.sql_utils import SQLUtils
 from aiqo_pg_ai_report.context import ContextLoader
+from aiqo_pg_ai_report.version import get_package_version, get_litellm_version
 
 DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selection
 DEFAULT_MODEL = "gemini-2.5-flash"
@@ -23,6 +26,39 @@ DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 # Configure logging (default to INFO, can be overridden by CLI)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def _show_supported_models_and_exit() -> None:
+    """Print supported models from litellm and terminate execution."""
+    models_data = None
+    try:
+        models_callable = getattr(litellm, "models", None)
+        if callable(models_callable):
+            models_data = models_callable()
+        elif hasattr(litellm, "model_list"):
+            models_data = getattr(litellm, "model_list")
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.error("Unable to retrieve supported models from litellm: %s", exc)
+
+    if models_data is None:
+        print("Unable to retrieve supported models from litellm.")
+        sys.exit(1)
+
+    print("Supported models:")
+    if not models_data:
+        print("- none reported")
+        sys.exit(0)
+
+    for model in models_data:
+        if isinstance(model, dict):
+            name = str(model.get("model_name") or model.get("id") or model.get("name") or model)
+            provider = model.get("litellm_provider") or model.get("provider")
+            suffix = f" (provider: {provider})" if provider else ""
+            print(f"- {name}{suffix}")
+        else:
+            print(f"- {model}")
+
+    sys.exit(0)
 
 
 class PGAutoExplainAnalyzer:
@@ -256,11 +292,25 @@ class PGAutoExplainAnalyzer:
         raise ValueError(f"format {log_format} unsupported.")
 
 
-def parse_cli_arguments():
+def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    version_string = f"{get_package_version()} (litellm {get_litellm_version()})"
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
     parser.add_argument(
         "log_filename", nargs="?", help="Path to the PostgreSQL log file or directory containing log files."
     )  # Updated help text
+    parser.add_argument(
+        "-sm",
+        "--supported-models",
+        action="store_true",
+        help="Show supported models detected by litellm and exit.",
+    )
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {version_string}",
+        help="Show the current version derived from git tags and exit.",
+    )
     parser.add_argument(
         "-m", "--model", default=DEFAULT_MODEL, help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})"
     )
@@ -325,10 +375,13 @@ def parse_cli_arguments():
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging (default: false)")
 
-    args, unknown_args = parser.parse_known_args()
+    args, unknown_args = parser.parse_known_args(argv)
 
     if unknown_args:
         logger.warning(f"Unrecognized arguments: {unknown_args}. These will be ignored.")
+
+    if args.supported_models:
+        _show_supported_models_and_exit()
 
     # New logic for path validation and directory mode detection
     if not args.log_filename:
@@ -353,8 +406,6 @@ def parse_cli_arguments():
         logger.info(f"L'exécution est en mode fichier unique pour le chemin : {args.log_filename}")
 
     return args
-
-
 def main():
     args = parse_cli_arguments()
 
