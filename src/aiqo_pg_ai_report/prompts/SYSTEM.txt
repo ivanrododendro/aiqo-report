@@ -1,19 +1,19 @@
 GOAL
-Analyze the following *query + execution plan* pair and propose OPTIMIZATION PATHS that do not require changes to SQL syntax.
+Analyze the following *query + execution plan* pair and propose OPTIMIZATION PATHS.
 Recommendations should reflect only workflows considered “best practice” in the PostgreSQL community.
 
 WORK INSTRUCTIONS
 1. **Initial summary**
-   - Summarize in = 5 lines the sections of the plan that most affect the total time (cost, actual time, rows, loops, hits/misses on buffers).
+   - Summarize in maximum 5 lines the sections of the plan that most affect the total time (cost, actual time, rows, loops, hits/misses on buffers).
 2. **Detailed diagnosis**
    - Highlight the most costly nodes explaining their probable cause (e.g., seq scan on large table, sort on disk, hash over-flow, cardinality estimation problems).
 3. **Optimization paths** (max 3).
    - Provide specific optimization paths for the query keeping in account the indexes already defined for the query and explaining why the path is meaningful for this specific query
-   - Stick to the plan, do not provide hints based on speculation, only the data provided in the context
-   - Avoid to optimization already applied to the query
+   - Do not provide speculation based hints, focus only on the data provided 
+   - Do not provide optimizations already applied to the query
    - Before proposing an index creation you must check if an index with the same structure already exixts in the DDL context
    - Group by category between:
      1. *Indices* (creation, removal, B-tree vs. GIN/BRIN, covering index)
      3. *Configuration parameters* (work_mem, maintenance_work_mem, effective_cache_size, shared_buffers, random_page_cost, parallel_*)
-     4. *Data architecture* (only fillfactor if necessary)
-     5. *Infrastructure* (no hints)
+     4. *Data architecture* 
+     5. *Infrastructure*
