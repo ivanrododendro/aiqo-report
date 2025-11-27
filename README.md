@@ -148,6 +148,7 @@ You can customize the analysis using various command-line arguments:
 poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
     --model "gpt-4o-mini" \
     --language "en" \
+    --format "json" \
     --context-folder "./my_custom_contexts" \
     --custom-prompt "Focus on index usage." \
     --only-seq-scan-ai-analysis \
@@ -166,6 +167,10 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
 *   **`--model <MODEL>`** (`-m`):
     *   Specify the AI model to use for analysis (e.g., `gpt-4o`, `gemini-1.5-pro`, `o1-mini`).
     *   Default: `gemini-2.5-flash`
+
+*   **`--format <FORMAT>`** (`-fmt`):
+    *   Specify the log format to parse: `text` (default), `json` (supported), `yaml` (currently unsupported).
+    *   Default: `text`
 
 *   **`--limit-ai-calls <NUMBER>`** (`-l`):
     *   Limits the maximum number of AI calls made during the analysis. Use `-1` for unlimited calls.
@@ -198,6 +203,12 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
 *   **`--custom-prompt <PROMPT>`** (`-c`):
     *   Provide an additional custom prompt or instruction to the AI for its analysis. This prompt will be appended to the standard prompts.
     *   Example: `--custom-prompt "Pay special attention to JOIN operations."`
+
+*   **`--version`** (`-v`):
+    *   Show the current tool version (from git tags) and the detected `litellm` version, then exit.
+
+*   **`--supported-models`** (`-sm`):
+    *   Show the models reported by `litellm.models()` with provider information, then exit.
     *   Default: `None`
 
 *   **`--report-filename <PATH>`** (`-r`):

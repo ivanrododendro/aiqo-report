@@ -6,6 +6,8 @@ import sys  # Import sys for exit
 from collections import defaultdict
 from pathlib import Path
 
+import litellm
+
 # Ensure package imports resolve when run as a script
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -264,6 +266,12 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "log_filename", nargs="?", help="Path to the PostgreSQL log file or directory containing log files."
     )  # Updated help text
     parser.add_argument(
+        "-sm",
+        "--supported-models",
+        action="store_true",
+        help="Show supported models detected by litellm and exit.",
+    )
+    parser.add_argument(
         "-v",
         "--version",
         action="version",
@@ -339,6 +347,9 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     if unknown_args:
         logger.warning(f"Unrecognized arguments: {unknown_args}. These will be ignored.")
 
+    if args.supported_models:
+        _show_supported_models_and_exit()
+
     # New logic for path validation and directory mode detection
     if not args.log_filename:
         parser.error("The 'log_filename' argument is required. Please provide a path to a log file or a directory.")
@@ -382,3 +393,29 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def _show_supported_models_and_exit() -> None:
+    """Print supported models from litellm and terminate execution."""
+    try:
+        models_data = litellm.models()
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.error("Unable to retrieve supported models from litellm: %s", exc)
+        print("Unable to retrieve supported models from litellm.")
+        sys.exit(1)
+
+    print("Supported models:")
+    if not models_data:
+        print("- none reported")
+        sys.exit(0)
+
+    for model in models_data:
+        if isinstance(model, dict):
+            name = str(model.get("model_name") or model.get("id") or model.get("name") or model)
+            provider = model.get("litellm_provider") or model.get("provider")
+            suffix = f" (provider: {provider})" if provider else ""
+            print(f"- {name}{suffix}")
+        else:
+            print(f"- {model}")
+
+    sys.exit(0)
