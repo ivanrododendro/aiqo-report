@@ -15,6 +15,7 @@ from aiqo_pg_ai_report.log_parser import JsonLogParser, TextLogParser
 from aiqo_pg_ai_report.report_generator import ReportGenerator
 from aiqo_pg_ai_report.sql_utils import SQLUtils
 from aiqo_pg_ai_report.context import ContextLoader
+from aiqo_pg_ai_report.version import get_package_version, get_litellm_version
 
 DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selection
 DEFAULT_MODEL = "gemini-2.5-flash"
@@ -256,11 +257,19 @@ class PGAutoExplainAnalyzer:
         raise ValueError(f"format {log_format} unsupported.")
 
 
-def parse_cli_arguments():
+def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    version_string = f"{get_package_version()} (litellm {get_litellm_version()})"
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
     parser.add_argument(
         "log_filename", nargs="?", help="Path to the PostgreSQL log file or directory containing log files."
     )  # Updated help text
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {version_string}",
+        help="Show the current version derived from git tags and exit.",
+    )
     parser.add_argument(
         "-m", "--model", default=DEFAULT_MODEL, help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})"
     )
@@ -325,7 +334,7 @@ def parse_cli_arguments():
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging (default: false)")
 
-    args, unknown_args = parser.parse_known_args()
+    args, unknown_args = parser.parse_known_args(argv)
 
     if unknown_args:
         logger.warning(f"Unrecognized arguments: {unknown_args}. These will be ignored.")
