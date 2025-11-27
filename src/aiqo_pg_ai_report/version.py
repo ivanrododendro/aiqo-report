@@ -24,28 +24,31 @@ def _read_embedded_version() -> str | None:
 
 @lru_cache(maxsize=1)
 def get_package_version() -> str:
-    """Return the package version resolved from metadata, embedded file, or git tags."""
-    try:
-        return pkg_version("aiqo-pg-ai-report")
-    except PackageNotFoundError:
-        logger.debug("Distribution metadata not found for aiqo-pg-ai-report.")
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        logger.debug("Unable to read package metadata version: %s", exc)
-
+    """Return the package version resolved from embedded file, metadata, or git tags."""
     embedded_version = _read_embedded_version()
     if embedded_version:
         return embedded_version
 
-    if getattr(sys, "frozen", False):
-        logger.debug("Running in frozen mode; skipping setuptools_scm lookup.")
-        return "0.0.0"
+    is_frozen = getattr(sys, "frozen", False)
 
-    try:
-        scm = import_module("setuptools_scm")
-        return scm.get_version(root=_PROJECT_ROOT, fallback_version="0.0.0")
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        logger.debug("Falling back to default version because setuptools_scm failed: %s", exc)
-        return "0.0.0"
+    if not is_frozen:
+        try:
+            return pkg_version("aiqo-pg-ai-report")
+        except PackageNotFoundError:
+            logger.debug("Distribution metadata not found for aiqo-pg-ai-report.")
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            logger.debug("Unable to read package metadata version: %s", exc)
+
+        try:
+            scm = import_module("setuptools_scm")
+            return scm.get_version(root=_PROJECT_ROOT, fallback_version="0.0.0")
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            logger.debug("Falling back to default version because setuptools_scm failed: %s", exc)
+            return "0.0.0"
+
+    # Frozen binary without embedded version falls back to a safe default.
+    logger.debug("Running in frozen mode with no embedded version; defaulting to unknown.")
+    return "unknown"
 
 
 @lru_cache(maxsize=1)
