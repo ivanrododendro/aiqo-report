@@ -6,11 +6,15 @@ Expected format:
 - strictly avoid asciidoc or markdown tags
 
 <p>
-<strong>Description:</strong> Quick and concise description of the query.
+<h2>Description :</h2> Put the query summary here
 </p>
 <p>
-<strong>Put the title of the Optimization path here</strong>
+<h2>Diagnosis :</h2> Put the query diagnosis here
 </p>
 <p>
-detailed and actionable optimization paths, with a concise justification.
+<h2>Optimization Paths:</h2> 
+</p>
+<strong>Optimization Path Title:</strong> 
+<p>
+detailed and actionable optimization path, with a concise justification. max 3 
 </p>
