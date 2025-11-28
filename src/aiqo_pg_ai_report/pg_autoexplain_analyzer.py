@@ -159,14 +159,20 @@ class PGAutoExplainAnalyzer:
         query_text = log_entry["query_text"]
         query_code = SQLUtils.get_query_code(query_text)
 
+        def _truncate(text: str | None, limit: int = 40) -> str:
+            if not text:
+                return ""
+            return text if len(text) <= limit else text[:limit] + "..."
+
+        line_info = f", line: {log_entry.get('source_line')}" if log_entry.get("source_line") is not None else ""
+        timestamp_info = f", date: {log_entry.get('timestamp')}" if log_entry.get("timestamp") else ""
+        title = (log_entry.get("job_name", "") + " " + log_entry.get("query_name", "")).strip()
+        title_info = f", title: {_truncate(title)}" if title else ""
+        logger.info(f"Query code : {query_code[:6]}{line_info}{timestamp_info}{title_info}")
+
         # Charge toujours les optimisations spécifiques à la requête dans le cache, indépendamment de l'analyse AI.
         # Cela garantit qu'elles sont disponibles pour l'affichage du rapport.
-        self.context_loader.get_query_optimizations(
-            query_code,
-            source_line=log_entry.get("source_line"),
-            query_timestamp=log_entry.get("timestamp"),
-            query_title=(log_entry["job_name"] + " " + log_entry["query_name"]).strip(),
-        )
+        self.context_loader.get_query_optimizations(query_code)
 
         should_perform_ai_call, ai_hints = self._determine_ai_analysis_status(log_entry, query_code)
 
