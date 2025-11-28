@@ -46,6 +46,7 @@ COMMON_ARGS=(
   "--include-package=aiqo_pg_ai_report"
   "--include-package=litellm"
   "--include-package-data=litellm"
+  "--include-data-file=${VERSION_FILE}=aiqo_pg_ai_report/_version_generated.txt"
   "--no-debug-c-warnings"
   "--include-data-dir=src/aiqo_pg_ai_report/prompts=prompts"
   "--include-data-dir=src/aiqo_pg_ai_report/report_templates=report_templates"
