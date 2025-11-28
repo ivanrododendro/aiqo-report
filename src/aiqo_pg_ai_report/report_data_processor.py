@@ -37,8 +37,7 @@ class ReportDataProcessor:
             """Trim title to avoid overly long headings."""
             return text if len(text) <= limit else text[:limit] + "..."
 
-        full_title = (job_name + " " + query_name).strip()
-        title = _truncate_title(full_title)
+        title = _truncate_title(log_entry.get("title", (job_name + " " + query_name).strip()))
 
         # Validate and sanitize execution plan
         if execution_plan is None or execution_plan == "":

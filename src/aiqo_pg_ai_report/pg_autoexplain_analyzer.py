@@ -127,7 +127,7 @@ class PGAutoExplainAnalyzer:
                     match_found = True
                     break
             if not match_found:
-                logger.info(
+                logger.warnin(
                     f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria."
                 )
                 return False, ""
@@ -135,7 +135,7 @@ class PGAutoExplainAnalyzer:
         # Vérifie l'analyse AI uniquement pour les Seq Scan
         seq_scan_indicator = log_entry["execution_plan"].find("Seq Scan") != -1
         if self.only_seq_scan_ai_analysis and not seq_scan_indicator:
-            logger.info("Skipping AI analysis for query without Seq Scan (only_seq_scan_ai_analysis is true)")
+            logger.warning("Skipping AI analysis for query without Seq Scan (only_seq_scan_ai_analysis is true)")
             return False, ""
 
         return True, ""

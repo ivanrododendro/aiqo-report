@@ -195,11 +195,18 @@ def parse_log_entry(log_entry_text):
             logger.debug(f"Parsed WAL statistics: {wal}")
         except (ValueError, IndexError) as e:
             logger.warning(f"Could not parse WAL statistics: {e}")
+
+    query_text_clean = "\n".join(query_lines).strip()
+    title = (job_name + " " + query_name).strip()
+    if not title:
+        title = query_text_clean
+
     result = {
         "timestamp": timestamp,
         "query_name": query_name,
         "job_name": job_name,
-        "query_text": "\n".join(query_lines).strip(),
+        "title": title,
+        "query_text": query_text_clean,
         "execution_plan": "\n".join(plan_lines).strip(),
         "duration": duration_ms,
         "startup_cost": startup_cost,
@@ -355,10 +362,15 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
         "temp_written": plan_root.get("Temp Written Blocks"),
     }
 
+    title = (job_name + " " + query_name).strip()
+    if not title:
+        title = query_text
+
     result = {
         "timestamp": timestamp,
         "query_name": query_name,
         "job_name": job_name,
+        "title": title,
         "query_text": query_text,
         "execution_plan": json.dumps(plan_json_obj, indent=2),
         "duration": duration_ms,
