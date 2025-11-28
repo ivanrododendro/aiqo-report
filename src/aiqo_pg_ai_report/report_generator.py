@@ -128,6 +128,7 @@ class ReportGenerator:
         output_path,
         title,
         model,
+        app_version,
         query_stats,
         reports_by_day,
         daily_query_stats,
@@ -145,6 +146,7 @@ class ReportGenerator:
         context = self.data_processor.prepare_report_context(
             title=title,
             model=model,
+            app_version=app_version,
             query_stats=query_stats,
             reports_by_day=reports_by_day,
             daily_query_stats=daily_query_stats,

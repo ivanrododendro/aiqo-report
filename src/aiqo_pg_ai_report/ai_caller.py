@@ -59,9 +59,12 @@ class AiCaller:
             return f"Could not estimate token count for model {effective_model}. AI analysis skipped."
 
         if estimated_tokens > self.token_limit:
-            ai_hints = (
+            # Reuse the same message to avoid duplication
+            message = (
                 f"Token count ({estimated_tokens}) exceeds the model limit ({self.token_limit}). AI analysis skipped."
             )
+            logger.warning(message)
+            ai_hints = message
             return ai_hints
 
         try:

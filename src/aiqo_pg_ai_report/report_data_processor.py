@@ -105,6 +105,7 @@ class ReportDataProcessor:
         self,
         title,
         model,
+        app_version,
         query_stats,
         reports_by_day,
         daily_query_stats,
@@ -155,6 +156,7 @@ class ReportDataProcessor:
                 "model": model,
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "skip_ai_analysis": skip_ai_analysis,
+                "version": app_version,
                 "query_name_limit": self.query_name_limit,
             },
             "statistics": {

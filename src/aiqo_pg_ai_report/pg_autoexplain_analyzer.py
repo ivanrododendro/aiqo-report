@@ -266,6 +266,7 @@ class PGAutoExplainAnalyzer:
             str(resolved_report_filename),
             report_title,
             self.model,
+            get_package_version(),
             query_stats_list,
             self.data_processor.reports_by_day,
             self.data_processor.daily_query_stats,
@@ -407,6 +408,7 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
     return args
 def main():
+    logger.info("AIQO PG Report v%s", get_package_version())
     args = parse_cli_arguments()
 
     if args.debug:
