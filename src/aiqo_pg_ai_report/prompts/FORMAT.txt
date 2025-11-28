@@ -6,13 +6,13 @@ Expected format:
 - strictly avoid asciidoc or markdown tags
 
 <p>
-<h2>Description :</h2> Put the query summary here
+<h3>Description :</h3> Put the query summary here
 </p>
 <p>
-<h2>Diagnosis :</h2> Put the query diagnosis here
+<h3>Diagnosis :</h3> Put the query diagnosis here
 </p>
 <p>
-<h2>Optimization Paths:</h2> 
+<h3>Optimization Paths:</h3> 
 </p>
 <strong>Optimization Path Title:</strong> 
 <p>
