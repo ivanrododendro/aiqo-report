@@ -59,17 +59,17 @@ mkdir -p dist
 case "$TARGET_OS" in
   linux)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
-      --output-filename=aiqo-report-linux "$ENTRY_POINT"
+      --output-filename=pg_aiqo_report_linux "$ENTRY_POINT"
     ;;
   macos-silicon)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
       --macos-target-arch=arm64 \
-      --output-filename=aiqo-report-macos-arm64 "$ENTRY_POINT"
+      --output-filename=pg_aiqo_report_macos_arm64 "$ENTRY_POINT"
     ;;
   windows)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
       --assume-yes-for-downloads \
-      --output-filename=aiqo-report.exe "$ENTRY_POINT"
+      --output-filename=pg_aiqo_report_windows.exe "$ENTRY_POINT"
     ;;
   *)
     echo "Unsupported target: $TARGET_OS (use linux, macos-silicon, or windows)" >&2
