@@ -44,15 +44,15 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linux
-            artifact: dist/aiqo-report-linux
+            artifact: dist/pg_aiqo_report_linux
             label: Linux Binary
           - os: macos-latest
             target: macos-silicon
-            artifact: dist/aiqo-report-macos-arm64
+            artifact: dist/pg_aiqo_report_macos_arm64
             label: macOS Binary
           - os: windows-latest
             target: windows
-            artifact: dist/aiqo-report.exe
+            artifact: dist/pg_aiqo_report_windows.exe
             label: Windows Binary
     runs-on: ${{ matrix.os }}
     steps:
