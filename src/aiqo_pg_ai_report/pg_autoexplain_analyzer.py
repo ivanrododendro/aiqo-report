@@ -127,7 +127,7 @@ class PGAutoExplainAnalyzer:
                     match_found = True
                     break
             if not match_found:
-                logger.warnin(
+                logger.warning(
                     f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria."
                 )
                 return False, ""
