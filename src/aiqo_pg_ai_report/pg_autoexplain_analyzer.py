@@ -159,7 +159,7 @@ class PGAutoExplainAnalyzer:
         query_text = log_entry["query_text"]
         query_code = SQLUtils.get_query_code(query_text)
 
-        def _truncate(text: str | None, limit: int = 40) -> str:
+        def _truncate(text: str | None, limit: int = 80) -> str:
             if not text:
                 return ""
             return text if len(text) <= limit else text[:limit] + "..."
