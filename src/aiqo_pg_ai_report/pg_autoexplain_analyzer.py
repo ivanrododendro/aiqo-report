@@ -184,6 +184,7 @@ class PGAutoExplainAnalyzer:
         self.data_processor.update_statistics(report)
 
     def run(self):
+        logger.info("AIQO PG Report v%s", get_package_version())
         # Rate limit variables are now handled within AiCaller, so these global assignments are removed.
 
         log_files = []
@@ -414,7 +415,6 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
     return args
 def main():
-    logger.info("AIQO PG Report v%s", get_package_version())
     args = parse_cli_arguments()
 
     if args.debug:
