@@ -110,7 +110,7 @@ my_custom_contexts/
 To specify your custom context folder, use the `--context-folder` argument. For example:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
+poetry run python src/aiqo_pg_ai_report/pg_aiqo_report.py \
     --context-folder "./my_custom_contexts" \
     /path/to/your/postgresql.log
 ```
@@ -124,7 +124,7 @@ Navigate to the project's root directory.
 To analyze a PostgreSQL log file with default settings:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py /path/to/your/postgresql.log
+poetry run python src/aiqo_pg_ai_report/pg_aiqo_report.py /path/to/your/postgresql.log
 ```
 
 This will generate an HTML report in the current working directory (or `output/` if it exists), named similarly to `pg-ai-report_<timestamp>.html`.
@@ -138,14 +138,14 @@ poetry install --with dev
 ./scripts/build_nuitka.sh <linux|macos-silicon|windows>
 ```
 
-The script wraps the Nuitka invocation, bundles the prompt/template assets, and writes binaries to `dist/`. **Run the script on the same OS you are targeting** (e.g., run it on Windows to produce `pg_autoexplain.exe`).
+The script wraps the Nuitka invocation, bundles the prompt/template assets, and writes binaries to `dist/`. **Run the script on the same OS you are targeting** (e.g., run it on Windows to produce `pg_aiqo_report.exe`).
 
 ### Advanced Usage
 
 You can customize the analysis using various command-line arguments:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
+poetry run python src/aiqo_pg_ai_report/pg_aiqo_report.py \
     --model "gpt-4o-mini" \
     --language "en" \
     --format "json" \

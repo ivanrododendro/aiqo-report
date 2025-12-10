@@ -260,6 +260,11 @@ class PGAutoExplainAnalyzer:
             for parsed_entry in self.log_parser.parse_log_file(log_file):
                 self._process_parsed_log_entry(parsed_entry)
 
+        logger.info("--- Log processing statistics ---")
+        logger.info(f"PostgreSQL log lines processed: {self.log_parser.total_log_lines}")
+        logger.info(f"Queries processed: {self.log_parser.total_queries}")
+        logger.info("----------------------------------")
+
         # Get query stats from data processor
         query_stats_list = self.data_processor.get_query_stats_list()
         report_title = (

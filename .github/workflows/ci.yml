@@ -52,7 +52,7 @@ jobs:
             label: macOS Binary
           - os: windows-latest
             target: windows
-            artifact: dist/pg_aiqo_report_windows.exe
+            artifact: dist/pg_aiqo_report.exe
             label: Windows Binary
     runs-on: ${{ matrix.os }}
     steps:
