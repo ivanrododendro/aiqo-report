@@ -2,6 +2,8 @@
 
 The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed to analyze PostgreSQL `auto_explain` logs using Artificial Intelligence. It provides actionable insights and optimization suggestions to improve database performance, presenting its findings in a comprehensive HTML report.
 
+![AIQO Workflow](docs/img/aiqo_infographics.png)
+
 ## Features
 
 *   **AI-Powered Analysis**: Leverages large language models (LLMs) to analyze `EXPLAIN` plans from PostgreSQL logs and identify performance bottlenecks.
@@ -14,6 +16,8 @@ The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed
 *   **Query Filtering**: Filter log entries based on specific strings to analyze only relevant queries.
 *   **Multilingual Output**: Supports generating reports in different languages.
 *   **Reproducible Outputs**: When using ChatGPT models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
+
+![AIQO Sample report](docs/img/aiqo_sample_report.png)
 
 ## Dependencies & Requirements
 
