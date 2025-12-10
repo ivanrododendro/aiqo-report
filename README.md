@@ -62,7 +62,7 @@ shared_preload_libraries = 'auto_explain'
 auto_explain.log_min_duration = 0 # Log all queries, or set a threshold like 250ms
 auto_explain.log_analyze = on # Include EXPLAIN ANALYZE output
 auto_explain.log_buffers = on # Include buffer usage
-auto_explain.log_timing = on # Include timing information
+auto_explain.log_timing = off # Include timing information
 auto_explain.log_nested_pages = on # For nested queries
 auto_explain.log_verbose = on # For verbose output
 auto_explain.log_format = text # Or json, but the tool expects text for now
@@ -72,7 +72,7 @@ log_directory = 'pg_log' # Directory for log files
 log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log' # Log file naming convention
 ```
 
-> **_NOTE:_** when auto_explain.log_timing parameter is on, per-plan-node timing occurs for all statements executed, whether or not they run long enough to actually get logged. This can have an extremely negative impact on performance. Turning off auto_explain.log_timing ameliorates the performance cost, at the price of obtaining less information. See https://www.postgresql.org/docs/current/auto-explain.html
+> **_NOTE:_** You don't need auto_explain.log_timing to be set to on. When auto_explain.log_timing parameter is on, per-plan-node timing occurs for all statements executed, whether or not they run long enough to actually get logged. This can have an extremely negative impact on performance. Turning off auto_explain.log_timing ameliorates the performance cost, at the price of obtaining less information. See https://www.postgresql.org/docs/current/auto-explain.html
 
 After modifying `postgresql.conf`, restart your PostgreSQL server for the changes to take effect. The tool expects standard text-based PostgreSQL log files.
 
