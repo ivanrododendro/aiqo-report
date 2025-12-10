@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from aiqo_pg_ai_report.log_parser import AbstractLogParser, JsonLogParser, TextLogParser
-from aiqo_pg_ai_report.pg_autoexplain_analyzer import PGAutoExplainAnalyzer
+from aiqo_pg_ai_report.pg_aiqo_report import PGAutoExplainAnalyzer
 
 
 DATA_DIR = Path(__file__).parent / "data"
