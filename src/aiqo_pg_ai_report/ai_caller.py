@@ -1,11 +1,11 @@
 import logging
+from types import SimpleNamespace
 import litellm
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_AI_CALL_TIMEOUT = 90
-
 
 class AiCaller:
     def __init__(self, model, ai_call_timeout, lang, prompts, debug):
@@ -19,7 +19,8 @@ class AiCaller:
         self.call_count = 0
         self.token_limit = self._get_model_token_limit()
         self.debug = debug
-
+        self.streaming_enabled = True  # Default to streaming; fallback to non-streaming on failure
+ 
         if debug:
             litellm._turn_on_debug()
             logger.info("LiteLLM debug mode enabled.")
@@ -77,7 +78,7 @@ class AiCaller:
                 "model": effective_model,
                 "messages": messages,
                 "request_timeout": self.ai_call_timeout,
-                "temperature": 0,
+                "temperature": 1.0,
                 "seed": 42,
                 "drop_params": True,
             }
@@ -86,34 +87,35 @@ class AiCaller:
             if not is_openai_model:
                 response_params["top_k"] = 1
 
-            response = litellm.completion(**response_params)
+            # Try streaming first; fall back to standard completion if unsupported or fails.
+            response = None
+            if self.streaming_enabled:
+                response_params["stream"] = True
+                try:
+                    response = litellm.completion(**response_params)
+                    if self._is_streaming_response(response):
+                        return self._handle_streaming_response(response)
+                    logger.debug("Model %s did not return a streaming iterator; disabling streaming.", self.model)
+                    self.streaming_enabled = False
+                except Exception as exc:
+                    logger.warning(
+                        "Streaming not available for model %s (%s). Falling back to non-streaming.", self.model, exc
+                    )
+                    self.streaming_enabled = False
 
-            # Accumulate actual input tokens from the response
-            if response.usage and hasattr(response.usage, "prompt_tokens") and response.usage.prompt_tokens is not None:
-                self.total_input_tokens += response.usage.prompt_tokens
+            response_params.pop("stream", None)
+            if response is None:
+                response = litellm.completion(**response_params)
 
-            # Accumulate actual output tokens from the response
-            if (
-                response.usage
-                and hasattr(response.usage, "completion_tokens")
-                and response.usage.completion_tokens is not None
-            ):
-                self.total_output_tokens += response.usage.completion_tokens
-
-            # Calculate and accumulate cost
-            try:
-                cost = litellm.completion_cost(completion_response=response)
-                if cost is not None:
-                    self.total_cost += cost
-            except Exception as e:
-                logger.warning(f"Could not calculate cost for the API call: {e}")
+            self._accumulate_usage(response)
 
             # LiteLLM response structure is similar to OpenAI's
             if response.choices and response.choices[0].message and response.choices[0].message.content:
-                return response.choices[0].message.content.strip()
-            else:
-                logger.warning(f"No analysis content found in LiteLLM response for model {self.model}.")
-                return f"No analysis content found in LiteLLM response for model {self.model}."
+                text_content = self._extract_text_from_content(response.choices[0].message.content)
+                if text_content:
+                    return text_content.strip()
+            logger.warning(f"No analysis content found in LiteLLM response for model {self.model}.")
+            return f"No analysis content found in LiteLLM response for model {self.model}."
         except litellm.exceptions.Timeout as e:
             logger.error(f"Timeout while communicating with LiteLLM API for model {self.model}: {e}")
             return None
@@ -123,6 +125,99 @@ class AiCaller:
             if hasattr(e, "response"):
                 logger.error(f"LiteLLM Response content: {e.response.text}")
             return None
+
+    def _handle_streaming_response(self, response_stream):
+        """Consume a streaming LiteLLM response and return aggregated content."""
+        content_parts = []
+        last_usage = None
+
+        try:
+            for chunk in response_stream:
+                choice = chunk.choices[0] if getattr(chunk, "choices", None) else None
+                if not choice:
+                    continue
+
+                delta = getattr(choice, "delta", None)
+                message = getattr(choice, "message", None)
+
+                # Collect content from delta or message fields
+                text_piece = None
+                if delta is not None:
+                    text_piece = self._extract_text_from_content(getattr(delta, "content", None))
+                if not text_piece and message is not None:
+                    text_piece = self._extract_text_from_content(getattr(message, "content", None))
+
+                if text_piece:
+                    content_parts.append(text_piece)
+
+                # Capture usage if provided on streaming chunks
+                usage = getattr(chunk, "usage", None)
+                if usage:
+                    last_usage = usage
+        except Exception as exc:
+            logger.error("Error while reading streaming response for model %s: %s", self.model, exc)
+            raise
+
+        full_content = "".join(content_parts).strip()
+        if last_usage:
+            self._accumulate_usage(SimpleNamespace(usage=last_usage, choices=[]))
+
+        if not full_content:
+            logger.warning("Received empty streaming content for model %s.", self.model)
+            return f"No analysis content found in LiteLLM response for model {self.model}."
+        return full_content
+
+    @staticmethod
+    def _is_streaming_response(response) -> bool:
+        """Return True if the object looks like a streaming iterator."""
+        return hasattr(response, "__iter__") and not isinstance(response, (str, bytes, dict))
+
+    def _accumulate_usage(self, response):
+        """Aggregate token usage and cost from a LiteLLM response."""
+        usage = getattr(response, "usage", None)
+        if usage and getattr(usage, "prompt_tokens", None) is not None:
+            self.total_input_tokens += usage.prompt_tokens
+        if usage and getattr(usage, "completion_tokens", None) is not None:
+            self.total_output_tokens += usage.completion_tokens
+
+        try:
+            cost = litellm.completion_cost(completion_response=response)
+            if cost is not None:
+                self.total_cost += cost
+        except Exception as e:
+            logger.warning(f"Could not calculate cost for the API call: {e}")
+
+    @staticmethod
+    def _extract_text_from_content(content) -> str:
+        """Normalize LiteLLM/OpenAI content objects into a single text string."""
+        if content is None:
+            return ""
+
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text = item.get("text")
+                    if text is not None:
+                        parts.append(str(text))
+                elif hasattr(item, "text"):
+                    text = getattr(item, "text", None)
+                    if text is not None:
+                        parts.append(str(text))
+                else:
+                    parts.append(str(item))
+            return "".join(parts)
+
+        if hasattr(content, "text"):
+            text_value = getattr(content, "text", None)
+            return str(text_value) if text_value is not None else ""
+
+        return str(content)
 
     def call_ai_provider(self, prompt):
         logger.info("Calling AI Model for plan analysis...")

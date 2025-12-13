@@ -137,7 +137,7 @@ class ReportGenerator:
         event_optimizations,
         ddl_context,
         server_config_context,
-        infra_context,
+        project_context,
         skip_ai_analysis,
     ):
         logger.info(f"Generating HTML report in {output_path}")
@@ -155,7 +155,7 @@ class ReportGenerator:
             event_optimizations=event_optimizations,
             ddl_context=ddl_context,
             server_config_context=server_config_context,
-            infra_context=infra_context,
+            project_context=project_context,
             skip_ai_analysis=skip_ai_analysis,
         )
 

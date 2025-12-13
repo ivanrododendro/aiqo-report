@@ -17,10 +17,6 @@ class LogParserInterface(Protocol):
 
 
 class AbstractLogParser(LogParserInterface, ABC):
-    def __init__(self):
-        self.total_log_lines: int = 0
-        self.total_queries: int = 0
-
     @abstractmethod
     def _process_plain_text_file(self, file_obj: io.TextIOBase, log_file_path: str | Path) -> Iterator[dict[str, Any]]:
         """
@@ -250,7 +246,6 @@ class TextLogParser(AbstractLogParser):
         line_number = 0
         for line in file_obj:
             line_number += 1
-            self.total_log_lines += 1
             if "plan:" in line:
                 try:
                     # Pass the file_obj (iterator) and the current line
@@ -260,7 +255,6 @@ class TextLogParser(AbstractLogParser):
                     else:
                         parsed_entry = parse_log_entry(log_entry_text)
                     parsed_entry["source_line"] = line_number
-                    self.total_queries += 1
                     yield parsed_entry
                 except ValueError as e:
                     logger.warning(
@@ -354,7 +348,7 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
                 return fallback
         return None
 
-    if rows == 0 and plan_root.get("Node Type") == "Result":
+    if rows == 0:
         nested_rows = _first_actual_rows(plan_root)
         if nested_rows is not None:
             rows = nested_rows
@@ -405,7 +399,6 @@ class JsonLogParser(AbstractLogParser):
         in_plan = False
         current_entry_line: int | None = None
         for line_number, line in enumerate(file_obj, start=1):
-            self.total_log_lines += 1
             if not in_plan and "plan:" in line:
                 in_plan = True
                 buffer_lines = [line]
@@ -419,7 +412,6 @@ class JsonLogParser(AbstractLogParser):
                         log_entry_text = "".join(buffer_lines)
                         parsed_entry = parse_json_log_entry(log_entry_text)
                         parsed_entry["source_line"] = current_entry_line
-                        self.total_queries += 1
                         yield parsed_entry
                     except ValueError as e:
                         logger.warning(f"Skipping JSON log entry due to parsing error: {e}")
@@ -435,7 +427,6 @@ class JsonLogParser(AbstractLogParser):
                 log_entry_text = "".join(buffer_lines)
                 parsed_entry = parse_json_log_entry(log_entry_text)
                 parsed_entry["source_line"] = current_entry_line
-                self.total_queries += 1
                 yield parsed_entry
             except ValueError as e:
                 logger.warning(f"Skipping JSON log entry due to parsing error: {e}")

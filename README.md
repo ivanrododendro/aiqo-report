@@ -1,23 +1,19 @@
 # AIQO PostgreSQL AI Report Generator
 
-The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed to analyze PostgreSQL `auto_explain` logs using Artificial Intelligence. It provides actionable insights and optimization suggestions to improve database performance, presenting its findings in a comprehensive HTML report.
-
-![AIQO Workflow](docs/img/aiqo_infographics.png)
+The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed to analyze PostgreSQL `auto_explain` logs using Artificial Intelligence. It provides query tracking over time and actionable insights and optimization suggestions to improve database performance, presenting its findings in a comprehensive HTML report.
 
 ## Features
 
 *   **AI-Powered Analysis**: Leverages large language models (LLMs) to analyze `EXPLAIN` plans from PostgreSQL logs and identify performance bottlenecks.
+*   **Query Code Tracking**: Generates a unique "query code" (hash) for each normalized SQL query, enabling consistent tracking and application of query-specific optimizations across different log executions.
 *   **Optimization Suggestions**: Provides concrete recommendations for query, server, and infrastructure optimizations based on AI analysis.
 *   **Comprehensive HTML Reports**: Generates detailed, easy-to-read HTML reports summarizing performance metrics, AI findings, and optimization opportunities.
 *   **Customizable AI Models**: Supports various AI providers and models (e.g., GPT-4o, Gemini 1.5 Flash, O1) via `litellm`.
+*   **Streaming by Default**: Uses streaming responses when the selected model supports it, falling back gracefully if not.
 *   **Flexible Contextualization**: Allows users to provide DDL, server configuration, infrastructure details, and custom prompts to enhance AI analysis accuracy.
-*   **Targeted Analysis**: Option to focus AI analysis specifically on queries performing sequential scans.
-*   **Query Code Tracking**: Generates a unique "query code" (hash) for each normalized SQL query, enabling consistent tracking and application of query-specific optimizations across different log executions.
 *   **Query Filtering**: Filter log entries based on specific strings to analyze only relevant queries.
 *   **Multilingual Output**: Supports generating reports in different languages.
 *   **Reproducible Outputs**: When using ChatGPT models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
-
-![AIQO Sample report](docs/img/aiqo_sample_report.png)
 
 ## Dependencies & Requirements
 
@@ -62,17 +58,13 @@ shared_preload_libraries = 'auto_explain'
 auto_explain.log_min_duration = 0 # Log all queries, or set a threshold like 250ms
 auto_explain.log_analyze = on # Include EXPLAIN ANALYZE output
 auto_explain.log_buffers = on # Include buffer usage
-auto_explain.log_timing = off # Include timing information
+auto_explain.log_timing = off # Exclude unecessary detailed timing information
 auto_explain.log_nested_pages = on # For nested queries
 auto_explain.log_verbose = on # For verbose output
 auto_explain.log_format = text # Or json, but the tool expects text for now
-log_destination = 'stderr' # Or 'csvlog' if preferred
-logging_collector = on
-log_directory = 'pg_log' # Directory for log files
-log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log' # Log file naming convention
 ```
 
-> **_NOTE:_** You don't need auto_explain.log_timing to be set to on. When auto_explain.log_timing parameter is on, per-plan-node timing occurs for all statements executed, whether or not they run long enough to actually get logged. This can have an extremely negative impact on performance. Turning off auto_explain.log_timing ameliorates the performance cost, at the price of obtaining less information. See https://www.postgresql.org/docs/current/auto-explain.html
+> **_NOTE:_** when auto_explain.log_timing parameter is on, per-plan-node timing occurs for all statements executed, whether or not they run long enough to actually get logged. This can have an extremely negative impact on performance. Turning off auto_explain.log_timing ameliorates the performance cost, at the price of obtaining less information. See https://www.postgresql.org/docs/current/auto-explain.html
 
 After modifying `postgresql.conf`, restart your PostgreSQL server for the changes to take effect. The tool expects standard text-based PostgreSQL log files.
 
@@ -86,15 +78,14 @@ The available context types include:
     *   **Default Locations**: `SYSTEM.txt`, `FORMAT.txt`, and `target-query-prompts.txt` have default implementations located in `src/aiqo_pg_ai_report/prompts/`.
     *   `SYSTEM.txt`: Defines the AI's persona and general instructions.
     *   `FORMAT.txt`: Specifies the desired output format for the AI's analysis.
-    *   `target-query-prompts.txt`: Contains specific prompts for analyzing individual queries.
 
 *   **Additional Contexts (User-Provided)**: For the following contexts, the tool *does not provide default files*. They must be supplied by the user within a custom `--context-folder` to be active.
-    *   `DDL Context` (`DDL.txt`): Database schema definitions.
-    *   `Server Configuration Context` (`CONFIG.txt`): Details about your PostgreSQL server settings.
-    *   `Infrastructure Context` (`INFRA.txt`): Information about the underlying hardware and environment.
-    *   `Server Optimizations` (`SERVER.txt`): General server-level optimization rules.
-    *   `Event Optimizations` (`EVENTS.txt`): Optimizations related to specific database events.
-    *   `Query Optimizations` (`QUERIES/<query_code_prefix>.txt`): Specific query-level optimization rules, where `<query_code_prefix>` refers to the first 6 characters of the query code (normalized query hash). These files provide context for optimizations that have already been applied to a particular query.
+    *   `DDL Context` (`DDL.txt`): Database schema definitions (indexes are tipically enough)
+    *   `Server Configuration Context` (`CONFIG.txt`): Whole server configuration
+    *   `Project Context` (`PROJECT.txt`): Information about project specifics, infrastructure, and environment constraints.
+    *   `Server Optimizations` (`SERVER.txt`): Already applied server-level optimizations.
+    *   `Event Optimizations` (`EVENTS.txt`): External event tha could have affected DB workload and performance.
+    *   `Query Optimizations` (`QUERIES/<query_code_prefix>.txt`): Specific query-level already applied optimizations, where `<query_code_prefix>` refers to the first 6 characters of the query code (normalized query hash). These files provide context for optimizations that have already been applied to a particular query.
 
 To use custom contexts, create a folder (e.g., `my_custom_contexts/`) and place your context files within it according to the following structure:
 
@@ -102,7 +93,7 @@ To use custom contexts, create a folder (e.g., `my_custom_contexts/`) and place 
 my_custom_contexts/
 ├── DDL.txt
 ├── CONFIG.txt
-├── INFRA.txt
+├── PROJECT.txt
 ├── SERVER.txt
 ├── EVENTS.txt
 └── QUERIES/
@@ -114,7 +105,7 @@ my_custom_contexts/
 To specify your custom context folder, use the `--context-folder` argument. For example:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_aiqo_report.py \
+poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
     --context-folder "./my_custom_contexts" \
     /path/to/your/postgresql.log
 ```
@@ -128,7 +119,7 @@ Navigate to the project's root directory.
 To analyze a PostgreSQL log file with default settings:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_aiqo_report.py /path/to/your/postgresql.log
+poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py /path/to/your/postgresql.log
 ```
 
 This will generate an HTML report in the current working directory (or `output/` if it exists), named similarly to `pg-ai-report_<timestamp>.html`.
@@ -142,14 +133,14 @@ poetry install --with dev
 ./scripts/build_nuitka.sh <linux|macos-silicon|windows>
 ```
 
-The script wraps the Nuitka invocation, bundles the prompt/template assets, and writes binaries to `dist/`. **Run the script on the same OS you are targeting** (e.g., run it on Windows to produce `pg_aiqo_report.exe`).
+The script wraps the Nuitka invocation, bundles the prompt/template assets, and writes binaries to `dist/`. **Run the script on the same OS you are targeting** (e.g., run it on Windows to produce `pg_autoexplain.exe`).
 
 ### Advanced Usage
 
 You can customize the analysis using various command-line arguments:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_aiqo_report.py \
+poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
     --model "gpt-4o-mini" \
     --language "en" \
     --format "json" \
@@ -220,11 +211,6 @@ poetry run python src/aiqo_pg_ai_report/pg_aiqo_report.py \
     *   Example: `--report-filename my_custom_report.html`
     *   Default: Automatically generated based on log filename
 
-*   **`--target-query-mode`**:
-    *   Enables target query mode for analysis.
-    *   This is a flag, no value needed.
-    *   Default: `False`
-
 *   **`--context-folder <PATH>`** (`-cf`):
     *   Path to a directory containing context files (DDL, server config, optimizations, custom prompts).
     *   Example: `--context-folder /home/user/my_db_contexts`
@@ -247,6 +233,6 @@ The tool generates a single, self-contained HTML report. This report typically i
     *   The `EXPLAIN ANALYZE` plan.
     *   The AI's summary of the plan's performance characteristics.
     *   AI-generated optimization recommendations specific to that query.
-*   **General Optimization Suggestions**: Broader recommendations based on the overall log analysis and pre-defined optimization contexts (if provided).
+    *   PEV2 Query visualizer
+    *   Graph tracking qeury statistics over time
 
-The report is designed to be easily shareable and provides a clear path to understanding and addressing PostgreSQL performance issues.

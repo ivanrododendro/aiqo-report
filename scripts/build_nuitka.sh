@@ -15,7 +15,7 @@ if ! command -v poetry >/dev/null 2>&1; then
 fi
 
 export PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ENTRY_POINT="src/aiqo_pg_ai_report/pg_aiqo_report.py"
+ENTRY_POINT="src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py"
 
 export PYTHONPATH="src:${PYTHONPATH:-}"
 
@@ -69,7 +69,7 @@ case "$TARGET_OS" in
   windows)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
       --assume-yes-for-downloads \
-      --output-filename=pg_aiqo_report.exe "$ENTRY_POINT"
+      --output-filename=pg_aiqo_report_windows.exe "$ENTRY_POINT"
     ;;
   *)
     echo "Unsupported target: $TARGET_OS (use linux, macos-silicon, or windows)" >&2

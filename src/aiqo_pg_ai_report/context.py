@@ -12,7 +12,7 @@ class ContextLoader:
         self.optimization_base_path = None  # Will be Path object after load_all_contexts
         self.ddl_context = None
         self.server_configuration_context = None
-        self.infra_context = None
+        self.project_context = None
         self.server_optimizations = []
         self.event_optimizations = []
         self.query_optimizations_cache = {}
@@ -101,7 +101,7 @@ class ContextLoader:
 
     def load_all_contexts(self, log_filename: str, directory_mode_active: bool):
         """
-        Determines the context folder path and loads all context files (DDL, CONFIG, INFRA)
+        Determines the context folder path and loads all context files (DDL, CONFIG, PROJECT)
         and general optimization files (SERVER.txt, EVENTS.txt).
         """
         # Determine the base path for context files
@@ -138,7 +138,7 @@ class ContextLoader:
             else:
                 self._load_general_optimizations()
 
-                # Load DDL.txt, CONFIG.txt, and INFRA.txt from the context folder
+                # Load DDL.txt, CONFIG.txt, and PROJECT.txt from the context folder
                 # These context files are now optional.
                 self.ddl_context = self._load_file_content(
                     self.optimization_base_path / "DDL.txt", "DDL context", required=False
@@ -146,8 +146,8 @@ class ContextLoader:
                 self.server_configuration_context = self._load_file_content(
                     self.optimization_base_path / "CONFIG.txt", "Server configuration context", required=False
                 )
-                self.infra_context = self._load_file_content(
-                    self.optimization_base_path / "INFRA.txt", "Infrastructure context", required=False
+                self.project_context = self._load_file_content(
+                    self.optimization_base_path / "PROJECT.txt", "Project context", required=False
                 )
 
     def get_query_optimizations(
@@ -186,15 +186,15 @@ class ContextLoader:
 
         # Add the main plan analysis prompt content
 
-        # Add DDL, server config, and infra context with tags
+        # Add DDL, server config, and project context with tags
         if self.ddl_context:
             full_prompt += f">>> DDL\n{self.ddl_context}\n<<< DDL\n\n"
         if self.server_configuration_context:
             full_prompt += (
                 f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
             )
-        if self.infra_context:
-            full_prompt += f">>> INFRA\n{self.infra_context}\n<<< INFRA\n\n"
+        if self.project_context:
+            full_prompt += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
 
         # Add applied optimizations context
         applied_optimizations_context = ""

@@ -167,3 +167,59 @@ def test_call_ai_provider_gemini_prefers_google_and_sets_top_k(monkeypatch):
     messages = captured_completion["messages"]
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
+
+
+def test_call_ai_provider_handles_list_content(monkeypatch):
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 8)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    combined_content = [{"text": "first part "}, {"text": "second"}]
+    response = DummyResponse(prompt_tokens=2, completion_tokens=6, content=combined_content)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", lambda **kwargs: response)
+
+    caller = AiCaller(model="gpt-test", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    result = caller.call_ai_provider("prompt text")
+
+    assert result == "first part second"
+    assert caller.total_input_tokens == 2
+    assert caller.total_output_tokens == 6
+
+
+def test_call_ai_provider_streaming_objects(monkeypatch):
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 8)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    class ChunkChoice:
+        def __init__(self, content):
+            self.delta = types.SimpleNamespace(content=content)
+            self.message = None
+
+    class Chunk:
+        def __init__(self, content, usage=None):
+            self.choices = [ChunkChoice(content)]
+            self.usage = usage
+
+    def fake_completion(**kwargs):
+        return [
+            Chunk(content=[types.SimpleNamespace(text="alpha "), types.SimpleNamespace(text="beta")]),
+            Chunk(content=[types.SimpleNamespace(text=" gamma")], usage=DummyUsage(4, 3)),
+        ]
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+
+    caller = AiCaller(model="gpt-test", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    result = caller.call_ai_provider("prompt text")
+
+    assert result == "alpha beta gamma"
+    assert caller.total_input_tokens == 4
+    assert caller.total_output_tokens == 3

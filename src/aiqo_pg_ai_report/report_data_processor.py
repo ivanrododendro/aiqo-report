@@ -113,7 +113,7 @@ class ReportDataProcessor:
         event_optimizations,
         ddl_context,
         server_config_context,
-        infra_context,
+        project_context,
         skip_ai_analysis,
     ):
         """
@@ -175,7 +175,7 @@ class ReportDataProcessor:
             "contexts": {
                 "ddl": ddl_context,
                 "server_config": server_config_context,
-                "infra": infra_context,
+                "project": project_context,
             },
             "charts": {
                 "all_dates": all_dates,

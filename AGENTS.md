@@ -5,11 +5,11 @@ code comments in english
 log messages in english 
  
 ## Project Structure & Module Organization
-The CLI lives in `src/aiqo_pg_ai_report`, with `pg_aiqo_report.py` orchestrating log parsing, AI calls, and report generation. Supporting modules such as `log_parser.py`, `report_data_processor.py`, and `report_generator.py` sit alongside prompt assets in `prompts/` and HTML templates in `report_templates/`. Pytest suites reside in `tests/`, while Sphinx docs and template references are in `docs/`.
+The CLI lives in `src/aiqo_pg_ai_report`, with `pg_autoexplain_analyzer.py` orchestrating log parsing, AI calls, and report generation. Supporting modules such as `log_parser.py`, `report_data_processor.py`, and `report_generator.py` sit alongside prompt assets in `prompts/` and HTML templates in `report_templates/`. Pytest suites reside in `tests/`, while Sphinx docs and template references are in `docs/`.
 
 ## Build, Test, and Development Commands
 - `poetry install` — create the virtualenv and install all project and dev dependencies.
-- `poetry run python src/aiqo_pg_ai_report/pg_aiqo_report.py /path/to/log` — run the analyzer to produce an HTML report (writes to `output/` if present).
+- `poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py /path/to/log` — run the analyzer to produce an HTML report (writes to `output/` if present).
 - `poetry run pytest` — execute the Python unit tests.
 - `poetry run black src tests` / `poetry run flake8 src tests` / `poetry run mypy src` — format, lint, and type-check the codebase.
 - `poetry run sphinx-build docs docs/_build/html` — build the contributor documentation locally.
