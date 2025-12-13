@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import locale
 import logging
 import sys  # Import sys for exit
 import time
@@ -184,13 +185,29 @@ class PGAutoExplainAnalyzer:
         report = self.data_processor.create_report_entry(log_entry, query_code, ai_hints)
         self.data_processor.update_statistics(report)
 
+    @staticmethod
+    def _format_int_locale(value: int) -> str:
+        """Format integers using the current locale; fall back to comma separators."""
+        try:
+            locale.setlocale(locale.LC_ALL, "")
+            formatted = locale.format_string("%d", value, grouping=True)
+            conv = locale.localeconv()
+            thousands_sep = conv.get("thousands_sep") or conv.get("THOUSANDS_SEP")
+            if thousands_sep:
+                return formatted
+        except Exception:
+            pass
+        return f"{value:,}"
+
     def _log_processing_statistics(self, log_files, start_time: float) -> None:
         """Log summary metrics for the current run."""
         elapsed_seconds = time.perf_counter() - start_time
         total_queries = len(self.data_processor.all_reports)
+        total_log_lines = getattr(self.log_parser, "total_log_lines_processed", 0)
         logger.info("--- Log processing statistics ---")
         logger.info("Total log files processed: %s", len(log_files))
         logger.info("Total queries processed: %s", total_queries)
+        logger.info("Total log lines processed: %s", self._format_int_locale(total_log_lines))
         logger.info("Total execution time: %.2f seconds", elapsed_seconds)
         logger.info("-------------------------------")
 
