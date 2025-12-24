@@ -78,6 +78,23 @@ def test_create_log_parser_resolves_json_and_text():
     assert isinstance(PGAutoExplainAnalyzer._create_log_parser("text"), TextLogParser)
 
 
+def test_text_parser_counts_total_log_lines_processed():
+    log_path = DATA_DIR / "pg_ctl.log"
+    parser = TextLogParser()
+    list(parser.parse_log_file(log_path))
+
+    expected_lines = len(log_path.read_text().splitlines())
+    assert parser.total_log_lines_processed == expected_lines
+
+
+def test_json_parser_counts_total_log_lines_processed():
+    log_path = DATA_DIR / "full-json-plan.log"
+    parser = JsonLogParser()
+    list(parser.parse_log_file(log_path))
+
+    expected_lines = len(log_path.read_text().splitlines())
+    assert parser.total_log_lines_processed == expected_lines
+
 def test_create_log_parser_yaml_error():
     with pytest.raises(ValueError, match="format yaml unsupported\\."):
         PGAutoExplainAnalyzer._create_log_parser("yaml")

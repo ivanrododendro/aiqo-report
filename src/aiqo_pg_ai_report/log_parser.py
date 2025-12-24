@@ -17,6 +17,10 @@ class LogParserInterface(Protocol):
 
 
 class AbstractLogParser(LogParserInterface, ABC):
+    def __init__(self):
+        # Track total log lines processed across parsed files.
+        self.total_log_lines_processed = 0
+
     @abstractmethod
     def _process_plain_text_file(self, file_obj: io.TextIOBase, log_file_path: str | Path) -> Iterator[dict[str, Any]]:
         """
@@ -228,13 +232,15 @@ def extract_plan_starting_at_line(file_iterator, first_line):
     until a line starting with "Settings:" is found or a new log entry starts.
     """
     plan_lines = [first_line]
+    lines_consumed = 1
     for line in file_iterator:
+        lines_consumed += 1
         if re.match(r"^\d{4}-\d{2}-\d{2} ", line):
             break
         plan_lines.append(line)
         if line.strip().startswith("Settings:"):
             break
-    return "".join(plan_lines)
+    return "".join(plan_lines), lines_consumed
 
 
 class TextLogParser(AbstractLogParser):
@@ -244,17 +250,22 @@ class TextLogParser(AbstractLogParser):
     def _process_plain_text_file(self, file_obj, log_file_path):
         logger.info(f"Processing plain text file {file_obj.name} from {log_file_path}")
         line_number = 0
+        lines_processed = 0
         for line in file_obj:
             line_number += 1
+            lines_processed += 1
             if "plan:" in line:
                 try:
+                    entry_start_line = line_number
                     # Pass the file_obj (iterator) and the current line
-                    log_entry_text = extract_plan_starting_at_line(file_obj, line)
+                    log_entry_text, consumed_lines = extract_plan_starting_at_line(file_obj, line)
+                    lines_processed += consumed_lines - 1  # first line already counted
+                    line_number += consumed_lines - 1
                     if re.search(r'"Query Text"\s*:', log_entry_text):
                         parsed_entry = parse_json_log_entry(log_entry_text)
                     else:
                         parsed_entry = parse_log_entry(log_entry_text)
-                    parsed_entry["source_line"] = line_number
+                    parsed_entry["source_line"] = entry_start_line
                     yield parsed_entry
                 except ValueError as e:
                     logger.warning(
@@ -264,6 +275,8 @@ class TextLogParser(AbstractLogParser):
                 except Exception as e:
                     logger.error(f"Unexpected error processing log entry at line {line_number} in {log_file_path}: {e}")
                     continue
+
+        self.total_log_lines_processed += lines_processed
 
 
 def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
@@ -398,7 +411,9 @@ class JsonLogParser(AbstractLogParser):
         buffer_lines: list[str] = []
         in_plan = False
         current_entry_line: int | None = None
+        lines_processed = 0
         for line_number, line in enumerate(file_obj, start=1):
+            lines_processed += 1
             if not in_plan and "plan:" in line:
                 in_plan = True
                 buffer_lines = [line]
@@ -430,3 +445,5 @@ class JsonLogParser(AbstractLogParser):
                 yield parsed_entry
             except ValueError as e:
                 logger.warning(f"Skipping JSON log entry due to parsing error: {e}")
+
+        self.total_log_lines_processed += lines_processed
