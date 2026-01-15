@@ -63,7 +63,7 @@ auto_explain.log_buffers = on # Include buffer usage
 auto_explain.log_timing = off # Exclude unecessary detailed timing information
 auto_explain.log_nested_pages = on # For nested queries
 auto_explain.log_verbose = on # For verbose output
-auto_explain.log_format = text # Or json, but the tool expects text for now
+auto_explain.log_format = text # Or json
 ```
 
 > **_NOTE:_** when auto_explain.log_timing parameter is on, per-plan-node timing occurs for all statements executed, whether or not they run long enough to actually get logged. This can have an extremely negative impact on performance. Turning off auto_explain.log_timing ameliorates the performance cost, at the price of obtaining less information. See https://www.postgresql.org/docs/current/auto-explain.html
