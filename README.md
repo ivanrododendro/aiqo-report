@@ -57,7 +57,7 @@ To generate the necessary log files for analysis, your PostgreSQL instance must 
 ```ini
 # auto_explain settings
 shared_preload_libraries = 'auto_explain'
-auto_explain.log_min_duration = 0 # Log all queries, or set a threshold like 250ms
+auto_explain.log_min_duration = 60000 # Log queries that exceed duration target
 auto_explain.log_analyze = on # Include EXPLAIN ANALYZE output
 auto_explain.log_buffers = on # Include buffer usage
 auto_explain.log_timing = off # Exclude unecessary detailed timing information
@@ -83,10 +83,10 @@ The available context types include:
 
 *   **Additional Contexts (User-Provided)**: For the following contexts, the tool *does not provide default files*. They must be supplied by the user within a custom `--context-folder` to be active.
     *   `DDL Context` (`DDL.txt`): Database schema definitions (indexes are tipically enough)
-    *   `Server Configuration Context` (`CONFIG.txt`): Whole server configuration
+    *   `Server Configuration Context` (`CONFIG.txt`): Whole PG configuration
     *   `Project Context` (`PROJECT.txt`): Information about project specifics, infrastructure, and environment constraints.
     *   `Server Optimizations` (`SERVER.txt`): Already applied server-level optimizations.
-    *   `Event Optimizations` (`EVENTS.txt`): External event tha could have affected DB workload and performance.
+    *   `Event Optimizations` (`EVENTS.txt`): External event that could have affected DB workload and performance.
     *   `Query Optimizations` (`QUERIES/<query_code_prefix>.txt`): Specific query-level already applied optimizations, where `<query_code_prefix>` refers to the first 6 characters of the query code (normalized query hash). These files provide context for optimizations that have already been applied to a particular query.
 
 To use custom contexts, create a folder (e.g., `my_custom_contexts/`) and place your context files within it according to the following structure:
