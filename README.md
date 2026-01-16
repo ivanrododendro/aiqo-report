@@ -12,7 +12,7 @@ It is well suited to scenarios where complexity, data volume and fragmentation m
 *   **Query Code Tracking**: Generates a unique "query code" (hash) for each normalized SQL query, enabling consistent tracking and application of query-specific optimizations across different log executions.
 *   **Optimization Suggestions**: Provides concrete recommendations for query, server, and infrastructure optimizations based on AI analysis.
 *   **Comprehensive HTML Reports**: Generates detailed, easy-to-read HTML reports summarizing performance metrics, AI findings, and optimization opportunities.
-*   **Customizable AI Models**: Supports various AI providers and models (e.g., GPT-4o, Gemini 1.5 Flash, O1) via `litellm`.
+*   **Customizable AI Models**: Supports various AI providers and models (e.g. ChatGPT, Gemini, DeepSeek, ...) via `litellm`.
 *   **Streaming by Default**: Uses streaming responses when the selected model supports it, falling back gracefully if not.
 *   **Flexible Contextualization**: Allows users to provide DDL, server configuration, infrastructure details, and custom prompts to enhance AI analysis accuracy.
 *   **Query Filtering**: Filter log entries based on specific strings to analyze only relevant queries.
