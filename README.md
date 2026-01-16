@@ -4,6 +4,8 @@ The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed
 
 It is well suited to scenarios where complexity, data volume and fragmentation make it difficult or impossible to reproduce the execution plan outside the production environment.
 
+[Sample HTML report here](docs/sample_reports.html), fom a randomized dataset created from explain.dalibo.com sample plans. AI hint is at day may 4, rela report are much more meaningful due to detailed context you can provide to AI analisys. 
+
 ## Features
 
 *   **AI-Powered Analysis**: Leverages large language models (LLMs) to analyze `EXPLAIN` plans from PostgreSQL logs and identify performance bottlenecks.
