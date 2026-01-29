@@ -144,8 +144,14 @@ class AiCaller:
                 text_piece = None
                 if delta is not None:
                     text_piece = self._extract_text_from_content(getattr(delta, "content", None))
+                    if not text_piece:
+                        text_piece = self._extract_text_from_content(getattr(delta, "text", None))
                 if not text_piece and message is not None:
                     text_piece = self._extract_text_from_content(getattr(message, "content", None))
+                    if not text_piece:
+                        text_piece = self._extract_text_from_content(getattr(message, "text", None))
+                if not text_piece:
+                    text_piece = self._extract_text_from_content(getattr(choice, "text", None))
 
                 if text_piece:
                     content_parts.append(text_piece)
