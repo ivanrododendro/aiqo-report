@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 import litellm
 
 logger = logging.getLogger(__name__)
@@ -19,8 +18,6 @@ class AiCaller:
         self.call_count = 0
         self.token_limit = self._get_model_token_limit()
         self.debug = debug
-        self.streaming_enabled = True  # Default to streaming; fallback to non-streaming on failure
- 
         if debug:
             litellm._turn_on_debug()
             logger.info("LiteLLM debug mode enabled.")
@@ -87,25 +84,7 @@ class AiCaller:
             if not is_openai_model:
                 response_params["top_k"] = 1
 
-            # Try streaming first; fall back to standard completion if unsupported or fails.
-            response = None
-            if self.streaming_enabled:
-                response_params["stream"] = True
-                try:
-                    response = litellm.completion(**response_params)
-                    if self._is_streaming_response(response):
-                        return self._handle_streaming_response(response)
-                    logger.debug("Model %s did not return a streaming iterator; disabling streaming.", self.model)
-                    self.streaming_enabled = False
-                except Exception as exc:
-                    logger.warning(
-                        "Streaming not available for model %s (%s). Falling back to non-streaming.", self.model, exc
-                    )
-                    self.streaming_enabled = False
-
-            response_params.pop("stream", None)
-            if response is None:
-                response = litellm.completion(**response_params)
+            response = litellm.completion(**response_params)
 
             self._accumulate_usage(response)
 
@@ -125,52 +104,6 @@ class AiCaller:
             if hasattr(e, "response"):
                 logger.error(f"LiteLLM Response content: {e.response.text}")
             return None
-
-    def _handle_streaming_response(self, response_stream):
-        """Consume a streaming LiteLLM response and return aggregated content."""
-        content_parts = []
-        last_usage = None
-
-        try:
-            for chunk in response_stream:
-                choice = chunk.choices[0] if getattr(chunk, "choices", None) else None
-                if not choice:
-                    continue
-
-                delta = getattr(choice, "delta", None)
-                message = getattr(choice, "message", None)
-
-                # Collect content from delta or message fields
-                text_piece = None
-                if delta is not None:
-                    text_piece = self._extract_text_from_content(getattr(delta, "content", None))
-                if not text_piece and message is not None:
-                    text_piece = self._extract_text_from_content(getattr(message, "content", None))
-
-                if text_piece:
-                    content_parts.append(text_piece)
-
-                # Capture usage if provided on streaming chunks
-                usage = getattr(chunk, "usage", None)
-                if usage:
-                    last_usage = usage
-        except Exception as exc:
-            logger.error("Error while reading streaming response for model %s: %s", self.model, exc)
-            raise
-
-        full_content = "".join(content_parts).strip()
-        if last_usage:
-            self._accumulate_usage(SimpleNamespace(usage=last_usage, choices=[]))
-
-        if not full_content:
-            logger.warning("Received empty streaming content for model %s.", self.model)
-            return f"No analysis content found in LiteLLM response for model {self.model}."
-        return full_content
-
-    @staticmethod
-    def _is_streaming_response(response) -> bool:
-        """Return True if the object looks like a streaming iterator."""
-        return hasattr(response, "__iter__") and not isinstance(response, (str, bytes, dict))
 
     def _accumulate_usage(self, response):
         """Aggregate token usage and cost from a LiteLLM response."""

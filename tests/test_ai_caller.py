@@ -223,3 +223,38 @@ def test_call_ai_provider_streaming_objects(monkeypatch):
     assert result == "alpha beta gamma"
     assert caller.total_input_tokens == 4
     assert caller.total_output_tokens == 3
+
+
+def test_call_ai_provider_streaming_delta_text(monkeypatch):
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 8)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "google"},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    class ChunkChoice:
+        def __init__(self, text):
+            self.delta = types.SimpleNamespace(text=text)
+            self.message = None
+
+    class Chunk:
+        def __init__(self, text, usage=None):
+            self.choices = [ChunkChoice(text)]
+            self.usage = usage
+
+    def fake_completion(**kwargs):
+        return [
+            Chunk(text="prima "),
+            Chunk(text="parte", usage=DummyUsage(2, 5)),
+        ]
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+
+    caller = AiCaller(model="gemini-3-flash-preview", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    result = caller.call_ai_provider("prompt text")
+
+    assert result == "prima parte"
+    assert caller.total_input_tokens == 2
+    assert caller.total_output_tokens == 5

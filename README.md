@@ -2,22 +2,26 @@
 
 The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed to analyze PostgreSQL `auto_explain` logs using Artificial Intelligence. It provides query tracking over time and actionable insights and optimization suggestions to improve database performance, presenting its findings in a comprehensive HTML report.
 
+It is well suited to scenarios where complexity, data volume and fragmentation make it difficult or impossible to reproduce the execution plan outside the production environment.
+
+[![VirusTotal Clean](https://img.shields.io/badge/VirusTotal-Safe-brightgreen)](URL-REPORT-VIRUSTOTAL) [Sample HTML report here](docs/sample_report.zip?raw=true) ([VirusTotal Report](https://www.virustotal.com/gui/file/7acb0c7def7ae27d556efe4309ce0268ab1d30456a4e3577e976001d6635c2fd?nocache=1)), for a randomized dataset created using explain.dalibo.com sample plans. AI hint is at day may 4, real reports are more meaningful due to detailed context you can provide to AI analisys. 
+
+![](docs/infographic.webp)
+
 ## Features
 
-*   **AI-Powered Analysis**: Leverages large language models (LLMs) to analyze `EXPLAIN` plans from PostgreSQL logs and identify performance bottlenecks.
 *   **Query Code Tracking**: Generates a unique "query code" (hash) for each normalized SQL query, enabling consistent tracking and application of query-specific optimizations across different log executions.
-*   **Optimization Suggestions**: Provides concrete recommendations for query, server, and infrastructure optimizations based on AI analysis.
-*   **Comprehensive HTML Reports**: Generates detailed, easy-to-read HTML reports summarizing performance metrics, AI findings, and optimization opportunities.
-*   **Customizable AI Models**: Supports various AI providers and models (e.g., GPT-4o, Gemini 1.5 Flash, O1) via `litellm`.
-*   **Streaming by Default**: Uses streaming responses when the selected model supports it, falling back gracefully if not.
-*   **Flexible Contextualization**: Allows users to provide DDL, server configuration, infrastructure details, and custom prompts to enhance AI analysis accuracy.
+*   **AI-Powered Analysis**: Leverages large language models (LLMs) to analyze `EXPLAIN` plans from PostgreSQL logs and identify performance bottlenecks. Provides concrete recommendations for query, server, and infrastructure optimizations based on AI analysis.
+*   **Flexible Contextualization**: Allows users to provide DDL, server configuration, infrastructure details, and custom prompts to enhance AI analysis accuracy.   
+*   **Comprehensive HTML Reports**: Generates detailed, easy-to-read HTML reports summarizing performance metrics, AI findings and optimization opportunities.
+*   **Customizable AI Models**: Supports various AI providers and models (e.g. ChatGPT, Gemini, DeepSeek, ...) via `litellm`.
 *   **Query Filtering**: Filter log entries based on specific strings to analyze only relevant queries.
 *   **Multilingual Output**: Supports generating reports in different languages.
-*   **Reproducible Outputs**: When using ChatGPT models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
+*   **Reproducible Outputs**: When using OpenAI models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
 
 ## Dependencies & Requirements
 
-*   Python 3.11+
+*   Python >= 3.11 <= 3.13
 *   The project uses `poetry` for dependency management.
 *   Key Python packages: `litellm`, `sqlparse`, `Jinja2`.
 
@@ -55,13 +59,13 @@ To generate the necessary log files for analysis, your PostgreSQL instance must 
 ```ini
 # auto_explain settings
 shared_preload_libraries = 'auto_explain'
-auto_explain.log_min_duration = 0 # Log all queries, or set a threshold like 250ms
+auto_explain.log_min_duration = 60000 # Log queries that exceed duration target
 auto_explain.log_analyze = on # Include EXPLAIN ANALYZE output
 auto_explain.log_buffers = on # Include buffer usage
 auto_explain.log_timing = off # Exclude unecessary detailed timing information
 auto_explain.log_nested_pages = on # For nested queries
 auto_explain.log_verbose = on # For verbose output
-auto_explain.log_format = text # Or json, but the tool expects text for now
+auto_explain.log_format = text # Or json
 ```
 
 > **_NOTE:_** when auto_explain.log_timing parameter is on, per-plan-node timing occurs for all statements executed, whether or not they run long enough to actually get logged. This can have an extremely negative impact on performance. Turning off auto_explain.log_timing ameliorates the performance cost, at the price of obtaining less information. See https://www.postgresql.org/docs/current/auto-explain.html
@@ -81,10 +85,10 @@ The available context types include:
 
 *   **Additional Contexts (User-Provided)**: For the following contexts, the tool *does not provide default files*. They must be supplied by the user within a custom `--context-folder` to be active.
     *   `DDL Context` (`DDL.txt`): Database schema definitions (indexes are tipically enough)
-    *   `Server Configuration Context` (`CONFIG.txt`): Whole server configuration
+    *   `Server Configuration Context` (`CONFIG.txt`): Whole PG configuration
     *   `Project Context` (`PROJECT.txt`): Information about project specifics, infrastructure, and environment constraints.
     *   `Server Optimizations` (`SERVER.txt`): Already applied server-level optimizations.
-    *   `Event Optimizations` (`EVENTS.txt`): External event tha could have affected DB workload and performance.
+    *   `Event Optimizations` (`EVENTS.txt`): External event that could have affected DB workload and performance.
     *   `Query Optimizations` (`QUERIES/<query_code_prefix>.txt`): Specific query-level already applied optimizations, where `<query_code_prefix>` refers to the first 6 characters of the query code (normalized query hash). These files provide context for optimizations that have already been applied to a particular query.
 
 To use custom contexts, create a folder (e.g., `my_custom_contexts/`) and place your context files within it according to the following structure:
