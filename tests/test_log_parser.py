@@ -27,7 +27,7 @@ def test_parse_log_file_with_full_text_plan():
     assert entry["duration"] == pytest.approx(1816878.605)
     assert entry["startup_cost"] == pytest.approx(7863332063.99)
     assert entry["cost"] == pytest.approx(266101313035.47)
-    assert entry["rows"] == 0
+    assert entry["rows"] == 2846
     assert entry["buffers"] == {
         "shared_hit": 143191,
         "shared_read": 16708215,
@@ -65,7 +65,7 @@ def test_parse_log_file_with_full_json_plan():
     assert entry["duration"] == pytest.approx(1816878.605)
     assert entry["startup_cost"] == pytest.approx(7863332063.99)
     assert entry["cost"] == pytest.approx(266101313035.47)
-    assert entry["rows"] == 0
+    assert entry["rows"] == 2846
     assert entry["buffers"] == {
         "shared_hit": 143191,
         "shared_read": 16708215,
@@ -74,7 +74,11 @@ def test_parse_log_file_with_full_json_plan():
         "temp_read": 4983014,
         "temp_written": 4991091,
     }
-    assert entry["wal"] == {"records": None, "fpi": None, "bytes": None}
+    assert entry["wal"] == {
+        "records": 21968,
+        "fpi": 7587,
+        "bytes": 26368760,
+    }
 
 
 def test_parse_log_file_with_full_json_plan_extracts_wal_stats():
@@ -174,3 +178,28 @@ def test_json_parser_uses_child_actual_rows_when_root_zero(tmp_path):
     assert len(entries) == 1
     entry = entries[0]
     assert entry["rows"] == 5
+
+
+def test_text_parser_uses_nested_actual_rows_for_insert_root(tmp_path):
+    log_path = tmp_path / "text-plan-insert-child-rows.log"
+    log_path.write_text(
+        """
+2025-11-26 15:00:00 CET [200]: [1-1] db=test,user=test LOG:  duration: 10.0 ms  plan:
+Query Text:
+-- Job: TEST
+-- Task Insert sample
+insert into foo(id)
+select id
+from bar
+Insert on foo  (cost=0.00..10.00 rows=0 width=0) (actual rows=0 loops=1)
+  ->  Subquery Scan on src  (cost=0.00..10.00 rows=0 width=4) (actual rows=0 loops=1)
+        ->  Seq Scan on bar  (cost=0.00..10.00 rows=7 width=4) (actual rows=7 loops=1)
+Settings:
+        """.strip()
+    )
+
+    entries = list(TextLogParser().parse_log_file(log_path))
+
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry["rows"] == 7

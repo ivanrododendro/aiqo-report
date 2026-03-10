@@ -135,22 +135,34 @@ def parse_log_entry(log_entry_text):
                 except ValueError:
                     logger.warning(f"Could not parse rows value from line: {first_cost_line}")
 
-        # If rows count is 0 on an Insert/Update, try to find a better estimate from child nodes
-        if rows == 0 and ("Insert" in first_cost_line or "Update" in first_cost_line):
-            logger.debug(f"Rows is 0 on an Insert/Update node. Searching for a better value in subsequent nodes.")
-            if first_cost_line_index + 1 < len(plan_lines):
-                for subsequent_line in plan_lines[first_cost_line_index + 1:]:
-                    if "actual rows=" in subsequent_line:
-                        new_rows_match = re.search(r"actual rows=(\d+)", subsequent_line)
-                        if new_rows_match:
-                            try:
-                                new_rows = int(new_rows_match.group(1))
-                                logger.debug(f"Found new rows value from 'actual rows' on a subsequent node: {new_rows}")
-                                rows = new_rows
-                                break  # Stop at the first match
-                            except ValueError:
-                                logger.warning(f"Could not parse new actual rows value from line: {subsequent_line}")
-                        break  # Stop after checking the first line with 'actual rows='
+        def _find_first_positive_rows(lines_to_scan: list[str], pattern: str) -> int | None:
+            for plan_line in lines_to_scan:
+                rows_candidate_match = re.search(pattern, plan_line)
+                if not rows_candidate_match:
+                    continue
+                try:
+                    candidate_rows = int(rows_candidate_match.group(1))
+                except ValueError:
+                    logger.warning(f"Could not parse row count value from line: {plan_line}")
+                    continue
+                if candidate_rows > 0:
+                    return candidate_rows
+            return None
+
+        # ModifyTable roots for INSERT/UPDATE/DELETE often report actual rows=0.
+        # In that case, use the first positive child row count found in the plan.
+        if rows == 0 and re.search(r"\b(Insert|Update|Delete|ModifyTable)\b", first_cost_line, re.IGNORECASE):
+            logger.debug("Rows is 0 on a DML root node. Searching for a better value in subsequent nodes.")
+            child_plan_lines = plan_lines[first_cost_line_index + 1:]
+            nested_actual_rows = _find_first_positive_rows(child_plan_lines, r"actual rows=(\d+)")
+            if nested_actual_rows is not None:
+                logger.debug(f"Found new rows value from child actual rows: {nested_actual_rows}")
+                rows = nested_actual_rows
+            else:
+                nested_estimated_rows = _find_first_positive_rows(child_plan_lines, r"rows=(\d+)")
+                if nested_estimated_rows is not None:
+                    logger.debug(f"Found new rows value from child estimated rows: {nested_estimated_rows}")
+                    rows = nested_estimated_rows
 
     logger.debug(f"Parsed plan line metrics: cost={total_cost}, rows={rows}")
 
