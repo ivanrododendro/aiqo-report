@@ -147,7 +147,11 @@ class AiCaller:
             )
             response = litellm.completion(**response_params)
 
-            text_content = self._extract_text_from_response(response)
+            text_content = self._extract_text_from_response(
+                response,
+                effective_model=effective_model,
+                messages=messages,
+            )
             if text_content:
                 return text_content.strip()
             logger.warning(f"No analysis content found in LiteLLM response for model {self.model}.")
@@ -162,11 +166,28 @@ class AiCaller:
                 logger.error(f"LiteLLM Response content: {e.response.text}")
             return None
 
-    def _accumulate_usage(self, response):
+    def _accumulate_usage(
+        self,
+        response,
+        effective_model: str | None = None,
+        messages=None,
+        completion_text: str = "",
+        estimated_prompt_tokens: int | None = None,
+    ):
         """Aggregate token usage and cost from a LiteLLM response."""
         usage = getattr(response, "usage", None)
         prompt_tokens = self._get_usage_value(usage, "prompt_tokens", None)
         completion_tokens = self._get_usage_value(usage, "completion_tokens", None)
+        has_provider_usage = bool((prompt_tokens or 0) > 0 or (completion_tokens or 0) > 0)
+
+        if not has_provider_usage and effective_model is not None:
+            prompt_tokens = estimated_prompt_tokens
+            if completion_text:
+                try:
+                    completion_tokens = litellm.token_counter(model=effective_model, text=completion_text)
+                except Exception as e:
+                    logger.warning(f"Could not estimate completion token count for model {effective_model}: {e}")
+                    completion_tokens = 0
 
         if prompt_tokens is not None:
             self.total_input_tokens += prompt_tokens
@@ -181,18 +202,39 @@ class AiCaller:
         self.total_cache_creation_input_tokens += self._get_usage_value(usage, "cache_creation_input_tokens", 0)
 
         try:
-            cost = litellm.completion_cost(completion_response=response)
+            if has_provider_usage:
+                cost = litellm.completion_cost(completion_response=response)
+            else:
+                cost = litellm.completion_cost(
+                    model=effective_model,
+                    messages=messages or [],
+                    completion=completion_text,
+                )
             if cost is not None:
                 self.total_cost += cost
         except Exception as e:
             logger.warning(f"Could not calculate cost for the API call: {e}")
 
-    def _extract_text_from_response(self, response) -> str:
+    def _extract_text_from_response(self, response, effective_model: str | None = None, messages=None) -> str:
         if isinstance(response, list):
             return self._extract_text_from_stream(response)
 
-        self._accumulate_usage(response)
-        return self._extract_text_from_choice_message(response)
+        text_content = self._extract_text_from_choice_message(response)
+        estimated_prompt_tokens = None
+        if effective_model is not None and messages is not None:
+            try:
+                estimated_prompt_tokens = litellm.token_counter(model=effective_model, messages=messages)
+            except Exception:
+                estimated_prompt_tokens = None
+
+        self._accumulate_usage(
+            response,
+            effective_model=effective_model,
+            messages=messages,
+            completion_text=text_content,
+            estimated_prompt_tokens=estimated_prompt_tokens,
+        )
+        return text_content
 
     def _extract_text_from_stream(self, response_chunks) -> str:
         parts: list[str] = []

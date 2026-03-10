@@ -141,6 +141,44 @@ def test_call_ai_provider_openai_sets_prompt_cache_key(monkeypatch):
     assert caller.total_cached_input_tokens == 5
 
 
+def test_call_ai_provider_falls_back_to_estimated_usage_when_provider_usage_missing(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "google"},
+    )
+
+    def fake_token_counter(**kwargs):
+        if "messages" in kwargs:
+            return 11
+        if kwargs.get("text") == "ok":
+            return 4
+        return 0
+
+    captured_cost_call: dict = {}
+
+    def fake_completion_cost(**kwargs):
+        captured_cost_call.update(kwargs)
+        return 0.123
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.completion",
+        lambda **kwargs: DummyResponse(prompt_tokens=0, completion_tokens=0, content="ok"),
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", fake_completion_cost)
+
+    caller = AiCaller(model="gemini-2.5-flash", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    result = caller.call_ai_provider("prompt text")
+
+    assert result == "ok"
+    assert caller.total_input_tokens == 11
+    assert caller.total_output_tokens == 4
+    assert caller.total_cost == 0.123
+    assert captured_cost_call["model"] == "gemini/gemini-2.5-flash"
+    assert captured_cost_call["completion"] == "ok"
+
+
 def test_call_ai_provider_openai_does_not_set_prompt_cache_key_when_disabled(monkeypatch):
     captured_completion: dict = {}
 
