@@ -295,6 +295,16 @@ class PGAutoExplainAnalyzer:
 
         # Get query stats from data processor
         query_stats_list = self.data_processor.get_query_stats_list()
+        total_queries = len(self.data_processor.all_reports)
+
+        if total_queries == 0:
+            logger.warning(
+                "No queries were analyzed for the selected log input. Report generation will be skipped."
+            )
+            self.ai_caller.show_stats()
+            self._log_processing_statistics(log_files, start_time)
+            return
+
         report_title = (
             "PostgreSQL Auto Explain Report"
             if self.skip_ai_analysis

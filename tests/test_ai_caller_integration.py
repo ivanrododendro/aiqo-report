@@ -75,3 +75,40 @@ def test_ai_call_invoked_with_filter_and_limit(monkeypatch):
 
     assert len(completion_calls) == 1
     assert completion_calls[0]["model"] == "gpt-4o"
+
+
+def test_report_generation_is_skipped_when_no_queries_are_parsed(monkeypatch, caplog):
+    log_path = Path("tests/data/full-text-plan.log")
+    generated_reports = []
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ContextLoader,
+        "load_all_contexts",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ReportGenerator,
+        "generate_report",
+        lambda *args, **kwargs: generated_reports.append(args),
+    )
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(()),
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "--skip_ai_analysis"])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+
+    analyzer.context_loader.query_optimizations_cache = {}
+    analyzer.context_loader.server_optimizations = []
+    analyzer.context_loader.event_optimizations = []
+    analyzer.context_loader.ddl_context = None
+    analyzer.context_loader.server_configuration_context = None
+    analyzer.context_loader.project_context = None
+
+    with caplog.at_level("INFO"):
+        analyzer.run()
+
+    assert generated_reports == []
+    assert "No queries were analyzed for the selected log input. Report generation will be skipped." in caplog.text
