@@ -1,4 +1,6 @@
+import hashlib
 import logging
+
 import litellm
 
 logger = logging.getLogger(__name__)
@@ -6,14 +8,18 @@ logger = logging.getLogger(__name__)
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_AI_CALL_TIMEOUT = 90
 
+
 class AiCaller:
-    def __init__(self, model, ai_call_timeout, lang, prompts, debug):
+    def __init__(self, model, ai_call_timeout, lang, prompts, debug, disable_provider_cache=False):
         self.model = model
         self.ai_call_timeout = ai_call_timeout
         self.lang = lang
         self.prompts = prompts
+        self.disable_provider_cache = disable_provider_cache
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        self.total_cached_input_tokens = 0
+        self.total_cache_creation_input_tokens = 0
         self.total_cost = 0.0
         self.call_count = 0
         self.token_limit = self._get_model_token_limit()
@@ -33,19 +39,86 @@ class AiCaller:
             )
             return DEFAULT_TOKEN_LIMIT
 
-    def _perform_ai_call(self, prompt):
-        messages = [{"role": "user", "content": prompt}]
-        # Add a system prompt for chat models, similar to the old call_chatgpt logic
-        if (
-            "gpt" in self.model or "o1" in self.model or "gemini" in self.model or "claude" in self.model
-        ):  # Heuristic for chat models
-            messages.insert(0, {"role": "system", "content": "You are a PostgreSQL optimization expert."})
+    @staticmethod
+    def _get_usage_value(usage, key, default=0):
+        if usage is None:
+            return default
+        if isinstance(usage, dict):
+            value = usage.get(key, default)
+        else:
+            value = getattr(usage, key, default)
+        return default if value is None else value
 
-        # Ensure Gemini models use the Google AI Studio API via "gemini/" prefix
-        effective_model = self.model
+    @staticmethod
+    def _build_prompt_cache_key(model: str, cacheable_prefix: str) -> str:
+        digest = hashlib.sha256(cacheable_prefix.encode("utf-8")).hexdigest()
+        return f"{model}:{digest}"
+
+    @staticmethod
+    def _is_chat_model(model: str) -> bool:
+        return "gpt" in model or "o1" in model or "gemini" in model or "claude" in model
+
+    def _get_effective_model(self) -> str:
         if self.model.startswith("gemini-"):
             effective_model = "gemini/" + self.model
             logger.info(f"Using Google AI Studio provider for model: {effective_model}")
+            return effective_model
+        return self.model
+
+    @staticmethod
+    def _get_provider_name(model_info) -> str | None:
+        if not model_info:
+            return None
+        return model_info.get("litellm_provider")
+
+    def _build_messages(self, prompt: str, provider: str | None, cacheable_prefix: str, dynamic_suffix: str):
+        messages = [{"role": "user", "content": prompt}]
+
+        if not self.disable_provider_cache and provider in {"anthropic", "google"} and cacheable_prefix:
+            user_content = [
+                {
+                    "type": "text",
+                    "text": cacheable_prefix,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+            if dynamic_suffix:
+                user_content.append({"type": "text", "text": dynamic_suffix})
+            messages = [{"role": "user", "content": user_content}]
+
+        if self._is_chat_model(self.model):
+            messages.insert(0, {"role": "system", "content": "You are a PostgreSQL optimization expert."})
+
+        return messages
+
+    def _build_response_params(self, effective_model: str, provider: str | None, messages, cacheable_prefix: str):
+        response_params = {
+            "model": effective_model,
+            "messages": messages,
+            "request_timeout": self.ai_call_timeout,
+            "temperature": 1.0,
+            "seed": 42,
+            "drop_params": True,
+        }
+
+        if provider != "openai":
+            response_params["top_k"] = 1
+
+        if not self.disable_provider_cache and provider == "openai" and cacheable_prefix:
+            response_params["prompt_cache_key"] = self._build_prompt_cache_key(effective_model, cacheable_prefix)
+
+        return response_params
+
+    def _perform_ai_call(self, prompt, cacheable_prefix: str = "", dynamic_suffix: str = ""):
+        effective_model = self._get_effective_model()
+        model_info = litellm.get_model_info(effective_model)
+        provider = self._get_provider_name(model_info)
+        messages = self._build_messages(
+            prompt=prompt,
+            provider=provider,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+        )
 
         try:
             # Estimate tokens using litellm.token_counter with the constructed messages
@@ -66,33 +139,17 @@ class AiCaller:
             return ai_hints
 
         try:
-            # Retrieve model information to check the provider
-            model_info = litellm.get_model_info(effective_model)
-            is_openai_model = model_info.get("litellm_provider") == "openai" if model_info else False
-
-            # Set parameters conditionally based on the provider
-            response_params = {
-                "model": effective_model,
-                "messages": messages,
-                "request_timeout": self.ai_call_timeout,
-                "temperature": 1.0,
-                "seed": 42,
-                "drop_params": True,
-            }
-
-            # Only set top_k if not an OpenAI model
-            if not is_openai_model:
-                response_params["top_k"] = 1
-
+            response_params = self._build_response_params(
+                effective_model=effective_model,
+                provider=provider,
+                messages=messages,
+                cacheable_prefix=cacheable_prefix,
+            )
             response = litellm.completion(**response_params)
 
-            self._accumulate_usage(response)
-
-            # LiteLLM response structure is similar to OpenAI's
-            if response.choices and response.choices[0].message and response.choices[0].message.content:
-                text_content = self._extract_text_from_content(response.choices[0].message.content)
-                if text_content:
-                    return text_content.strip()
+            text_content = self._extract_text_from_response(response)
+            if text_content:
+                return text_content.strip()
             logger.warning(f"No analysis content found in LiteLLM response for model {self.model}.")
             return f"No analysis content found in LiteLLM response for model {self.model}."
         except litellm.exceptions.Timeout as e:
@@ -108,10 +165,20 @@ class AiCaller:
     def _accumulate_usage(self, response):
         """Aggregate token usage and cost from a LiteLLM response."""
         usage = getattr(response, "usage", None)
-        if usage and getattr(usage, "prompt_tokens", None) is not None:
-            self.total_input_tokens += usage.prompt_tokens
-        if usage and getattr(usage, "completion_tokens", None) is not None:
-            self.total_output_tokens += usage.completion_tokens
+        prompt_tokens = self._get_usage_value(usage, "prompt_tokens", None)
+        completion_tokens = self._get_usage_value(usage, "completion_tokens", None)
+
+        if prompt_tokens is not None:
+            self.total_input_tokens += prompt_tokens
+        if completion_tokens is not None:
+            self.total_output_tokens += completion_tokens
+
+        prompt_tokens_details = self._get_usage_value(usage, "prompt_tokens_details", None)
+        if prompt_tokens_details is not None:
+            self.total_cached_input_tokens += self._get_usage_value(prompt_tokens_details, "cached_tokens", 0)
+
+        self.total_cached_input_tokens += self._get_usage_value(usage, "cache_read_input_tokens", 0)
+        self.total_cache_creation_input_tokens += self._get_usage_value(usage, "cache_creation_input_tokens", 0)
 
         try:
             cost = litellm.completion_cost(completion_response=response)
@@ -119,6 +186,59 @@ class AiCaller:
                 self.total_cost += cost
         except Exception as e:
             logger.warning(f"Could not calculate cost for the API call: {e}")
+
+    def _extract_text_from_response(self, response) -> str:
+        if isinstance(response, list):
+            return self._extract_text_from_stream(response)
+
+        self._accumulate_usage(response)
+        return self._extract_text_from_choice_message(response)
+
+    def _extract_text_from_stream(self, response_chunks) -> str:
+        parts: list[str] = []
+
+        for chunk in response_chunks:
+            self._accumulate_usage(chunk)
+
+            if not getattr(chunk, "choices", None):
+                continue
+
+            choice = chunk.choices[0]
+            delta = getattr(choice, "delta", None)
+            message = getattr(choice, "message", None)
+
+            if delta is not None:
+                delta_content = getattr(delta, "content", None)
+                if delta_content is not None:
+                    parts.append(self._extract_text_from_content(delta_content))
+                    continue
+
+                delta_text = getattr(delta, "text", None)
+                if delta_text is not None:
+                    parts.append(str(delta_text))
+                    continue
+
+            if message is not None:
+                message_content = getattr(message, "content", None)
+                if message_content is not None:
+                    parts.append(self._extract_text_from_content(message_content))
+
+        return "".join(parts)
+
+    def _extract_text_from_choice_message(self, response) -> str:
+        if not getattr(response, "choices", None):
+            return ""
+
+        choice = response.choices[0]
+        message = getattr(choice, "message", None)
+        if message is None:
+            return ""
+
+        content = getattr(message, "content", None)
+        if content is None:
+            return ""
+
+        return self._extract_text_from_content(content)
 
     @staticmethod
     def _extract_text_from_content(content) -> str:
@@ -152,10 +272,14 @@ class AiCaller:
 
         return str(content)
 
-    def call_ai_provider(self, prompt):
+    def call_ai_provider(self, prompt, cacheable_prefix: str = "", dynamic_suffix: str = ""):
         logger.info("Calling AI Model for plan analysis...")
         self.call_count += 1  # Increment call count when AI call is initiated
-        return self._perform_ai_call(prompt)
+        return self._perform_ai_call(
+            prompt,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+        )
 
     def show_stats(self):
         """Logs the final statistics of AI API usage."""
@@ -164,6 +288,8 @@ class AiCaller:
             logger.info(f"Total AI calls made: {self.call_count}")
             logger.info(f"Total input tokens processed: {self.total_input_tokens}")
             logger.info(f"Total output tokens processed: {self.total_output_tokens}")
+            logger.info(f"Total cached input tokens read: {self.total_cached_input_tokens}")
+            logger.info(f"Total cached input tokens written: {self.total_cache_creation_input_tokens}")
             logger.info(f"Estimated total cost: ${self.total_cost:.4f}")
             logger.info("---------------------------")
         else:

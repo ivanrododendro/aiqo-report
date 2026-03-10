@@ -78,7 +78,6 @@ class PGAutoExplainAnalyzer:
         self.context_folder = args.context_folder  # Nouveau paramètre renommé
         self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
 
-
         # Initialize ContextLoader which handles loading prompts and all context/optimization files
         self.context_loader = ContextLoader(
             script_base_path=Path(__file__).parent, context_folder_cli_arg=self.context_folder
@@ -89,7 +88,8 @@ class PGAutoExplainAnalyzer:
             ai_call_timeout=self.ai_call_timeout,
             lang=self.language,
             prompts={},  # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
-            debug=args.debug
+            debug=args.debug,
+            disable_provider_cache=args.disable_provider_cache,
         )
         try:
             self.log_parser = self._create_log_parser(args.format)
@@ -98,9 +98,10 @@ class PGAutoExplainAnalyzer:
             sys.exit(1)
         # Pass the base path of the current script to ReportGenerator
         self.report_generator = ReportGenerator(self.context_loader.script_base_path, debug=args.debug)
-        
+
         # Initialize the data processor
         from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
+
         self.data_processor = ReportDataProcessor()
 
     def _determine_ai_analysis_status(self, log_entry, query_code):
@@ -146,13 +147,17 @@ class PGAutoExplainAnalyzer:
         """
         Effectue l'appel à l'API AI et retourne les indices ou un message d'échec.
         """
-        full_prompt = self.context_loader.build_full_prompt_with_optimizations(
+        prompt_segments = self.context_loader.build_prompt_segments_with_optimizations(
             plan=log_entry["execution_plan"],
             query_code=query_code,
             custom_prompt=self.custom_prompt,
             lang=self.language,
         )
-        ai_hints_result = self.ai_caller.call_ai_provider(full_prompt)
+        ai_hints_result = self.ai_caller.call_ai_provider(
+            prompt_segments["cacheable_prefix"] + prompt_segments["dynamic_suffix"],
+            cacheable_prefix=prompt_segments["cacheable_prefix"],
+            dynamic_suffix=prompt_segments["dynamic_suffix"],
+        )
         if ai_hints_result is None:
             return "AI analysis failed or timed out."
         return ai_hints_result
@@ -264,6 +269,7 @@ class PGAutoExplainAnalyzer:
             logger.info(f"AI API call timeout: {self.ai_call_timeout} seconds")
             logger.info(f"Language for AI output: {self.language}")
             logger.info(f"AI Analysis only for Seq Scan queries : {self.only_seq_scan_ai_analysis}")
+            logger.info(f"Provider-side prompt cache disabled: {self.args.disable_provider_cache}")
             if self.custom_prompt:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
             # Updated log messages for DDL and server config context
@@ -298,9 +304,7 @@ class PGAutoExplainAnalyzer:
         total_queries = len(self.data_processor.all_reports)
 
         if total_queries == 0:
-            logger.warning(
-                "No queries were analyzed for the selected log input. Report generation will be skipped."
-            )
+            logger.warning("No queries were analyzed for the selected log input. Report generation will be skipped.")
             self.ai_caller.show_stats()
             self._log_processing_statistics(log_files, start_time)
             return
@@ -378,6 +382,11 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=DEFAULT_AI_CALL_TIMEOUT,
         help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})",
+    )
+    parser.add_argument(
+        "--disable-provider-cache",
+        action="store_true",
+        help="Disable provider-side prompt caching for all supported LLM providers (default: false)",
     )
     parser.add_argument("--language", default=DEFAULT_LANG, help=f"Language for AI output (default: ${DEFAULT_LANG})")
     parser.add_argument(
@@ -458,6 +467,8 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         logger.info(f"L'exécution est en mode fichier unique pour le chemin : {args.log_filename}")
 
     return args
+
+
 def main():
     logger.info("AIQO PG Report v%s", get_package_version())
     args = parse_cli_arguments()

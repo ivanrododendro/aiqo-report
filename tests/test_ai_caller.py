@@ -10,9 +10,19 @@ from aiqo_pg_ai_report.ai_caller import (
 
 
 class DummyUsage:
-    def __init__(self, prompt_tokens: int | None, completion_tokens: int | None):
+    def __init__(
+        self,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+        prompt_tokens_details: dict | None = None,
+        cache_creation_input_tokens: int | None = None,
+        cache_read_input_tokens: int | None = None,
+    ):
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
+        self.prompt_tokens_details = prompt_tokens_details
+        self.cache_creation_input_tokens = cache_creation_input_tokens
+        self.cache_read_input_tokens = cache_read_input_tokens
 
 
 class DummyMessage:
@@ -26,8 +36,22 @@ class DummyChoice:
 
 
 class DummyResponse:
-    def __init__(self, prompt_tokens: int | None, completion_tokens: int | None, content: str):
-        self.usage = DummyUsage(prompt_tokens, completion_tokens)
+    def __init__(
+        self,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+        content,
+        prompt_tokens_details: dict | None = None,
+        cache_creation_input_tokens: int | None = None,
+        cache_read_input_tokens: int | None = None,
+    ):
+        self.usage = DummyUsage(
+            prompt_tokens,
+            completion_tokens,
+            prompt_tokens_details=prompt_tokens_details,
+            cache_creation_input_tokens=cache_creation_input_tokens,
+            cache_read_input_tokens=cache_read_input_tokens,
+        )
         self.choices = [DummyChoice(content)]
 
 
@@ -40,9 +64,7 @@ def reset_litellm(monkeypatch):
 
 
 def test_get_model_token_limit_from_litellm(monkeypatch):
-    monkeypatch.setattr(
-        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info", lambda model: {"max_input_tokens": 321}
-    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.get_model_info", lambda model: {"max_input_tokens": 321})
     caller = AiCaller(model="gpt-test", ai_call_timeout=10, lang="en", prompts={}, debug=False)
     assert caller.token_limit == 321
 
@@ -84,6 +106,73 @@ def test_call_ai_provider_success(monkeypatch):
     assert completion_calls[0]["model"] == "gpt-test"
     assert completion_calls[0]["request_timeout"] == 5
     assert "top_k" not in completion_calls[0]
+
+
+def test_call_ai_provider_openai_sets_prompt_cache_key(monkeypatch):
+    captured_completion: dict = {}
+
+    def fake_completion(**kwargs):
+        captured_completion.update(kwargs)
+        return DummyResponse(
+            prompt_tokens=7,
+            completion_tokens=3,
+            content=" result ",
+            prompt_tokens_details={"cached_tokens": 5},
+        )
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 10)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    caller = AiCaller(model="gpt-test", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    result = caller.call_ai_provider(
+        "static prompt\n\ndynamic",
+        cacheable_prefix="static prompt",
+        dynamic_suffix="\n\ndynamic",
+    )
+
+    assert result == "result"
+    assert captured_completion["prompt_cache_key"].startswith("gpt-test:")
+    assert caller.total_cached_input_tokens == 5
+
+
+def test_call_ai_provider_openai_does_not_set_prompt_cache_key_when_disabled(monkeypatch):
+    captured_completion: dict = {}
+
+    def fake_completion(**kwargs):
+        captured_completion.update(kwargs)
+        return DummyResponse(prompt_tokens=7, completion_tokens=3, content="result")
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 10)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    caller = AiCaller(
+        model="gpt-test",
+        ai_call_timeout=5,
+        lang="en",
+        prompts={},
+        debug=False,
+        disable_provider_cache=True,
+    )
+
+    result = caller.call_ai_provider(
+        "static prompt\n\ndynamic",
+        cacheable_prefix="static prompt",
+        dynamic_suffix="\n\ndynamic",
+    )
+
+    assert result == "result"
+    assert "prompt_cache_key" not in captured_completion
 
 
 def test_call_ai_provider_over_limit(monkeypatch):
@@ -158,7 +247,11 @@ def test_call_ai_provider_gemini_prefers_google_and_sets_top_k(monkeypatch):
 
     caller = AiCaller(model="gemini-1.5", ai_call_timeout=15, lang="en", prompts={}, debug=False)
 
-    result = caller.call_ai_provider("prompt text")
+    result = caller.call_ai_provider(
+        "shared prefix\n\ndynamic suffix",
+        cacheable_prefix="shared prefix",
+        dynamic_suffix="\n\ndynamic suffix",
+    )
 
     assert result == "ok"
     assert captured_completion["model"] == "gemini/gemini-1.5"
@@ -167,6 +260,84 @@ def test_call_ai_provider_gemini_prefers_google_and_sets_top_k(monkeypatch):
     messages = captured_completion["messages"]
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
+    assert messages[1]["content"][0]["cache_control"] == {"type": "ephemeral"}
+    assert messages[1]["content"][0]["text"] == "shared prefix"
+    assert messages[1]["content"][1]["text"] == "\n\ndynamic suffix"
+
+
+def test_call_ai_provider_claude_marks_cacheable_prefix(monkeypatch):
+    captured_completion: dict = {}
+
+    def fake_completion(**kwargs):
+        captured_completion.update(kwargs)
+        return DummyResponse(
+            prompt_tokens=9,
+            completion_tokens=4,
+            content="ok",
+            cache_creation_input_tokens=6,
+            cache_read_input_tokens=2,
+        )
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 5)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 50, "litellm_provider": "anthropic"},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    caller = AiCaller(model="claude-3-7-sonnet", ai_call_timeout=15, lang="en", prompts={}, debug=False)
+
+    result = caller.call_ai_provider(
+        "shared prefix\n\ndynamic suffix",
+        cacheable_prefix="shared prefix",
+        dynamic_suffix="\n\ndynamic suffix",
+    )
+
+    assert result == "ok"
+    assert caller.total_cached_input_tokens == 2
+    assert caller.total_cache_creation_input_tokens == 6
+    messages = captured_completion["messages"]
+    assert messages[0]["role"] == "system"
+    assert messages[1]["role"] == "user"
+    assert messages[1]["content"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_call_ai_provider_gemini_does_not_mark_cacheable_prefix_when_disabled(monkeypatch):
+    captured_completion: dict = {}
+
+    def fake_completion(**kwargs):
+        captured_completion.update(kwargs)
+        return DummyResponse(prompt_tokens=None, completion_tokens=None, content="ok")
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 5)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 50, "litellm_provider": "google"},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    caller = AiCaller(
+        model="gemini-1.5",
+        ai_call_timeout=15,
+        lang="en",
+        prompts={},
+        debug=False,
+        disable_provider_cache=True,
+    )
+
+    result = caller.call_ai_provider(
+        "shared prefix\n\ndynamic suffix",
+        cacheable_prefix="shared prefix",
+        dynamic_suffix="\n\ndynamic suffix",
+    )
+
+    assert result == "ok"
+    messages = captured_completion["messages"]
+    assert messages[0]["role"] == "system"
+    assert messages[1]["role"] == "user"
+    assert messages[1]["content"] == "shared prefix\n\ndynamic suffix"
 
 
 def test_call_ai_provider_handles_list_content(monkeypatch):

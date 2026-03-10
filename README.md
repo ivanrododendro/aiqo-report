@@ -154,6 +154,7 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
     --filter "SELECT * FROM users" \
     --limit-ai-calls 5 \
     --ai-call-timeout 120 \
+    --disable-provider-cache \
     /path/to/your/postgresql.log
 ```
 
@@ -178,6 +179,12 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
 *   **`--ai-call-timeout <SECONDS>`**:
     *   Sets the timeout duration for each individual AI call in seconds.
     *   Default: `90` seconds
+
+*   **`--disable-provider-cache`**:
+    *   Disable provider-side prompt caching for all supported LLM providers.
+    *   When enabled, OpenAI requests are sent without `prompt_cache_key`, and Gemini/Claude requests are sent without provider cache markers.
+    *   This is a flag, no value needed.
+    *   Default: `False`
 
 *   **`--language <LANG>`**:
     *   Set the output language for the generated report and AI analysis.
@@ -239,4 +246,3 @@ The tool generates a single, self-contained HTML report. This report typically i
     *   AI-generated optimization recommendations specific to that query.
     *   PEV2 Query visualizer
     *   Graph tracking qeury statistics over time
-

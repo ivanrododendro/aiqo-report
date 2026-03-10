@@ -58,9 +58,7 @@ def test_ai_call_invoked_with_filter_and_limit(monkeypatch):
     # Force the query code to match the filter.
     monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: filter_code)
 
-    args = pg_autoexplain_analyzer.parse_cli_arguments(
-        [str(log_path), "-l", "1", "-f", filter_code, "-m", "gpt-4o"]
-    )
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-l", "1", "-f", filter_code, "-m", "gpt-4o"])
     analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
 
     # Seed minimal context attributes used when generating reports.
@@ -112,3 +110,19 @@ def test_report_generation_is_skipped_when_no_queries_are_parsed(monkeypatch, ca
 
     assert generated_reports == []
     assert "No queries were analyzed for the selected log input. Report generation will be skipped." in caplog.text
+
+
+def test_disable_provider_cache_flag_is_parsed_and_forwarded(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ContextLoader,
+        "load_all_contexts",
+        lambda *args, **kwargs: None,
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "--disable-provider-cache"])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+
+    assert args.disable_provider_cache is True
+    assert analyzer.ai_caller.disable_provider_cache is True

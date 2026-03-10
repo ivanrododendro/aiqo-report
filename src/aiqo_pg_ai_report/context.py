@@ -176,25 +176,42 @@ class ContextLoader:
         the main analysis prompt, various contexts, applied optimizations, custom prompts,
         and the execution plan.
         """
-        full_prompt = ""
+        prompt_segments = self.build_prompt_segments_with_optimizations(
+            plan=plan,
+            query_code=query_code,
+            custom_prompt=custom_prompt,
+            lang=lang,
+        )
+        full_prompt = prompt_segments["cacheable_prefix"] + prompt_segments["dynamic_suffix"]
+
+        # DEBUG – log the complete prompt that will be sent to the AI provider
+        logger.debug("Full prompt built for query %s:\n%s", query_code, full_prompt)
+
+        return full_prompt
+
+    def build_prompt_segments_with_optimizations(
+        self, plan: str, query_code: str, custom_prompt: str = None, lang: str = "en"
+    ) -> dict[str, str]:
+        """Build a stable cacheable prefix and a dynamic suffix for provider-side prompt caching."""
+        cacheable_prefix = ""
 
         # Add System and Format prompts with tags
         if self.system_prompt:
-            full_prompt += f">>> SYSTEM\n{self.system_prompt}\n<<< SYSTEM\n\n"
+            cacheable_prefix += f">>> SYSTEM\n{self.system_prompt}\n<<< SYSTEM\n\n"
         if self.format_prompt:
-            full_prompt += f">>> FORMAT\n{self.format_prompt}\n<<< FORMAT\n\n"
+            cacheable_prefix += f">>> FORMAT\n{self.format_prompt}\n<<< FORMAT\n\n"
 
         # Add the main plan analysis prompt content
 
         # Add DDL, server config, and project context with tags
         if self.ddl_context:
-            full_prompt += f">>> DDL\n{self.ddl_context}\n<<< DDL\n\n"
+            cacheable_prefix += f">>> DDL\n{self.ddl_context}\n<<< DDL\n\n"
         if self.server_configuration_context:
-            full_prompt += (
+            cacheable_prefix += (
                 f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
             )
         if self.project_context:
-            full_prompt += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
+            cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
 
         # Add applied optimizations context
         applied_optimizations_context = ""
@@ -222,12 +239,7 @@ class ContextLoader:
 
         # Add combined custom prompt and applied optimizations with tags
         if full_custom_prompt:
-            full_prompt += f">>> SERVER OPTIMIZATIONS\n{full_custom_prompt}\n<<< SERVER OPTIMIZATIONS\n\n"
+            cacheable_prefix += f">>> SERVER OPTIMIZATIONS\n{full_custom_prompt}\n<<< SERVER OPTIMIZATIONS\n\n"
 
-        full_prompt += "\n\n" + plan
-        full_prompt += f"\n\nPlease provide the analysis in {lang}."
-
-        # DEBUG – log the complete prompt that will be sent to the AI provider
-        logger.debug("Full prompt built for query %s:\n%s", query_code, full_prompt)
-
-        return full_prompt
+        dynamic_suffix = f"\n\n{plan}\n\nPlease provide the analysis in {lang}."
+        return {"cacheable_prefix": cacheable_prefix, "dynamic_suffix": dynamic_suffix}
