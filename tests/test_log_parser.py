@@ -36,7 +36,11 @@ def test_parse_log_file_with_full_text_plan():
         "temp_read": 4983014,
         "temp_written": 4991091,
     }
-    assert entry["wal"] == {"records": None, "fpi": None, "bytes": None}
+    assert entry["wal"] == {
+        "records": 21968,
+        "fpi": 7587,
+        "bytes": 26368760,
+    }
 
 
 def test_log_parser_is_subclass_of_abstract_base():
@@ -71,6 +75,20 @@ def test_parse_log_file_with_full_json_plan():
         "temp_written": 4991091,
     }
     assert entry["wal"] == {"records": None, "fpi": None, "bytes": None}
+
+
+def test_parse_log_file_with_full_json_plan_extracts_wal_stats():
+    log_path = DATA_DIR / "full-json-plan.log"
+    entries = list(JsonLogParser().parse_log_file(log_path))
+
+    assert len(entries) == 1
+    entry = entries[0]
+
+    assert entry["wal"] == {
+        "records": 21968,
+        "fpi": 7587,
+        "bytes": 26368760,
+    }
 
 
 def test_create_log_parser_resolves_json_and_text():

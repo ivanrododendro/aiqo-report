@@ -374,6 +374,11 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
         "temp_read": plan_root.get("Temp Read Blocks"),
         "temp_written": plan_root.get("Temp Written Blocks"),
     }
+    wal = {
+        "records": plan_root.get("WAL Records"),
+        "fpi": plan_root.get("WAL FPI"),
+        "bytes": plan_root.get("WAL Bytes"),
+    }
 
     title = (job_name + " " + query_name).strip()
     if not title:
@@ -391,12 +396,12 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
         "cost": total_cost,
         "rows": rows,
         "buffers": buffers,
-        "wal": {"records": None, "fpi": None, "bytes": None},
+        "wal": wal,
     }
 
     logger.debug(
         f"Completed parsing JSON log entry: timestamp={timestamp}, duration={duration_ms}ms, "
-        f"cost={total_cost}, rows={rows}, buffers={buffers}"
+        f"cost={total_cost}, rows={rows}, buffers={buffers}, wal={wal}"
     )
 
     return result
