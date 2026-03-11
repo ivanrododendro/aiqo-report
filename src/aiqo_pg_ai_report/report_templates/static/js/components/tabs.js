@@ -7,6 +7,9 @@
 
   AIQO.Components.Tabs = {
     init() {
+      this._renderQueryGantts();
+      this._bindQueryGanttSelection();
+
       // Initialize Split.js two-pane layout for all day containers
       document.querySelectorAll('[id^="split-container-"]').forEach((container) => {
         const leftPane = container.querySelector('.split:nth-child(1)');
@@ -95,12 +98,12 @@
         });
       });
 
-      // Double-click on a query tab button -> copy short code to clipboard
-      document.querySelectorAll('.query-tabs .nav-link').forEach((btn) => {
+      // Double-click on a gantt row -> copy short code to clipboard
+      document.querySelectorAll('.query-gantt-row').forEach((btn) => {
         btn.addEventListener('dblclick', function () {
           const fullCode = this.dataset.queryCode;
           if (!fullCode) return;
-          const shortCode = fullCode.substring(0, 8);
+          const shortCode = fullCode.substring(0, 6);
           navigator.clipboard
             .writeText(shortCode)
             .then(() => {
@@ -114,6 +117,122 @@
             .catch((err) => console.error('Clipboard error:', err));
         });
       });
+
+      window.addEventListener('resize', () => this._renderQueryGantts());
+    },
+
+    _bindQueryGanttSelection() {
+      document.querySelectorAll('.query-gantt-row').forEach((row) => {
+        row.addEventListener('click', (event) => {
+          event.preventDefault();
+          this._activateQueryRow(row);
+        });
+      });
+    },
+
+    _activateQueryRow(row) {
+      if (!row) return;
+
+      const dayPane = row.closest('[id^="tab-day-"]');
+      const targetSelector = row.getAttribute('data-query-target');
+      if (!dayPane || !targetSelector) return;
+
+      const targetPane = dayPane.querySelector(targetSelector);
+      if (!targetPane) return;
+
+      dayPane.querySelectorAll('.query-gantt-row.active').forEach((activeRow) => {
+        activeRow.classList.remove('active');
+        activeRow.setAttribute('aria-selected', 'false');
+      });
+
+      dayPane.querySelectorAll('.query-tab-content .tab-pane.show.active').forEach((activePane) => {
+        activePane.classList.remove('show', 'active');
+      });
+
+      row.classList.add('active');
+      row.setAttribute('aria-selected', 'true');
+      targetPane.classList.add('show', 'active');
+
+      row.dispatchEvent(new Event('shown.bs.tab', { bubbles: true }));
+    },
+
+    _renderQueryGantts() {
+      document.querySelectorAll('.query-gantt-panel').forEach((panel) => {
+        const rows = Array.from(panel.querySelectorAll('.query-gantt-row'));
+        if (!rows.length) return;
+
+        const validRows = rows
+          .map((row) => {
+            const startUtc = Number(row.dataset.startUtc);
+            const endUtc = Number(row.dataset.endUtc);
+            return Number.isFinite(startUtc) && Number.isFinite(endUtc) && endUtc >= startUtc
+              ? { row, startUtc, endUtc }
+              : null;
+          })
+          .filter(Boolean);
+
+        const startLabel = panel.querySelector('[data-role="gantt-scale-start"]');
+        const midLabel = panel.querySelector('[data-role="gantt-scale-mid"]');
+        const endLabel = panel.querySelector('[data-role="gantt-scale-end"]');
+
+        if (!validRows.length) {
+          if (startLabel) startLabel.textContent = '--:--:--';
+          if (midLabel) midLabel.textContent = '--:--:--';
+          if (endLabel) endLabel.textContent = '--:--:--';
+          rows.forEach((row) => {
+            const bar = row.querySelector('.query-gantt-bar');
+            if (bar) bar.style.display = 'none';
+          });
+          return;
+        }
+
+        const minStart = Math.min(...validRows.map((item) => item.startUtc));
+        const maxEnd = Math.max(...validRows.map((item) => item.endUtc));
+        const span = Math.max(maxEnd - minStart, 1);
+        const midPoint = minStart + span / 2;
+
+        if (startLabel) startLabel.textContent = this._formatGanttTime(minStart);
+        if (midLabel) midLabel.textContent = this._formatGanttTime(midPoint);
+        if (endLabel) endLabel.textContent = this._formatGanttEndTime(minStart, maxEnd);
+
+        validRows.forEach(({ row, startUtc, endUtc }) => {
+          const bar = row.querySelector('.query-gantt-bar');
+          if (!bar) return;
+
+          const leftPct = ((startUtc - minStart) / span) * 100;
+          const widthPct = Math.max(((endUtc - startUtc) / span) * 100, 0.8);
+          const queryTitle = row.dataset.queryTitle || row.dataset.queryCode || 'N/A';
+
+          bar.style.display = 'block';
+          bar.style.left = `${Math.min(Math.max(leftPct, 0), 100)}%`;
+          bar.style.width = `${Math.min(widthPct, 100)}%`;
+          row.removeAttribute('title');
+          row.setAttribute('data-bs-title', queryTitle);
+
+          const existingTooltip = bootstrap.Tooltip.getInstance(row);
+          if (existingTooltip) {
+            existingTooltip.dispose();
+          }
+          bootstrap.Tooltip.getOrCreateInstance(row, {
+            container: 'body',
+            trigger: 'hover focus',
+          });
+        });
+      });
+    },
+
+    _formatGanttTime(value) {
+      const dt = luxon.DateTime.fromMillis(value, { zone: 'utc' });
+      return dt.isValid ? dt.toFormat('HH:mm') : '--:--';
+    },
+
+    _formatGanttEndTime(startValue, endValue) {
+      const start = luxon.DateTime.fromMillis(startValue, { zone: 'utc' });
+      const end = luxon.DateTime.fromMillis(endValue, { zone: 'utc' });
+      if (!start.isValid || !end.isValid) return '--:--:--';
+
+      const dayOffset = Math.floor(end.startOf('day').diff(start.startOf('day'), 'days').days);
+      return dayOffset > 0 ? `${end.toFormat('HH:mm')} (+${dayOffset})` : end.toFormat('HH:mm');
     },
   };
 })();

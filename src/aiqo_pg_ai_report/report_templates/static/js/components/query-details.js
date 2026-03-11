@@ -301,9 +301,9 @@
     if (!safeDay) return null;
     const dayPane = document.getElementById(`tab-day-${safeDay}`);
     if (dayPane) {
-      const activeQuery = dayPane.querySelector('.query-tabs .nav-link.active');
+      const activeQuery = dayPane.querySelector('.query-gantt-row.active');
       if (activeQuery) return activeQuery;
-      const fallbackQuery = dayPane.querySelector('.query-tabs .nav-link');
+      const fallbackQuery = dayPane.querySelector('.query-gantt-row');
       if (fallbackQuery) return fallbackQuery;
     }
     return document.querySelector(`[id^="query-tab-${safeDay}-"]`);

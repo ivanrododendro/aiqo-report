@@ -505,6 +505,15 @@ class ReportDataProcessor:
                 else:
                     enhanced_report["query_timestamp_utc"] = None
 
+                query_end_utc = enhanced_report.get("query_timestamp_utc")
+                duration_ms = enhanced_report.get("duration")
+                if query_end_utc is not None and isinstance(duration_ms, (int, float)) and duration_ms >= 0:
+                    enhanced_report["query_start_utc"] = int(query_end_utc - duration_ms)
+                    enhanced_report["query_end_utc"] = int(query_end_utc)
+                else:
+                    enhanced_report["query_start_utc"] = None
+                    enhanced_report["query_end_utc"] = query_end_utc
+
                 buffer_bytes, total_io_bytes = self._compute_buffer_metrics(
                     enhanced_report.get("buffers"), enhanced_report.get("wal")
                 )
@@ -513,7 +522,15 @@ class ReportDataProcessor:
 
                 enhanced_reports.append(enhanced_report)
 
-            enhanced[day] = enhanced_reports
+            enhanced[day] = sorted(
+                enhanced_reports,
+                key=lambda report: (
+                    report.get("query_start_utc") is None,
+                    report.get("query_start_utc") or 0,
+                    report.get("query_end_utc") or 0,
+                    report.get("code") or "",
+                ),
+            )
 
         return enhanced
 

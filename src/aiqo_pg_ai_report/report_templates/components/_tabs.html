@@ -125,44 +125,59 @@
                                         <div id="split-container-{{ day | safe_id }}" class="d-flex flex-row" style="height: 70vh;">
                                             {# Pannello sinistro: lista query #}
                                             <div class="split flex-shrink-0" style="width: 30%; overflow-y: auto; border-right: 1px solid #ddd;">
-                                                <div class="nav flex-column nav-pills query-tabs p-2" 
-                                                     id="queryTabs-{{ day | safe_id }}" 
-                                                     role="tablist" 
-                                                     aria-orientation="vertical">
-                                                    {% for report in reports_list %}
-                                                    <button class="nav-link {% if loop.first %}active{% endif %} text-start d-flex justify-content-between align-items-center mb-1 w-100" 
-                                                            style="max-width: 100%; overflow: hidden; text-overflow: ellipsis;"
-                                                            id="query-tab-{{ day | safe_id }}-{{ loop.index0 }}" 
-                                                            data-bs-toggle="pill" 
-                                                            data-bs-target="#query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
-                                                            type="button" 
-                                                            role="tab" 
-                                                            data-query-code="{{ report.code }}"
-                                                            aria-controls="query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
-                                                            aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
-                                                        <div class="flex-grow-1 text-truncate" style="min-width: 0;">
-                                                            <small class="d-block text-truncate">
-                                                                <strong>{{ report.code[:8] }}</strong>
-                                                            </small>
-                                                            <small class="text-muted d-block text-truncate" 
-                                                                   style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;" 
-                                                                   title="{{ report.title }}">
-                                                                {{ report.title }}
-                                                            </small>
-                                                        </div>
-                                                        <div class="flex-shrink-0 ms-2">
-                                                            {% if report.has_query_optimizations %}
-                                                            <i class="bi bi-lightning" title="Optimizations available"></i>
-                                                            {% endif %}
-                                                            {% if report.seq_scan_indicator %}
-                                                            <i class="bi bi-database-exclamation" title="Query contains a Seq Scan"></i>
-                                                            {% endif %}
-                                                            {% if report.has_ai_hints %}
-                                                            <i class="bi bi-chat-left-text" title="AI insight available"></i>
-                                                            {% endif %}
-                                                        </div>
-                                                    </button>
-                                                    {% endfor %}
+                                                <div class="query-gantt-panel p-2 pb-1" id="query-gantt-panel-{{ day | safe_id }}">
+                                                    <div class="query-gantt-scale small text-muted mb-2">
+                                                        <span data-role="gantt-scale-start">--:--:--</span>
+                                                        <span data-role="gantt-scale-mid">--:--:--</span>
+                                                        <span data-role="gantt-scale-end">--:--:--</span>
+                                                    </div>
+                                                    <div class="query-gantt-scale-ruler mb-2" aria-hidden="true">
+                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-start"></span>
+                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-quarter"></span>
+                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-mid"></span>
+                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-three-quarter"></span>
+                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-end"></span>
+                                                    </div>
+                                                    <div class="query-gantt-rows" id="queryGantt-{{ day | safe_id }}">
+                                                        {% for report in reports_list %}
+                                                        <button class="query-gantt-row {% if loop.first %}active{% endif %}"
+                                                                id="query-tab-{{ day | safe_id }}-{{ loop.index0 }}"
+                                                                type="button"
+                                                                data-bs-placement="right"
+                                                                role="tab"
+                                                                data-query-target="#query-content-{{ day | safe_id }}-{{ loop.index0 }}"
+                                                                data-query-code="{{ report.code }}"
+                                                                data-query-title="{{ report.title }}"
+                                                                data-start-utc="{{ report.query_start_utc if report.query_start_utc is not none else '' }}"
+                                                                data-end-utc="{{ report.query_end_utc if report.query_end_utc is not none else '' }}"
+                                                                aria-controls="query-content-{{ day | safe_id }}-{{ loop.index0 }}"
+                                                                aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+                                                            <span class="query-gantt-label-wrap">
+                                                                <span class="query-gantt-label" title="{{ report.code }}">{{ report.code[:6] }}</span>
+                                                                <span class="query-gantt-icons">
+                                                                    <span class="query-gantt-icon-slot">
+                                                                        {% if report.has_query_optimizations %}
+                                                                        <i class="bi bi-lightning" title="Optimizations available"></i>
+                                                                        {% endif %}
+                                                                    </span>
+                                                                    <span class="query-gantt-icon-slot">
+                                                                        {% if report.seq_scan_indicator %}
+                                                                        <i class="bi bi-database-exclamation" title="Query contains a Seq Scan"></i>
+                                                                        {% endif %}
+                                                                    </span>
+                                                                    <span class="query-gantt-icon-slot">
+                                                                        {% if report.has_ai_hints %}
+                                                                        <i class="bi bi-chat-left-text" title="AI insight available"></i>
+                                                                        {% endif %}
+                                                                    </span>
+                                                                </span>
+                                                            </span>
+                                                            <span class="query-gantt-track">
+                                                                <span class="query-gantt-bar"></span>
+                                                            </span>
+                                                        </button>
+                                                        {% endfor %}
+                                                    </div>
                                                 </div>
                                             </div>
 
