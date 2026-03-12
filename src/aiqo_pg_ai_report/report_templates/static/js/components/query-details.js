@@ -4,6 +4,13 @@
 ;(function () {
   window.AIQO = window.AIQO || {};
   AIQO.Components = AIQO.Components || {};
+  const queryAccordionState = {
+    stats: true,
+    ai: false,
+    queryopt: false,
+    pev2: false,
+    chart: false,
+  };
 
   function isElementVisible(el) {
     if (!el) return false;
@@ -25,6 +32,78 @@
     const index = parseInt(m[2], 10);
     const appId = `app-${safeDay}-${index}`;
     return { safeDay, index, appId };
+  }
+
+  function updateAccordionButtonState(collapseEl, isOpen) {
+    if (!collapseEl || !collapseEl.id) return;
+    const selector = `[data-bs-target="#${collapseEl.id}"]`;
+    const button = document.querySelector(selector);
+    if (!button) return;
+
+    button.classList.toggle('collapsed', !isOpen);
+    button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  function setAccordionDomState(collapseEl, shouldOpen) {
+    if (!collapseEl) return;
+
+    collapseEl.classList.add('collapse');
+    collapseEl.classList.remove('collapsing');
+    collapseEl.classList.toggle('show', shouldOpen);
+    collapseEl.style.height = '';
+    updateAccordionButtonState(collapseEl, shouldOpen);
+  }
+
+  function syncAccordionsByKey(queryAccordionKey, shouldOpen, sourceEl) {
+    document
+      .querySelectorAll(`.accordion-collapse[data-query-accordion-key="${queryAccordionKey}"]`)
+      .forEach((collapseEl) => {
+        if (collapseEl === sourceEl) {
+          updateAccordionButtonState(collapseEl, shouldOpen);
+          return;
+        }
+        setAccordionDomState(collapseEl, shouldOpen);
+      });
+  }
+
+  function bindAccordionStateHandlers(appId) {
+    const accordionRoot = document.getElementById(`accordion-${appId}`);
+    if (!accordionRoot || accordionRoot.dataset.accordionStateBound === 'true') return;
+
+    accordionRoot
+      .querySelectorAll('.accordion-collapse[data-query-accordion-key]')
+      .forEach((collapseEl) => {
+        const { queryAccordionKey } = collapseEl.dataset;
+        if (!queryAccordionKey) return;
+
+        collapseEl.addEventListener('shown.bs.collapse', () => {
+          queryAccordionState[queryAccordionKey] = true;
+          updateAccordionButtonState(collapseEl, true);
+          syncAccordionsByKey(queryAccordionKey, true, collapseEl);
+        });
+        collapseEl.addEventListener('hidden.bs.collapse', () => {
+          queryAccordionState[queryAccordionKey] = false;
+          updateAccordionButtonState(collapseEl, false);
+          syncAccordionsByKey(queryAccordionKey, false, collapseEl);
+        });
+      });
+
+    accordionRoot.dataset.accordionStateBound = 'true';
+  }
+
+  function applyAccordionState(appId) {
+    const accordionRoot = document.getElementById(`accordion-${appId}`);
+    if (!accordionRoot) return;
+
+    accordionRoot
+      .querySelectorAll('.accordion-collapse[data-query-accordion-key]')
+      .forEach((collapseEl) => {
+        const { queryAccordionKey } = collapseEl.dataset;
+        if (!queryAccordionKey || !(queryAccordionKey in queryAccordionState)) return;
+
+        const shouldOpen = !!queryAccordionState[queryAccordionKey];
+        setAccordionDomState(collapseEl, shouldOpen);
+      });
   }
 
   function getReportFor(day, index) {
@@ -242,13 +321,49 @@
         toggleSection(eventList, !!(elGeneric && elGeneric.checked));
       };
 
-      if (elQuery) elQuery.addEventListener('change', applyToggles);
-      if (elServer) elServer.addEventListener('change', applyToggles);
-      if (elGeneric) elGeneric.addEventListener('change', applyToggles);
+      if (elQuery) elQuery.onchange = applyToggles;
+      if (elServer) elServer.onchange = applyToggles;
+      if (elGeneric) elGeneric.onchange = applyToggles;
 
       // Initial application to ensure defaults are reflected
       applyToggles();
     }
+  }
+
+  function refreshQueryChart(appId) {
+    if (!window.reportChartManager || !window.reportChartManager.charts) return;
+    const chartId = `execTimeChart-${appId}`;
+    const chart = window.reportChartManager.charts[chartId];
+    if (!chart) return;
+
+    chart.resize();
+    chart.update('none');
+  }
+
+  function bindDetailSectionHandlers(appId, day, report) {
+    const accordionRoot = document.getElementById(`accordion-${appId}`);
+    if (!accordionRoot || accordionRoot.dataset.detailSectionHandlersBound === 'true') return;
+
+    const chartCollapse = accordionRoot.querySelector(
+      '.accordion-collapse[data-query-accordion-key="chart"]'
+    );
+    if (chartCollapse) {
+      chartCollapse.addEventListener('shown.bs.collapse', () => {
+        renderQueryChart(appId, day, report);
+        setTimeout(() => refreshQueryChart(appId), 0);
+      });
+    }
+
+    const pev2Collapse = accordionRoot.querySelector(
+      '.accordion-collapse[data-query-accordion-key="pev2"]'
+    );
+    if (pev2Collapse) {
+      pev2Collapse.addEventListener('shown.bs.collapse', () => {
+        setTimeout(() => refreshQueryChart(appId), 0);
+      });
+    }
+
+    accordionRoot.dataset.detailSectionHandlersBound = 'true';
   }
 
   function safeInitForTab(tabEl) {
@@ -257,16 +372,20 @@
     const { safeDay, index, appId } = ids;
     const day = safeDay; // days are safe-id equals YYYY-MM-DD
     const generalStatsId = `query-details-general-${appId}`;
+    const queryPaneId = `query-content-${safeDay}-${index}`;
 
-    // Wait for visibility to ensure correct sizing (PEV2 and charts)
+    // Wait for the active query pane to be visible before initializing its content.
     const fn = function () {
-      const container = document.getElementById(appId);
-      if (!isElementVisible(container)) {
+      const queryPane = document.getElementById(queryPaneId);
+      if (!isElementVisible(queryPane)) {
         setTimeout(fn, 150);
         return;
       }
       const report = getReportFor(day, index);
       if (!report) return;
+      bindAccordionStateHandlers(appId);
+      bindDetailSectionHandlers(appId, day, report);
+      applyAccordionState(appId);
       formatGeneralStats(generalStatsId, report);
       mountPev2(appId, report);
       renderQueryChart(appId, day, report);
