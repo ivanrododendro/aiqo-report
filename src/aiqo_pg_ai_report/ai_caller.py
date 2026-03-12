@@ -7,6 +7,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_AI_CALL_TIMEOUT = 90
+GEMINI_CONTEXT_CACHE_TTL = "3600s"
+POSTGRESQL_OPTIMIZATION_SYSTEM_PROMPT = "You are a PostgreSQL optimization expert."
 
 
 class AiCaller:
@@ -71,23 +73,103 @@ class AiCaller:
             return None
         return model_info.get("litellm_provider")
 
-    def _build_messages(self, prompt: str, provider: str | None, cacheable_prefix: str, dynamic_suffix: str):
-        messages = [{"role": "user", "content": prompt}]
+    @staticmethod
+    def _supports_prompt_caching(model_info) -> bool:
+        if not model_info:
+            return False
+        return bool(model_info.get("supports_prompt_caching"))
 
-        if not self.disable_provider_cache and provider in {"anthropic", "google"} and cacheable_prefix:
-            user_content = [
+    def _should_mark_cacheable_prefix(
+        self,
+        provider: str | None,
+        model_info,
+        cacheable_prefix: str,
+    ) -> bool:
+        if self.disable_provider_cache or not cacheable_prefix:
+            return False
+
+        if provider == "anthropic":
+            return True
+
+        if provider == "gemini" and self._supports_prompt_caching(model_info):
+            return True
+
+        return False
+
+    def _build_provider_cache_messages(
+        self,
+        provider: str | None,
+        model_info,
+        cacheable_prefix: str,
+        dynamic_suffix: str,
+        system_prompt: str | None = None,
+    ):
+        if not self._should_mark_cacheable_prefix(
+            provider=provider,
+            model_info=model_info,
+            cacheable_prefix=cacheable_prefix,
+        ):
+            return None
+
+        cache_control = {"type": "ephemeral"}
+        if provider == "gemini":
+            cache_control["ttl"] = GEMINI_CONTEXT_CACHE_TTL
+
+        prefix_text = cacheable_prefix
+        if provider == "gemini" and system_prompt:
+            prefix_text = f"{system_prompt}\n\n{prefix_text}"
+
+        cached_message = {
+            "role": "user",
+            "content": [
                 {
                     "type": "text",
-                    "text": cacheable_prefix,
-                    "cache_control": {"type": "ephemeral"},
+                    "text": prefix_text,
+                    "cache_control": cache_control,
                 }
-            ]
-            if dynamic_suffix:
-                user_content.append({"type": "text", "text": dynamic_suffix})
-            messages = [{"role": "user", "content": user_content}]
+            ],
+        }
 
-        if self._is_chat_model(self.model):
-            messages.insert(0, {"role": "system", "content": "You are a PostgreSQL optimization expert."})
+        if provider == "gemini":
+            messages = [cached_message]
+            if dynamic_suffix:
+                messages.append({"role": "user", "content": dynamic_suffix})
+            return messages
+
+        user_content = cached_message["content"]
+        if dynamic_suffix:
+            user_content.append({"type": "text", "text": dynamic_suffix})
+
+        return [cached_message]
+
+    def _build_messages(
+        self,
+        prompt: str,
+        provider: str | None,
+        model_info,
+        cacheable_prefix: str,
+        dynamic_suffix: str,
+    ):
+        system_prompt = POSTGRESQL_OPTIMIZATION_SYSTEM_PROMPT if self._is_chat_model(self.model) else None
+        messages = self._build_provider_cache_messages(
+            provider=provider,
+            model_info=model_info,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+            system_prompt=system_prompt,
+        )
+        if messages is None:
+            messages = [{"role": "user", "content": prompt}]
+
+        if system_prompt and not (
+            provider == "gemini"
+            and self._should_mark_cacheable_prefix(
+                provider=provider,
+                model_info=model_info,
+                cacheable_prefix=cacheable_prefix,
+            )
+        ):
+            messages.insert(0, {"role": "system", "content": system_prompt})
 
         return messages
 
@@ -116,6 +198,7 @@ class AiCaller:
         messages = self._build_messages(
             prompt=prompt,
             provider=provider,
+            model_info=model_info,
             cacheable_prefix=cacheable_prefix,
             dynamic_suffix=dynamic_suffix,
         )
