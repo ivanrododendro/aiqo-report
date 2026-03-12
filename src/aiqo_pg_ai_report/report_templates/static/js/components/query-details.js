@@ -11,6 +11,37 @@
     pev2: false,
     chart: false,
   };
+  const queryAnnotationToggleState = {
+    initialized: false,
+    includeQuery: true,
+    includeServer: false,
+    includeGeneric: false,
+  };
+
+  function initializeQueryAnnotationStateFromDom() {
+    if (queryAnnotationToggleState.initialized) return;
+
+    const queryToggle = document.querySelector('[data-query-annotation-key="includeQuery"]');
+    const serverToggle = document.querySelector('[data-query-annotation-key="includeServer"]');
+    const genericToggle = document.querySelector('[data-query-annotation-key="includeGeneric"]');
+
+    if (queryToggle) queryAnnotationToggleState.includeQuery = !!queryToggle.checked;
+    if (serverToggle) queryAnnotationToggleState.includeServer = !!serverToggle.checked;
+    if (genericToggle) queryAnnotationToggleState.includeGeneric = !!genericToggle.checked;
+
+    queryAnnotationToggleState.initialized = true;
+  }
+
+  function syncQueryAnnotationControls(sourceEl) {
+    document
+      .querySelectorAll('[data-query-annotation-key]')
+      .forEach((inputEl) => {
+        if (inputEl === sourceEl) return;
+        const { queryAnnotationKey } = inputEl.dataset;
+        if (!queryAnnotationKey || !(queryAnnotationKey in queryAnnotationToggleState)) return;
+        inputEl.checked = !!queryAnnotationToggleState[queryAnnotationKey];
+      });
+  }
 
   function isElementVisible(el) {
     if (!el) return false;
@@ -299,6 +330,7 @@
       };
 
       // Wire annotation toggles for this chart instance
+      initializeQueryAnnotationStateFromDom();
       const elQuery = document.getElementById(`toggle-ann-query-${appId}`);
       const elServer = document.getElementById(`toggle-ann-server-${appId}`);
       const elGeneric = document.getElementById(`toggle-ann-generic-${appId}`);
@@ -316,25 +348,43 @@
       };
 
       const applyToggles = () => {
-        const options = {
-          includeQuery: !elQuery || !!elQuery.checked,
-          includeServer: !elServer || !!elServer.checked,
-          includeGeneric: !!(elGeneric && elGeneric.checked),
-        };
+        if (elQuery) elQuery.checked = !!queryAnnotationToggleState.includeQuery;
+        if (elServer) elServer.checked = !!queryAnnotationToggleState.includeServer;
+        if (elGeneric) elGeneric.checked = !!queryAnnotationToggleState.includeGeneric;
+        syncQueryAnnotationControls();
+
         if (window.reportChartManager) {
-          window.reportChartManager.updateQueryAnnotations(chartId, report.code, day, options);
+          window.reportChartManager.updateQueryAnnotations(chartId, report.code, day, queryAnnotationToggleState);
         }
 
         // Also toggle the under-chart lists with a quick animation
         const serverList = document.getElementById(`under-chart-server-list-${appId}`);
         const eventList = document.getElementById(`under-chart-event-list-${appId}`);
-        toggleSection(serverList, !!(elServer && elServer.checked));
-        toggleSection(eventList, !!(elGeneric && elGeneric.checked));
+        toggleSection(serverList, !!queryAnnotationToggleState.includeServer);
+        toggleSection(eventList, !!queryAnnotationToggleState.includeGeneric);
       };
 
-      if (elQuery) elQuery.onchange = applyToggles;
-      if (elServer) elServer.onchange = applyToggles;
-      if (elGeneric) elGeneric.onchange = applyToggles;
+      if (elQuery) {
+        elQuery.onchange = () => {
+          queryAnnotationToggleState.includeQuery = !!elQuery.checked;
+          syncQueryAnnotationControls(elQuery);
+          applyToggles();
+        };
+      }
+      if (elServer) {
+        elServer.onchange = () => {
+          queryAnnotationToggleState.includeServer = !!elServer.checked;
+          syncQueryAnnotationControls(elServer);
+          applyToggles();
+        };
+      }
+      if (elGeneric) {
+        elGeneric.onchange = () => {
+          queryAnnotationToggleState.includeGeneric = !!elGeneric.checked;
+          syncQueryAnnotationControls(elGeneric);
+          applyToggles();
+        };
+      }
 
       // Initial application to ensure defaults are reflected
       applyToggles();

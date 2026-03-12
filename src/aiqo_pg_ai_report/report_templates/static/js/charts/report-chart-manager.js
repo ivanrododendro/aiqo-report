@@ -10,6 +10,22 @@
     this.reportData = reportData;
     this.chartFactory = new AIQO.Core.ChartFactory(reportData);
     this.charts = {};
+    this.dailyDatasetVisibilityState = {};
+    this.queryDatasetVisibilityState = {};
+  }
+
+  _destroyChartInstance(chartId, canvasEl) {
+    if (this.charts[chartId]) {
+      this.charts[chartId].destroy();
+      delete this.charts[chartId];
+    }
+
+    if (!canvasEl || typeof Chart === 'undefined' || typeof Chart.getChart !== 'function') return;
+
+    const existingChart = Chart.getChart(canvasEl);
+    if (existingChart) {
+      existingChart.destroy();
+    }
   }
 
   renderDailyCumulatedTimeChart() {
@@ -18,7 +34,14 @@
       console.warn('Daily chart canvas not found');
       return null;
     }
-    this.charts.dailyCumulatedTime = this.chartFactory.createDailyCumulatedTimeChart(ctx.getContext('2d'));
+    this._destroyChartInstance('dailyCumulatedTime', ctx);
+    this.charts.dailyCumulatedTime = this.chartFactory.createDailyCumulatedTimeChart(
+      ctx.getContext('2d'),
+      this.dailyDatasetVisibilityState,
+      (visibilityState) => {
+        this.dailyDatasetVisibilityState = Object.assign({}, visibilityState);
+      }
+    );
     return this.charts.dailyCumulatedTime;
   }
 
@@ -28,12 +51,17 @@
       console.warn(`Query chart canvas not found: ${canvasId}`);
       return null;
     }
+    this._destroyChartInstance(canvasId, ctx);
     this.charts[canvasId] = this.chartFactory.createQueryExecutionChart(
       ctx.getContext('2d'),
       canvasId,
       queryCode,
       allExecutions,
-      selectedDay
+      selectedDay,
+      this.queryDatasetVisibilityState,
+      (visibilityState) => {
+        this.queryDatasetVisibilityState = Object.assign({}, visibilityState);
+      }
     );
     return this.charts[canvasId];
   }
@@ -66,10 +94,7 @@
   }
 
   destroyChart(chartId) {
-    if (this.charts[chartId]) {
-      this.charts[chartId].destroy();
-      delete this.charts[chartId];
-    }
+    this._destroyChartInstance(chartId, document.getElementById(chartId));
   }
 }
 })();

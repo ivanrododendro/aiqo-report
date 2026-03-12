@@ -14,67 +14,181 @@
     this.annotationService = new AIQO.Core.AnnotationService(reportData);
   }
 
-  createDailyCumulatedTimeChart(ctx) {
+  _applyDatasetVisibilityState(datasets, visibilityState) {
+    return datasets.map((dataset) => {
+      const defaultVisible = dataset.hidden !== true;
+      const storedVisible =
+        visibilityState && Object.prototype.hasOwnProperty.call(visibilityState, dataset.label)
+          ? visibilityState[dataset.label]
+          : defaultVisible;
+      return Object.assign({}, dataset, {
+        hidden: !storedVisible,
+      });
+    });
+  }
+
+  _collectDatasetVisibility(chart) {
+    const visibilityState = {};
+    (chart.data.datasets || []).forEach((dataset, datasetIndex) => {
+      if (!dataset || !dataset.label) return;
+      visibilityState[dataset.label] = typeof chart.isDatasetVisible === 'function'
+        ? chart.isDatasetVisible(datasetIndex)
+        : !dataset.hidden;
+    });
+    return visibilityState;
+  }
+
+  _getDatasetColor(dataset) {
+    if (!dataset) return null;
+    if (dataset.label === 'Execution Time (hours)') return '#000000';
+    if (Array.isArray(dataset.borderColor)) return dataset.borderColor[0] || null;
+    return dataset.borderColor || null;
+  }
+
+  _getVisibleDatasetsForScale(chart, scaleId) {
+    return (chart.data.datasets || []).filter((dataset, datasetIndex) => {
+      if (!dataset || dataset.yAxisID !== scaleId) return false;
+      return typeof chart.isDatasetVisible === 'function'
+        ? chart.isDatasetVisible(datasetIndex)
+        : !dataset.hidden;
+    });
+  }
+
+  _applyAxisColors(chart) {
+    if (!chart || !chart.options || !chart.options.scales) return;
+
+    Object.entries(chart.options.scales).forEach(([scaleId, scale]) => {
+      if (scaleId === 'x' || !scale) return;
+
+      const matchingDataset = this._getVisibleDatasetsForScale(chart, scaleId)[0];
+
+      const axisColor = this._getDatasetColor(matchingDataset);
+      if (!axisColor) return;
+
+      if (!scale.ticks) scale.ticks = {};
+      if (!scale.title) scale.title = {};
+      if (!scale.border) scale.border = {};
+      scale.ticks.color = axisColor;
+      scale.title.color = axisColor;
+      scale.border.color = axisColor;
+    });
+  }
+
+  _applyAxisTitles(chart) {
+    if (!chart || !chart.options || !chart.options.scales) return;
+
+    Object.entries(chart.options.scales).forEach(([scaleId, scale]) => {
+      if (scaleId === 'x' || !scale || !scale.title) return;
+
+      const visibleDatasets = this._getVisibleDatasetsForScale(chart, scaleId);
+      if (visibleDatasets.length === 0) return;
+
+      const visibleLabels = visibleDatasets
+        .map((dataset) => dataset && dataset.label)
+        .filter(Boolean);
+      if (visibleLabels.length === 0) return;
+
+      const titleText = visibleLabels.length === 1
+        ? visibleLabels[0]
+        : visibleLabels.join(' / ');
+
+      scale.title.text = titleText;
+    });
+  }
+
+  _isAxisVisible(chart, scaleId) {
+    return (chart.data.datasets || []).some((dataset, datasetIndex) => {
+      if (!dataset || dataset.yAxisID !== scaleId) return false;
+      return typeof chart.isDatasetVisible === 'function'
+        ? chart.isDatasetVisible(datasetIndex)
+        : !dataset.hidden;
+    });
+  }
+
+  _syncAxisVisibility(chart) {
+    if (!chart || !chart.options || !chart.options.scales) return;
+
+    ['yAxisRightTotalQueries', 'yCost', 'yRows', 'yBuffer', 'yWAL'].forEach((scaleId) => {
+      if (!chart.options.scales[scaleId]) return;
+      chart.options.scales[scaleId].display = this._isAxisVisible(chart, scaleId);
+    });
+  }
+
+  _applyAxisState(chart) {
+    this._syncAxisVisibility(chart);
+    this._applyAxisTitles(chart);
+    this._applyAxisColors(chart);
+  }
+
+  createDailyCumulatedTimeChart(ctx, visibilityState, onVisibilityChange) {
     try {
       const chartData = AIQO.Core.DataValidator.validateChartData(this.reportData.charts.daily_trends);
       const annotations = this.annotationService.buildDailyAnnotations();
-      return new Chart(ctx, {
+      const chart = new Chart(ctx, {
         type: 'line',
-        data: this._createDailyChartData(chartData),
-        options: this._createDailyChartOptions(annotations),
+        data: this._createDailyChartData(chartData, visibilityState),
+        options: this._createDailyChartOptions(annotations, onVisibilityChange),
       });
+      this._applyAxisState(chart);
+      chart.update('none');
+      return chart;
     } catch (error) {
       console.error('Failed to create daily chart:', error);
       return null;
     }
   }
 
-  createQueryExecutionChart(ctx, canvasId, queryCode, allExecutions, selectedDay) {
+  createQueryExecutionChart(ctx, canvasId, queryCode, allExecutions, selectedDay, visibilityState, onVisibilityChange) {
     try {
       const validExecutions = AIQO.Core.DataValidator.validateExecutionData(allExecutions);
       const processedData = this._processExecutionData(validExecutions);
       const annotations = this.annotationService.buildQueryAnnotations(queryCode, processedData.labels, selectedDay);
-      return new Chart(ctx, {
+      const chart = new Chart(ctx, {
         type: 'line',
-        data: this._createQueryChartData(processedData),
-        options: this._createQueryChartOptions(selectedDay, annotations),
+        data: this._createQueryChartData(processedData, visibilityState),
+        options: this._createQueryChartOptions(selectedDay, annotations, onVisibilityChange),
       });
+      this._applyAxisState(chart);
+      chart.update('none');
+      return chart;
     } catch (error) {
       console.error('Failed to create query execution chart:', error);
       return null;
     }
   }
 
-  _createDailyChartData(chartData) {
+  _createDailyChartData(chartData, visibilityState) {
+    const datasets = [
+      {
+        label: 'Total Cumulated Time',
+        data: chartData.cumulated_time,
+        borderColor: 'rgba(92, 176, 171, 1)',
+        backgroundColor: 'rgba(92, 176, 171, 0.3)',
+        borderWidth: 2,
+        fill: false,
+        tension: 0.1,
+        spanGaps: true,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Total Queries Count',
+        data: chartData.total_queries,
+        type: 'bar',
+        backgroundColor: 'rgba(166, 146, 222, 0.55)',
+        borderColor: 'rgba(166, 146, 222, 1)',
+        borderWidth: 1,
+        yAxisID: 'yAxisRightTotalQueries',
+        hidden: true,
+      },
+    ];
+
     return {
       labels: chartData.labels,
-      datasets: [
-        {
-          label: 'Total Cumulated Time',
-          data: chartData.cumulated_time,
-          borderColor: 'rgb(75, 192, 192)',
-          backgroundColor: 'rgb(75, 192, 192)',
-          borderWidth: 2,
-          fill: false,
-          tension: 0.1,
-          spanGaps: true,
-          yAxisID: 'y',
-        },
-        {
-          label: 'Total Queries Count',
-          data: chartData.total_queries,
-          type: 'bar',
-          backgroundColor: 'rgba(153, 102, 255, 0.5)',
-          borderColor: 'rgba(153, 102, 255, 1)',
-          borderWidth: 1,
-          yAxisID: 'yAxisRightTotalQueries',
-          hidden: true,
-        },
-      ],
+      datasets: this._applyDatasetVisibilityState(datasets, visibilityState),
     };
   }
 
-  _createDailyChartOptions(annotations) {
+  _createDailyChartOptions(annotations, onVisibilityChange) {
     return {
       responsive: true,
       maintainAspectRatio: false,
@@ -84,12 +198,11 @@
           onClick: (e, legendItem, legend) => {
             const chart = legend.chart;
             Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
-            const ds = chart.data.datasets[legendItem.datasetIndex];
-            if (ds && ds.yAxisID === 'yAxisRightTotalQueries') {
-              const isVisible = typeof chart.isDatasetVisible === 'function' ? chart.isDatasetVisible(legendItem.datasetIndex) : !ds.hidden;
-              chart.options.scales.yAxisRightTotalQueries.display = isVisible;
-              chart.update();
+            if (typeof onVisibilityChange === 'function') {
+              onVisibilityChange(this._collectDatasetVisibility(chart));
             }
+            this._applyAxisState(chart);
+            chart.update();
           },
         },
         title: { display: true, text: 'Daily Cumulated Time and Query Count Trends' },
@@ -170,13 +283,15 @@
     };
   }
 
-  _createQueryChartData(processedData) {
+  _createQueryChartData(processedData, visibilityState) {
     const datasets = [
       {
         label: 'Execution Time (hours)',
         data: processedData.durations,
-        borderColor: 'rgba(75, 192, 192, 1)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        borderColor: '#000000',
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+        pointBackgroundColor: '#000000',
+        pointBorderColor: '#000000',
         borderWidth: 2,
         fill: false,
         tension: 0.1,
@@ -187,8 +302,8 @@
       {
         label: 'Cost',
         data: processedData.costs,
-        borderColor: 'rgba(255, 159, 64, 1)',
-        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+        borderColor: 'rgba(223, 166, 107, 1)',
+        backgroundColor: 'rgba(223, 166, 107, 0.28)',
         borderWidth: 2,
         fill: false,
         tension: 0.1,
@@ -200,8 +315,8 @@
       {
         label: 'Rows',
         data: processedData.rows,
-        borderColor: 'rgba(54, 162, 235, 1)',
-        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        borderColor: 'rgba(106, 168, 214, 1)',
+        backgroundColor: 'rgba(106, 168, 214, 0.28)',
         borderWidth: 2,
         fill: false,
         tension: 0.1,
@@ -214,12 +329,12 @@
 
     if (processedData.buffers) {
       const bufferColors = {
-        shared_hit: 'rgba(153, 102, 255, 1)',
-        shared_read: 'rgba(255, 99, 132, 1)',
-        shared_dirtied: 'rgba(255, 206, 86, 1)',
-        shared_written: 'rgba(0, 200, 83, 1)',
-        temp_read: 'rgba(54, 162, 235, 1)',
-        temp_written: 'rgba(255, 140, 0, 1)',
+        shared_hit: 'rgba(161, 135, 211, 1)',
+        shared_read: 'rgba(217, 132, 156, 1)',
+        shared_dirtied: 'rgba(224, 198, 112, 1)',
+        shared_written: 'rgba(109, 182, 132, 1)',
+        temp_read: 'rgba(122, 178, 216, 1)',
+        temp_written: 'rgba(223, 164, 118, 1)',
       };
       Object.entries(processedData.buffers).forEach(([key, data]) => {
         if (data.some((v) => v !== null)) {
@@ -242,9 +357,9 @@
 
     if (processedData.wal) {
       const walColors = {
-        records: 'rgba(0, 123, 255, 1)',
-        fpi: 'rgba(220, 53, 69, 1)',
-        bytes: 'rgba(40, 167, 69, 1)',
+        records: 'rgba(102, 156, 209, 1)',
+        fpi: 'rgba(205, 123, 138, 1)',
+        bytes: 'rgba(116, 179, 131, 1)',
       };
       Object.entries(processedData.wal).forEach(([key, data]) => {
         if (data.some((v) => v !== null)) {
@@ -269,8 +384,8 @@
       datasets.push({
         label: 'I/O Total (shared read + dirtied + WAL bytes)',
         data: processedData.io_total,
-        borderColor: 'rgba(0, 128, 128, 1)',
-        backgroundColor: 'rgba(0, 128, 128, 0.2)',
+        borderColor: 'rgba(98, 168, 168, 1)',
+        backgroundColor: 'rgba(98, 168, 168, 0.28)',
         borderWidth: 2,
         fill: false,
         tension: 0.1,
@@ -281,10 +396,13 @@
       });
     }
 
-    return { labels: processedData.labels, datasets };
+    return {
+      labels: processedData.labels,
+      datasets: this._applyDatasetVisibilityState(datasets, visibilityState),
+    };
   }
 
-  _createQueryChartOptions(selectedDay, annotations) {
+  _createQueryChartOptions(selectedDay, annotations, onVisibilityChange) {
     return {
       responsive: true,
       plugins: {
@@ -293,15 +411,11 @@
           onClick: (e, legendItem, legend) => {
             const chart = legend.chart;
             Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
-            const ds = chart.data.datasets[legendItem.datasetIndex];
-            if (ds) {
-              const isVisible = typeof chart.isDatasetVisible === 'function' ? chart.isDatasetVisible(legendItem.datasetIndex) : !ds.hidden;
-              if (ds.yAxisID === 'yCost') chart.options.scales.yCost.display = isVisible;
-              else if (ds.yAxisID === 'yRows') chart.options.scales.yRows.display = isVisible;
-              else if (ds.yAxisID === 'yBuffer') chart.options.scales.yBuffer.display = isVisible;
-              else if (ds.yAxisID === 'yWAL') chart.options.scales.yWAL.display = isVisible;
-              chart.update();
+            if (typeof onVisibilityChange === 'function') {
+              onVisibilityChange(this._collectDatasetVisibility(chart));
             }
+            this._applyAxisState(chart);
+            chart.update();
           },
         },
         annotation: { annotations },

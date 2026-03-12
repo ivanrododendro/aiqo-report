@@ -16,6 +16,11 @@
 
   const GlobalSynthesis = {
     _initialized: false,
+    _annotationToggleStateInitialized: false,
+    _annotationToggleState: {
+      includeServer: true,
+      includeEvents: false,
+    },
     init() {
       if (this._initialized) return;
       this._initialized = true;
@@ -122,27 +127,48 @@
       const serverCard = document.getElementById('legend-server-card');
       const eventsCard = document.getElementById('legend-events-card');
 
+      if (!this._annotationToggleStateInitialized) {
+        if (serverToggle) {
+          this._annotationToggleState.includeServer = !!serverToggle.checked;
+        }
+        if (eventsToggle) {
+          this._annotationToggleState.includeEvents = !!eventsToggle.checked;
+        }
+        this._annotationToggleStateInitialized = true;
+      }
+
       const apply = () => {
-        const includeServer = !serverToggle || !!serverToggle.checked;
-        const includeEvents = !eventsToggle || !!eventsToggle.checked;
+        if (serverToggle) {
+          serverToggle.checked = !!this._annotationToggleState.includeServer;
+        }
+        if (eventsToggle) {
+          eventsToggle.checked = !!this._annotationToggleState.includeEvents;
+        }
 
         if (window.reportChartManager && typeof window.reportChartManager.updateDailyAnnotations === 'function') {
-          window.reportChartManager.updateDailyAnnotations({
-            includeServer,
-            includeEvents,
-          });
+          window.reportChartManager.updateDailyAnnotations(this._annotationToggleState);
         }
 
         if (serverCard) {
-          serverCard.classList.toggle('d-none', !includeServer);
+          serverCard.classList.toggle('d-none', !this._annotationToggleState.includeServer);
         }
         if (eventsCard) {
-          eventsCard.classList.toggle('d-none', !includeEvents);
+          eventsCard.classList.toggle('d-none', !this._annotationToggleState.includeEvents);
         }
       };
 
-      if (serverToggle) serverToggle.addEventListener('change', apply);
-      if (eventsToggle) eventsToggle.addEventListener('change', apply);
+      if (serverToggle) {
+        serverToggle.addEventListener('change', () => {
+          this._annotationToggleState.includeServer = !!serverToggle.checked;
+          apply();
+        });
+      }
+      if (eventsToggle) {
+        eventsToggle.addEventListener('change', () => {
+          this._annotationToggleState.includeEvents = !!eventsToggle.checked;
+          apply();
+        });
+      }
       apply();
     },
   };
