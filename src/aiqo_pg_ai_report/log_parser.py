@@ -48,6 +48,24 @@ class AbstractLogParser(LogParserInterface, ABC):
                 yield from self._process_plain_text_file(f, log_file_path)
 
 
+def _normalize_parallel_workers(plan_value: Any) -> Any:
+    """Normalize PostgreSQL parallel worker payloads for downstream plan viewers."""
+    if isinstance(plan_value, dict):
+        normalized: dict[str, Any] = {}
+        for key, value in plan_value.items():
+            normalized_value = _normalize_parallel_workers(value)
+            if key == "Workers" and not isinstance(normalized_value, list):
+                normalized[key] = [] if normalized_value is None else [normalized_value]
+            else:
+                normalized[key] = normalized_value
+        return normalized
+
+    if isinstance(plan_value, list):
+        return [_normalize_parallel_workers(item) for item in plan_value]
+
+    return plan_value
+
+
 def parse_log_entry(log_entry_text):
     duration_ms = None
     first_line = log_entry_text.splitlines()[0]
@@ -319,6 +337,8 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
 
     if not isinstance(plan_json_obj, dict):
         raise ValueError("JSON plan payload is not in expected object format.")
+
+    plan_json_obj = _normalize_parallel_workers(plan_json_obj)
 
     query_text_raw = plan_json_obj.get("Query Text", "")
     job_name = ""

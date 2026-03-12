@@ -1,8 +1,14 @@
+import json
 from pathlib import Path
 
 import pytest
 
-from aiqo_pg_ai_report.log_parser import AbstractLogParser, JsonLogParser, TextLogParser
+from aiqo_pg_ai_report.log_parser import (
+    AbstractLogParser,
+    JsonLogParser,
+    TextLogParser,
+    parse_json_log_entry,
+)
 from aiqo_pg_ai_report.pg_autoexplain_analyzer import PGAutoExplainAnalyzer
 
 
@@ -178,6 +184,40 @@ def test_json_parser_uses_child_actual_rows_when_root_zero(tmp_path):
     assert len(entries) == 1
     entry = entries[0]
     assert entry["rows"] == 5
+
+
+def test_json_parser_normalizes_workers_to_array():
+    log_entry = """
+2025-11-26 15:00:00 CET [200]: [1-1] db=test,user=test LOG:  duration: 10.0 ms  plan:
+{
+  "Query Text": "-- Job: TEST -- Task Another select 1",
+  "Plan": {
+    "Node Type": "Gather",
+    "Workers Planned": 2,
+    "Workers": {
+      "Worker Number": 0,
+      "Actual Rows": 3
+    },
+    "Plans": [
+      {
+        "Node Type": "Parallel Seq Scan",
+        "Workers": {
+          "Worker Number": 1,
+          "Actual Rows": 2
+        }
+      }
+    ]
+  }
+}
+    """.strip()
+
+    entry = parse_json_log_entry(log_entry)
+    normalized_plan = json.loads(entry["execution_plan"])
+
+    assert isinstance(normalized_plan["Plan"]["Workers"], list)
+    assert normalized_plan["Plan"]["Workers"][0]["Worker Number"] == 0
+    assert isinstance(normalized_plan["Plan"]["Plans"][0]["Workers"], list)
+    assert normalized_plan["Plan"]["Plans"][0]["Workers"][0]["Worker Number"] == 1
 
 
 def test_text_parser_uses_nested_actual_rows_for_insert_root(tmp_path):

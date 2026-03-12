@@ -161,10 +161,21 @@
       </div>`;
   }
 
+  function isPev2ReadyToMount(appId) {
+    const container = document.getElementById(appId);
+    if (!container) return false;
+
+    const pev2Collapse = container.closest('.accordion-collapse[data-query-accordion-key="pev2"]');
+    if (pev2Collapse && !pev2Collapse.classList.contains('show')) return false;
+
+    return isElementVisible(container);
+  }
+
   function mountPev2(appId, report) {
     const container = document.getElementById(appId);
     if (!container) return;
     if (container.hasAttribute('data-v-app')) return; // already mounted
+    if (!isPev2ReadyToMount(appId)) return;
 
     try {
       const planData = report.plan;
@@ -359,6 +370,7 @@
     );
     if (pev2Collapse) {
       pev2Collapse.addEventListener('shown.bs.collapse', () => {
+        mountPev2(appId, report);
         setTimeout(() => refreshQueryChart(appId), 0);
       });
     }
@@ -387,7 +399,9 @@
       bindDetailSectionHandlers(appId, day, report);
       applyAccordionState(appId);
       formatGeneralStats(generalStatsId, report);
-      mountPev2(appId, report);
+      if (queryAccordionState.pev2) {
+        mountPev2(appId, report);
+      }
       renderQueryChart(appId, day, report);
     };
     fn();
