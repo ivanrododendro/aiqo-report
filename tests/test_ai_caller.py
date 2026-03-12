@@ -7,6 +7,13 @@ from aiqo_pg_ai_report.ai_caller import (
     DEFAULT_AI_CALL_TIMEOUT,
     DEFAULT_TOKEN_LIMIT,
 )
+from aiqo_pg_ai_report.provider_strategies import (
+    AnthropicProviderStrategy,
+    GeminiProviderStrategy,
+    GenericProviderStrategy,
+    OpenAIProviderStrategy,
+    build_provider_strategy,
+)
 
 
 class DummyUsage:
@@ -73,6 +80,15 @@ def test_get_model_token_limit_fallback(monkeypatch):
     monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.get_model_info", lambda model: {})
     caller = AiCaller(model="gpt-test", ai_call_timeout=10, lang="en", prompts={}, debug=False)
     assert caller.token_limit == DEFAULT_TOKEN_LIMIT
+
+
+def test_build_provider_strategy_returns_expected_strategy_for_each_provider():
+    assert isinstance(build_provider_strategy(None), GenericProviderStrategy)
+    assert isinstance(build_provider_strategy("openai"), OpenAIProviderStrategy)
+    assert isinstance(build_provider_strategy("anthropic"), AnthropicProviderStrategy)
+    assert isinstance(build_provider_strategy("gemini"), GeminiProviderStrategy)
+    assert isinstance(build_provider_strategy("google"), GeminiProviderStrategy)
+    assert isinstance(build_provider_strategy("vertex_ai-language-models", model="gemini-2.5-flash"), GeminiProviderStrategy)
 
 
 def test_call_ai_provider_success(monkeypatch):
@@ -177,6 +193,114 @@ def test_call_ai_provider_falls_back_to_estimated_usage_when_provider_usage_miss
     assert caller.total_cost == 0.123
     assert captured_cost_call["model"] == "gemini/gemini-2.5-flash"
     assert captured_cost_call["completion"] == "ok"
+
+
+def test_build_messages_generic_chat_model_adds_system_message(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "custom"},
+    )
+
+    caller = AiCaller(model="claude-compatible", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    messages = caller._build_messages(
+        prompt="prompt text",
+        provider="custom",
+        model_info={"litellm_provider": "custom"},
+        cacheable_prefix="",
+        dynamic_suffix="",
+    )
+
+    assert messages == [
+        {"role": "system", "content": "You are a PostgreSQL optimization expert."},
+        {"role": "user", "content": "prompt text"},
+    ]
+
+
+def test_build_messages_openai_uses_generic_message_shape(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+    )
+
+    caller = AiCaller(model="gpt-4o-mini", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    messages = caller._build_messages(
+        prompt="prompt text",
+        provider="openai",
+        model_info={"litellm_provider": "openai"},
+        cacheable_prefix="static prompt",
+        dynamic_suffix="\n\ndynamic",
+    )
+
+    assert messages == [
+        {"role": "system", "content": "You are a PostgreSQL optimization expert."},
+        {"role": "user", "content": "prompt text"},
+    ]
+
+
+def test_get_effective_model_uses_gemini_strategy_normalization(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "gemini", "supports_prompt_caching": True},
+    )
+
+    caller = AiCaller(model="gemini-2.5-flash", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    assert caller._get_effective_model() == "gemini/gemini-2.5-flash"
+
+
+def test_get_effective_model_normalizes_bare_gemini_when_litellm_reports_vertex_provider(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "vertex_ai-language-models"},
+    )
+
+    caller = AiCaller(model="gemini-2.5-flash", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    assert caller._get_effective_model() == "gemini/gemini-2.5-flash"
+
+
+def test_build_response_params_openai_uses_prompt_cache_key_and_omits_top_k(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+    )
+
+    caller = AiCaller(model="gpt-4o-mini", ai_call_timeout=7, lang="en", prompts={}, debug=False)
+
+    response_params = caller._build_response_params(
+        effective_model="gpt-4o-mini",
+        provider="openai",
+        messages=[{"role": "user", "content": "prompt"}],
+        cacheable_prefix="static prompt",
+    )
+
+    assert response_params["model"] == "gpt-4o-mini"
+    assert response_params["request_timeout"] == 7
+    assert response_params["prompt_cache_key"].startswith("gpt-4o-mini:")
+    assert "top_k" not in response_params
+
+
+def test_build_response_params_gemini_sets_top_k_and_omits_prompt_cache_key(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "gemini", "supports_prompt_caching": True},
+    )
+
+    caller = AiCaller(model="gemini-2.5-flash", ai_call_timeout=7, lang="en", prompts={}, debug=False)
+
+    response_params = caller._build_response_params(
+        effective_model="gemini/gemini-2.5-flash",
+        provider="gemini",
+        messages=[{"role": "user", "content": "prompt"}],
+        cacheable_prefix="static prompt",
+    )
+
+    assert response_params["model"] == "gemini/gemini-2.5-flash"
+    assert response_params["request_timeout"] == 7
+    assert response_params["top_k"] == 1
+    assert "prompt_cache_key" not in response_params
 
 
 def test_call_ai_provider_openai_does_not_set_prompt_cache_key_when_disabled(monkeypatch):

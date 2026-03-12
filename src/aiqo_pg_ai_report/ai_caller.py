@@ -1,14 +1,12 @@
-import hashlib
 import logging
 
 import litellm
+from aiqo_pg_ai_report.provider_strategies import ProviderStrategyContext, build_provider_strategy
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TOKEN_LIMIT = 8192
 DEFAULT_AI_CALL_TIMEOUT = 90
-GEMINI_CONTEXT_CACHE_TTL = "3600s"
-POSTGRESQL_OPTIMIZATION_SYSTEM_PROMPT = "You are a PostgreSQL optimization expert."
 
 
 class AiCaller:
@@ -52,95 +50,42 @@ class AiCaller:
         return default if value is None else value
 
     @staticmethod
-    def _build_prompt_cache_key(model: str, cacheable_prefix: str) -> str:
-        digest = hashlib.sha256(cacheable_prefix.encode("utf-8")).hexdigest()
-        return f"{model}:{digest}"
-
-    @staticmethod
-    def _is_chat_model(model: str) -> bool:
-        return "gpt" in model or "o1" in model or "gemini" in model or "claude" in model
-
-    def _get_effective_model(self) -> str:
-        if self.model.startswith("gemini-"):
-            effective_model = "gemini/" + self.model
-            logger.info(f"Using Google AI Studio provider for model: {effective_model}")
-            return effective_model
-        return self.model
-
-    @staticmethod
     def _get_provider_name(model_info) -> str | None:
         if not model_info:
             return None
         return model_info.get("litellm_provider")
 
-    @staticmethod
-    def _supports_prompt_caching(model_info) -> bool:
-        if not model_info:
-            return False
-        return bool(model_info.get("supports_prompt_caching"))
-
-    def _should_mark_cacheable_prefix(
+    def _build_provider_context(
         self,
         provider: str | None,
         model_info,
-        cacheable_prefix: str,
-    ) -> bool:
-        if self.disable_provider_cache or not cacheable_prefix:
-            return False
-
-        if provider == "anthropic":
-            return True
-
-        if provider == "gemini" and self._supports_prompt_caching(model_info):
-            return True
-
-        return False
-
-    def _build_provider_cache_messages(
-        self,
-        provider: str | None,
-        model_info,
-        cacheable_prefix: str,
-        dynamic_suffix: str,
-        system_prompt: str | None = None,
+        prompt: str = "",
+        cacheable_prefix: str = "",
+        dynamic_suffix: str = "",
     ):
-        if not self._should_mark_cacheable_prefix(
+        return ProviderStrategyContext(
+            model=self.model,
             provider=provider,
             model_info=model_info,
+            prompt=prompt,
             cacheable_prefix=cacheable_prefix,
-        ):
-            return None
+            dynamic_suffix=dynamic_suffix,
+            disable_provider_cache=self.disable_provider_cache,
+            ai_call_timeout=self.ai_call_timeout,
+        )
 
-        cache_control = {"type": "ephemeral"}
-        if provider == "gemini":
-            cache_control["ttl"] = GEMINI_CONTEXT_CACHE_TTL
-
-        prefix_text = cacheable_prefix
-        if provider == "gemini" and system_prompt:
-            prefix_text = f"{system_prompt}\n\n{prefix_text}"
-
-        cached_message = {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": prefix_text,
-                    "cache_control": cache_control,
-                }
-            ],
-        }
-
-        if provider == "gemini":
-            messages = [cached_message]
-            if dynamic_suffix:
-                messages.append({"role": "user", "content": dynamic_suffix})
-            return messages
-
-        user_content = cached_message["content"]
-        if dynamic_suffix:
-            user_content.append({"type": "text", "text": dynamic_suffix})
-
-        return [cached_message]
+    def _get_effective_model(self) -> str:
+        model_info = litellm.get_model_info(self.model)
+        provider = self._get_provider_name(model_info)
+        provider_context = self._build_provider_context(
+            provider=provider,
+            model_info=model_info,
+        )
+        strategy = build_provider_strategy(provider, model=self.model)
+        effective_model = strategy.get_effective_model(provider_context)
+        if effective_model != self.model and provider == "gemini":
+            logger.info(f"Using Google AI Studio provider for model: {effective_model}")
+        return effective_model
 
     def _build_messages(
         self,
@@ -150,49 +95,43 @@ class AiCaller:
         cacheable_prefix: str,
         dynamic_suffix: str,
     ):
-        system_prompt = POSTGRESQL_OPTIMIZATION_SYSTEM_PROMPT if self._is_chat_model(self.model) else None
-        messages = self._build_provider_cache_messages(
+        context = self._build_provider_context(
             provider=provider,
             model_info=model_info,
+            prompt=prompt,
             cacheable_prefix=cacheable_prefix,
             dynamic_suffix=dynamic_suffix,
-            system_prompt=system_prompt,
         )
-        if messages is None:
-            messages = [{"role": "user", "content": prompt}]
-
-        if system_prompt and not (
-            provider == "gemini"
-            and self._should_mark_cacheable_prefix(
-                provider=provider,
-                model_info=model_info,
-                cacheable_prefix=cacheable_prefix,
-            )
-        ):
-            messages.insert(0, {"role": "system", "content": system_prompt})
-
-        return messages
+        strategy = build_provider_strategy(provider, model=self.model)
+        return strategy.build_messages(context)
 
     def _build_response_params(self, effective_model: str, provider: str | None, messages, cacheable_prefix: str):
-        response_params = {
-            "model": effective_model,
-            "messages": messages,
-            "request_timeout": self.ai_call_timeout,
-            "temperature": 1.0,
-            "seed": 42,
-            "drop_params": True,
-        }
-
-        if provider != "openai":
-            response_params["top_k"] = 1
-
-        if not self.disable_provider_cache and provider == "openai" and cacheable_prefix:
-            response_params["prompt_cache_key"] = self._build_prompt_cache_key(effective_model, cacheable_prefix)
-
-        return response_params
+        provider_context = self._build_provider_context(
+            provider=provider,
+            model_info=None,
+            cacheable_prefix=cacheable_prefix,
+        )
+        strategy = build_provider_strategy(provider, model=self.model)
+        return strategy.build_response_params(
+            context=provider_context,
+            effective_model=effective_model,
+            messages=messages,
+        )
 
     def _perform_ai_call(self, prompt, cacheable_prefix: str = "", dynamic_suffix: str = ""):
-        effective_model = self._get_effective_model()
+        initial_model_info = litellm.get_model_info(self.model)
+        initial_provider = self._get_provider_name(initial_model_info)
+        provider_context = self._build_provider_context(
+            provider=initial_provider,
+            model_info=initial_model_info,
+            prompt=prompt,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+        )
+        strategy = build_provider_strategy(initial_provider, model=self.model)
+        effective_model = strategy.get_effective_model(provider_context)
+        if effective_model != self.model and initial_provider == "gemini":
+            logger.info(f"Using Google AI Studio provider for model: {effective_model}")
         model_info = litellm.get_model_info(effective_model)
         provider = self._get_provider_name(model_info)
         messages = self._build_messages(
