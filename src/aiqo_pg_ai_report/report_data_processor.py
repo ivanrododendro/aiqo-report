@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 
 BYTES_PER_BUFFER_BLOCK = 8192
 BUFFER_KEYS_FOR_TOTAL_IO = ("shared_read", "shared_dirtied", "shared_written", "temp_read", "temp_written")
+DUPLICATE_QUERY_AI_SKIP_MESSAGE = "AI analysis skipped, same query was already analyzed earlier."
 
 
 class ReportDataProcessor:
@@ -142,6 +143,7 @@ class ReportDataProcessor:
         enhanced_reports_by_day = self._enhance_reports_by_day(
             reports_by_day, query_optimizations, server_optimizations
         )
+        self._add_duplicate_ai_analysis_links(enhanced_reports_by_day)
 
         # Prepare reports indexed by code for easier lookup
         reports_by_code = self._index_reports_by_code(reports_by_day)
@@ -541,6 +543,23 @@ class ReportDataProcessor:
             for report in reports:
                 reports_by_code[report["code"]].append({"day": day, "report": report})
         return dict(reports_by_code)
+
+    def _add_duplicate_ai_analysis_links(self, reports_by_day):
+        """Attach a jump target for reports where AI analysis was skipped due to duplicate query code."""
+        first_analyzed_query_by_code = {}
+
+        for day in sorted(reports_by_day.keys()):
+            for index, report in enumerate(reports_by_day[day]):
+                ai_hints = report.get("ai_hints") or ""
+                is_duplicate_skip = ai_hints.startswith(DUPLICATE_QUERY_AI_SKIP_MESSAGE)
+                query_code = report.get("code")
+
+                if is_duplicate_skip and query_code in first_analyzed_query_by_code:
+                    report["duplicate_analysis_target"] = first_analyzed_query_by_code[query_code]
+                    continue
+
+                if ai_hints and not is_duplicate_skip and query_code not in first_analyzed_query_by_code:
+                    first_analyzed_query_by_code[query_code] = {"day": day, "index": index}
 
     def _make_daily_stats_serializable(self, daily_query_stats):
         """Convert defaultdicts to regular dicts for JSON serialization."""

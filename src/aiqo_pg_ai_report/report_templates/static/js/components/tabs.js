@@ -9,6 +9,7 @@
     init() {
       this._renderQueryGantts();
       this._bindQueryGanttSelection();
+      this._bindDuplicateAnalysisLinks();
 
       // Initialize Split.js two-pane layout for all day containers
       document.querySelectorAll('[id^="split-container-"]').forEach((container) => {
@@ -126,6 +127,24 @@
         row.addEventListener('click', (event) => {
           event.preventDefault();
           this._activateQueryRow(row);
+        });
+      });
+    },
+
+    _bindDuplicateAnalysisLinks() {
+      document.querySelectorAll('[data-role="duplicate-ai-analysis-link"]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+
+          const targetDay = link.getAttribute('data-target-day');
+          const targetIndex = link.getAttribute('data-target-index');
+          if (!targetDay || targetIndex === null) return;
+
+          const targetRow = document.getElementById(`query-tab-${targetDay}-${targetIndex}`);
+          if (!targetRow) return;
+
+          this._activateQueryRow(targetRow);
+          targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
       });
     },
