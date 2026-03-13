@@ -137,6 +137,47 @@
       });
   }
 
+  function findScrollableParent(el) {
+    let current = el ? el.parentElement : null;
+
+    while (current) {
+      const style = window.getComputedStyle(current);
+      const canScrollY = /(auto|scroll)/.test(style.overflowY);
+      if (canScrollY && current.scrollHeight > current.clientHeight) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+
+    return null;
+  }
+
+  function scrollToFirstOpenAccordion(appId) {
+    const accordionRoot = document.getElementById(`accordion-${appId}`);
+    if (!accordionRoot) return;
+
+    const firstOpenCollapse = accordionRoot.querySelector('.accordion-collapse.show');
+    if (!firstOpenCollapse) return;
+
+    const header = firstOpenCollapse.previousElementSibling;
+    const scrollTarget = header || firstOpenCollapse;
+    const scrollParent = findScrollableParent(accordionRoot);
+
+    if (scrollParent) {
+      const parentRect = scrollParent.getBoundingClientRect();
+      const targetRect = scrollTarget.getBoundingClientRect();
+      const offsetTop = targetRect.top - parentRect.top + scrollParent.scrollTop - 12;
+
+      scrollParent.scrollTo({
+        top: Math.max(offsetTop, 0),
+        behavior: 'smooth',
+      });
+      return;
+    }
+
+    scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function getReportFor(day, index) {
     const byDay = (window.reportData && reportData.reports && reportData.reports.by_day) || {};
     const list = byDay[day];
@@ -449,6 +490,7 @@
       bindDetailSectionHandlers(appId, day, report);
       applyAccordionState(appId);
       formatGeneralStats(generalStatsId, report);
+      requestAnimationFrame(() => scrollToFirstOpenAccordion(appId));
       if (queryAccordionState.pev2) {
         mountPev2(appId, report);
       }
