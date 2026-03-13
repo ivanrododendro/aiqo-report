@@ -128,6 +128,26 @@
     }
 
     /**
+     * Navigate to a specific query instance within a day by index
+     */
+    navigateToQueryInstance(day, index) {
+        this.navigateToDay(day);
+
+        setTimeout(() => {
+            const safeDay = ReportUtils.dateToSafeId(day);
+            const targetQueryTab = document.getElementById(`query-tab-${safeDay}-${index}`);
+
+            if (targetQueryTab && typeof targetQueryTab.click === 'function') {
+                targetQueryTab.click();
+                targetQueryTab.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            console.error(`Query tab instance not found: ${day} #${index}`);
+        }, 400);
+    }
+
+    /**
      * Find the earliest day containing a specific query code
      */
     findEarliestDayForQuery(queryCode) {
@@ -344,6 +364,13 @@ AIQO.Core.ReportNavigator = class ReportNavigator {
      */
     navigateToQuery(queryCode, day) {
         this.tabNavigator.navigateToQuery(queryCode, day);
+    }
+
+    /**
+     * Navigate to a specific query instance within a day by index
+     */
+    navigateToQueryInstance(day, index) {
+        this.tabNavigator.navigateToQueryInstance(day, index);
     }
 
     /**

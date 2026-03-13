@@ -299,32 +299,44 @@
     }
   }
 
-  function buildAllExecutionsForCode(queryCode) {
+  function buildAllExecutionsForCode(currentReport, currentDay) {
     const allDays = (window.reportData && reportData.charts && reportData.charts.all_dates) || [];
     const byDay = (window.reportData && reportData.reports && reportData.reports.by_day) || {};
+    const currentDayReports = Array.isArray(byDay[currentDay]) ? byDay[currentDay] : [];
+    const currentDayMatches = currentDayReports
+      .map((report, index) => ({ report, index }))
+      .filter(({ report }) => report && report.code === currentReport.code);
+    const currentOccurrenceIndex = Math.max(
+      currentDayMatches.findIndex(({ report }) => report === currentReport),
+      0
+    );
     const list = [];
+
     allDays.forEach((d) => {
       const reps = Array.isArray(byDay[d]) ? byDay[d] : [];
-      let found = null;
-      for (let i = 0; i < reps.length; i++) {
-        if (reps[i] && reps[i].code === queryCode) {
-          found = reps[i];
-          break;
-        }
-      }
-      if (found) {
+      const matches = reps
+        .map((report, index) => ({ report, index }))
+        .filter(({ report }) => report && report.code === currentReport.code);
+      const matchedExecution = matches[currentOccurrenceIndex] || matches[0] || null;
+
+      if (matchedExecution) {
+        const { report, index } = matchedExecution;
         list.push({
-          timestamp: found.query_timestamp,
-          duration: found.duration,
-          cost: found.cost ?? null,
-          rows: found.rows ?? null,
-          buffers: found.buffers ?? null,
-          buffers_bytes: found.buffers_bytes ?? null,
-          total_io_bytes: found.total_io_bytes ?? null,
-          wal: found.wal ?? null,
+          day: d,
+          targetIndex: index,
+          timestamp: report.query_timestamp,
+          duration: report.duration,
+          cost: report.cost ?? null,
+          rows: report.rows ?? null,
+          buffers: report.buffers ?? null,
+          buffers_bytes: report.buffers_bytes ?? null,
+          total_io_bytes: report.total_io_bytes ?? null,
+          wal: report.wal ?? null,
         });
       } else {
         list.push({
+          day: d,
+          targetIndex: null,
           timestamp: d,
           duration: null,
           cost: null,
@@ -344,7 +356,7 @@
     if (window.reportChartManager) {
       window.reportChartManager.destroyChart(chartId);
     }
-    const allExecutions = buildAllExecutionsForCode(report.code);
+    const allExecutions = buildAllExecutionsForCode(report, day);
     const chart = window.reportChartManager
       ? window.reportChartManager.renderQueryExecutionChart(
           chartId,
@@ -364,7 +376,17 @@
         );
         if (!points.length) return;
         const idx = points[0].index;
-        const clickedDay = chart.data.labels[idx];
+        const clickedExecution = allExecutions[idx] || null;
+        const clickedDay = (clickedExecution && clickedExecution.day) || chart.data.labels[idx];
+        const targetIndex = clickedExecution && Number.isInteger(clickedExecution.targetIndex)
+          ? clickedExecution.targetIndex
+          : null;
+
+        if (window.reportNavigator && targetIndex !== null) {
+          window.reportNavigator.navigateToQueryInstance(clickedDay, targetIndex);
+          return;
+        }
+
         if (window.reportNavigator) {
           window.reportNavigator.navigateToQuery(report.code, clickedDay);
         }
