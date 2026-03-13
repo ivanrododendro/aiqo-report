@@ -172,7 +172,30 @@
       row.setAttribute('aria-selected', 'true');
       targetPane.classList.add('show', 'active');
 
+      this._scrollDetailPanelToFirstOpenAccordion(targetPane);
+
       row.dispatchEvent(new Event('shown.bs.tab', { bubbles: true }));
+    },
+
+    _scrollDetailPanelToFirstOpenAccordion(targetPane) {
+      if (!targetPane) return;
+
+      const detailPane = targetPane.closest('.split');
+      if (!detailPane) return;
+
+      const firstOpenAccordion = targetPane.querySelector('.accordion-collapse.show');
+      if (!firstOpenAccordion) return;
+
+      window.requestAnimationFrame(() => {
+        const detailPaneRect = detailPane.getBoundingClientRect();
+        const accordionRect = firstOpenAccordion.getBoundingClientRect();
+        const targetScrollTop = detailPane.scrollTop + (accordionRect.top - detailPaneRect.top) - 8;
+
+        detailPane.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth',
+        });
+      });
     },
 
     _renderQueryGantts() {
