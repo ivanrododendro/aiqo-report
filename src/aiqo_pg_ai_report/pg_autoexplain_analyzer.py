@@ -24,6 +24,7 @@ from aiqo_pg_ai_report.version import get_package_version, get_litellm_version
 DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selection
 DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
+DEFAULT_DUPLICATE_QUERY_AI_SKIP_MESSAGE = "AI analysis skipped, same query was already analyzed earlier."
 
 # Configure logging (default to INFO, can be overridden by CLI)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -68,6 +69,7 @@ class PGAutoExplainAnalyzer:
         self.args = args
         self.model = args.model
         self.skip_ai_analysis = args.skip_ai_analysis
+        self.analyze_all_queries = args.analyze_all_queries
         self.limit_ai_calls = args.limit_ai_calls
         self.ai_call_timeout = args.ai_call_timeout
         self.language = args.language
@@ -103,12 +105,20 @@ class PGAutoExplainAnalyzer:
         from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
 
         self.data_processor = ReportDataProcessor()
+        self.analyzed_query_codes: set[str] = set()
 
     def _determine_ai_analysis_status(self, log_entry, query_code):
         """
         Détermine si l'analyse AI doit être effectuée et fournit un message de saut si elle est ignorée.
         Retourne (should_perform_ai_call: bool, ai_hints_message: str).
         """
+        if not self.analyze_all_queries and query_code in self.analyzed_query_codes:
+            logger.info(
+                "Skipping AI analysis for query code %s because it was already analyzed earlier",
+                query_code[:6],
+            )
+            return False, DEFAULT_DUPLICATE_QUERY_AI_SKIP_MESSAGE
+
         if self.skip_ai_analysis:
             logger.debug("Skipping AI analysis (skip_ai_analysis flag is true)")
             return False, ""
@@ -185,6 +195,8 @@ class PGAutoExplainAnalyzer:
 
         if should_perform_ai_call:
             ai_hints = self._perform_ai_call_and_get_hints(log_entry, query_code)
+            if not self.analyze_all_queries:
+                self.analyzed_query_codes.add(query_code)
         # else ai_hints contient déjà le message de saut
 
         report = self.data_processor.create_report_entry(log_entry, query_code, ai_hints)
@@ -269,6 +281,7 @@ class PGAutoExplainAnalyzer:
             logger.info(f"AI API call timeout: {self.ai_call_timeout} seconds")
             logger.info(f"Language for AI output: {self.language}")
             logger.info(f"AI Analysis only for Seq Scan queries : {self.only_seq_scan_ai_analysis}")
+            logger.info(f"Analyze all query occurrences independently: {self.analyze_all_queries}")
             logger.info(f"Provider-side prompt cache disabled: {self.args.disable_provider_cache}")
             if self.custom_prompt:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
@@ -400,6 +413,12 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--only-seq-scan-ai-analysis",
         action="store_true",
         help="Enables AI Analysis only for queries with Seq Scan (default: false)",
+    )
+    parser.add_argument(
+        "-aaa",
+        "--analyze-all-queries",
+        action="store_true",
+        help="Analyze every query occurrence independently instead of reusing the first AI analysis per query code.",
     )
     parser.add_argument(
         "-f",

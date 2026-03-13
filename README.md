@@ -12,6 +12,7 @@ It is well suited to scenarios where complexity, data volume and fragmentation m
 
 *   **Query Code Tracking**: Generates a unique "query code" (hash) for each normalized SQL query, enabling consistent tracking and application of query-specific optimizations across different log executions.
 *   **AI-Powered Analysis**: Leverages large language models (LLMs) to analyze `EXPLAIN` plans from PostgreSQL logs and identify performance bottlenecks. Provides concrete recommendations for query, server, and infrastructure optimizations based on AI analysis.
+*   **Per-Query AI Deduplication**: By default, AI analysis is executed only once for each query code. Subsequent occurrences are kept in the report but marked as already analyzed instead of triggering a new AI call.
 *   **Flexible Contextualization**: Allows users to provide DDL, server configuration, infrastructure details, and custom prompts to enhance AI analysis accuracy.   
 *   **Comprehensive HTML Reports**: Generates detailed, easy-to-read HTML reports summarizing performance metrics, AI findings and optimization opportunities.
 *   **Customizable AI Models**: Supports various AI providers and models (e.g. ChatGPT, Gemini, DeepSeek, ...) via `litellm`.
@@ -128,6 +129,8 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py /path/to/your
 
 This will generate an HTML report in the current working directory (or `output/` if it exists), named similarly to `pg-ai-report_<timestamp>.html`.
 
+By default, the AI analysis is executed only on the first occurrence of each query code. Subsequent occurrences are reported with a message indicating that the same query was already analyzed earlier. Use `--analyze-all-queries` if you want an independent AI analysis for every matching log entry.
+
 ## Building Standalone Executables with Nuitka
 
 To distribute the analyzer as a single binary per platform without requiring a system-wide Python installation, we rely on [Nuitka](https://nuitka.net/). Install dev dependencies (which now include Nuitka) and run the platform-specific build on the corresponding operating system:
@@ -154,6 +157,7 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
     --filter "SELECT * FROM users" \
     --limit-ai-calls 5 \
     --ai-call-timeout 120 \
+    --analyze-all-queries \
     --disable-provider-cache \
     /path/to/your/postgresql.log
 ```
@@ -175,6 +179,12 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
 *   **`--limit-ai-calls <NUMBER>`** (`-l`):
     *   Limits the maximum number of AI calls made during the analysis. Use `-1` for unlimited calls.
     *   Default: `-1` (unlimited)
+
+*   **`--analyze-all-queries`** (`-aaa`):
+    *   Forces an independent AI analysis for every query occurrence found in the logs.
+    *   By default, the tool analyzes only the first occurrence of each query code and marks the following occurrences as already analyzed.
+    *   This is a flag, no value needed.
+    *   Default: `False`
 
 *   **`--ai-call-timeout <SECONDS>`**:
     *   Sets the timeout duration for each individual AI call in seconds.
