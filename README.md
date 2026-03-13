@@ -51,7 +51,7 @@ set GEMINI_API_KEY="your_gemini_api_key_here"
 You can also use a generic `LITELLM_API_KEY` if you are using a provider that `litellm` supports via this generic key. Refer to the [LiteLLM documentation](https://litellm.ai/docs/providers) for specific provider configurations.
 
 **Default Models**:
-The default model is `gemini-2.5-flash`. You can specify a different model using the `--model` CLI argument.
+The default model is `gemini-3.1-flash-lite-preview`. You can specify a different model using the `--model` CLI argument.
 
 ## PostgreSQL Configuration
 
@@ -170,7 +170,7 @@ poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
 
 *   **`--model <MODEL>`** (`-m`):
     *   Specify the AI model to use for analysis (e.g., `gpt-4o`, `gemini-1.5-pro`, `o1-mini`).
-    *   Default: `gemini-2.5-flash`
+    *   Default: `gemini-3.1-flash-lite-preview`
 
 *   **`--format <FORMAT>`** (`-fmt`):
     *   Specify the log format to parse: `text` (default), `json` (supported), `yaml` (currently unsupported).

@@ -22,7 +22,7 @@ from aiqo_pg_ai_report.context import ContextLoader
 from aiqo_pg_ai_report.version import get_package_version, get_litellm_version
 
 DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selection
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite-preview"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 DEFAULT_DUPLICATE_QUERY_AI_SKIP_MESSAGE = "AI analysis skipped, same query was already analyzed earlier."
 
