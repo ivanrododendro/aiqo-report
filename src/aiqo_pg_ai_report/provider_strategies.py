@@ -54,6 +54,12 @@ class GenericProviderStrategy:
 
 class OpenAIProviderStrategy(GenericProviderStrategy):
     @staticmethod
+    def _supports_prompt_caching(model_info: dict | None) -> bool:
+        if not model_info:
+            return False
+        return bool(model_info.get("supports_prompt_caching"))
+
+    @staticmethod
     def _build_prompt_cache_key(model: str, cacheable_prefix: str) -> str:
         digest = hashlib.sha256(cacheable_prefix.encode("utf-8")).hexdigest()
         return f"{model}:{digest}"
@@ -67,7 +73,11 @@ class OpenAIProviderStrategy(GenericProviderStrategy):
             "seed": 42,
             "drop_params": True,
         }
-        if not context.disable_provider_cache and context.cacheable_prefix:
+        if (
+            not context.disable_provider_cache
+            and context.cacheable_prefix
+            and self._supports_prompt_caching(context.model_info)
+        ):
             response_params["prompt_cache_key"] = self._build_prompt_cache_key(
                 effective_model, context.cacheable_prefix
             )

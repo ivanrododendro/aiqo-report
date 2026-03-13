@@ -22,12 +22,14 @@ class DummyUsage:
         prompt_tokens: int | None,
         completion_tokens: int | None,
         prompt_tokens_details: dict | None = None,
+        input_tokens_details: dict | None = None,
         cache_creation_input_tokens: int | None = None,
         cache_read_input_tokens: int | None = None,
     ):
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.prompt_tokens_details = prompt_tokens_details
+        self.input_tokens_details = input_tokens_details
         self.cache_creation_input_tokens = cache_creation_input_tokens
         self.cache_read_input_tokens = cache_read_input_tokens
 
@@ -49,6 +51,7 @@ class DummyResponse:
         completion_tokens: int | None,
         content,
         prompt_tokens_details: dict | None = None,
+        input_tokens_details: dict | None = None,
         cache_creation_input_tokens: int | None = None,
         cache_read_input_tokens: int | None = None,
     ):
@@ -56,6 +59,7 @@ class DummyResponse:
             prompt_tokens,
             completion_tokens,
             prompt_tokens_details=prompt_tokens_details,
+            input_tokens_details=input_tokens_details,
             cache_creation_input_tokens=cache_creation_input_tokens,
             cache_read_input_tokens=cache_read_input_tokens,
         )
@@ -96,7 +100,7 @@ def test_call_ai_provider_success(monkeypatch):
     monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 10)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
-        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
     )
     completion_calls: list[dict] = []
 
@@ -139,7 +143,7 @@ def test_call_ai_provider_openai_sets_prompt_cache_key(monkeypatch):
     monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 10)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
-        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
     )
     monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
     monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
@@ -264,7 +268,7 @@ def test_get_effective_model_normalizes_bare_gemini_when_litellm_reports_vertex_
 def test_build_response_params_openai_uses_prompt_cache_key_and_omits_top_k(monkeypatch):
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
-        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
     )
 
     caller = AiCaller(model="gpt-4o-mini", ai_call_timeout=7, lang="en", prompts={}, debug=False)
@@ -272,6 +276,7 @@ def test_build_response_params_openai_uses_prompt_cache_key_and_omits_top_k(monk
     response_params = caller._build_response_params(
         effective_model="gpt-4o-mini",
         provider="openai",
+        model_info={"litellm_provider": "openai", "supports_prompt_caching": True},
         messages=[{"role": "user", "content": "prompt"}],
         cacheable_prefix="static prompt",
     )
@@ -293,6 +298,7 @@ def test_build_response_params_gemini_sets_top_k_and_omits_prompt_cache_key(monk
     response_params = caller._build_response_params(
         effective_model="gemini/gemini-2.5-flash",
         provider="gemini",
+        model_info={"litellm_provider": "gemini", "supports_prompt_caching": True},
         messages=[{"role": "user", "content": "prompt"}],
         cacheable_prefix="static prompt",
     )
@@ -335,6 +341,50 @@ def test_call_ai_provider_openai_does_not_set_prompt_cache_key_when_disabled(mon
 
     assert result == "result"
     assert "prompt_cache_key" not in captured_completion
+
+
+def test_build_response_params_openai_omits_prompt_cache_key_when_model_does_not_support_it(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": False},
+    )
+
+    caller = AiCaller(model="gpt-test", ai_call_timeout=7, lang="en", prompts={}, debug=False)
+
+    response_params = caller._build_response_params(
+        effective_model="gpt-test",
+        provider="openai",
+        model_info={"litellm_provider": "openai", "supports_prompt_caching": False},
+        messages=[{"role": "user", "content": "prompt"}],
+        cacheable_prefix="static prompt",
+    )
+
+    assert "prompt_cache_key" not in response_params
+
+
+def test_call_ai_provider_openai_reads_cached_tokens_from_input_tokens_details(monkeypatch):
+    def fake_completion(**kwargs):
+        return DummyResponse(
+            prompt_tokens=7,
+            completion_tokens=3,
+            content="result",
+            input_tokens_details={"cached_tokens": 4},
+        )
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 10)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    caller = AiCaller(model="gpt-test", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    result = caller.call_ai_provider("prompt text", cacheable_prefix="prompt text")
+
+    assert result == "result"
+    assert caller.total_cached_input_tokens == 4
 
 
 def test_call_ai_provider_over_limit(monkeypatch):

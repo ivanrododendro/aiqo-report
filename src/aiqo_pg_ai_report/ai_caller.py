@@ -105,10 +105,17 @@ class AiCaller:
         strategy = build_provider_strategy(provider, model=self.model)
         return strategy.build_messages(context)
 
-    def _build_response_params(self, effective_model: str, provider: str | None, messages, cacheable_prefix: str):
+    def _build_response_params(
+        self,
+        effective_model: str,
+        provider: str | None,
+        model_info,
+        messages,
+        cacheable_prefix: str,
+    ):
         provider_context = self._build_provider_context(
             provider=provider,
-            model_info=None,
+            model_info=model_info,
             cacheable_prefix=cacheable_prefix,
         )
         strategy = build_provider_strategy(provider, model=self.model)
@@ -164,6 +171,7 @@ class AiCaller:
             response_params = self._build_response_params(
                 effective_model=effective_model,
                 provider=provider,
+                model_info=model_info,
                 messages=messages,
                 cacheable_prefix=cacheable_prefix,
             )
@@ -219,6 +227,10 @@ class AiCaller:
         prompt_tokens_details = self._get_usage_value(usage, "prompt_tokens_details", None)
         if prompt_tokens_details is not None:
             self.total_cached_input_tokens += self._get_usage_value(prompt_tokens_details, "cached_tokens", 0)
+
+        input_tokens_details = self._get_usage_value(usage, "input_tokens_details", None)
+        if input_tokens_details is not None:
+            self.total_cached_input_tokens += self._get_usage_value(input_tokens_details, "cached_tokens", 0)
 
         self.total_cached_input_tokens += self._get_usage_value(usage, "cache_read_input_tokens", 0)
         self.total_cache_creation_input_tokens += self._get_usage_value(usage, "cache_creation_input_tokens", 0)

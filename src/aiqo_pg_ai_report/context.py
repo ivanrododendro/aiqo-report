@@ -213,33 +213,40 @@ class ContextLoader:
         if self.project_context:
             cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
 
-        # Add applied optimizations context
-        applied_optimizations_context = ""
+        # Keep server-wide context in the cacheable prefix and move query-specific context
+        # into the dynamic suffix so provider-side caching can be reused across queries.
+        server_applied_optimizations_context = ""
+        query_applied_optimizations_context = ""
         current_query_opts = self.get_query_optimizations(query_code)
-        if current_query_opts or self.server_optimizations:
-            applied_optimizations_context += (
-                "The following optimizations have already been applied to the system or this specific query:\n"
-            )
-            if self.server_optimizations:
-                applied_optimizations_context += "  - Server-wide optimizations:\n"
-                for opt in self.server_optimizations:
-                    applied_optimizations_context += f"    - {opt['date']}: {opt['text']}\n"
-            if current_query_opts:
-                applied_optimizations_context += "  - Query-specific optimizations for this query:\n"
-                for opt in current_query_opts:
-                    applied_optimizations_context += f"    - {opt['date']}: {opt['text']}\n"
-            applied_optimizations_context += "\n"
+        if self.server_optimizations:
+            server_applied_optimizations_context += "The following server-wide optimizations have already been applied:\n"
+            for opt in self.server_optimizations:
+                server_applied_optimizations_context += f"  - {opt['date']}: {opt['text']}\n"
+            server_applied_optimizations_context += "\n"
 
-        # Combine applied optimizations and custom prompt
+        if current_query_opts:
+            query_applied_optimizations_context += (
+                "The following query-specific optimizations have already been applied to this query:\n"
+            )
+            for opt in current_query_opts:
+                query_applied_optimizations_context += f"  - {opt['date']}: {opt['text']}\n"
+            query_applied_optimizations_context += "\n"
+
+        # Combine stable optimizations and custom prompt inside the cacheable prefix.
         full_custom_prompt = custom_prompt if custom_prompt else ""
-        if applied_optimizations_context:
-            full_custom_prompt = applied_optimizations_context + (
+        if server_applied_optimizations_context:
+            full_custom_prompt = server_applied_optimizations_context + (
                 f"\n{full_custom_prompt}" if full_custom_prompt else ""
             )
 
-        # Add combined custom prompt and applied optimizations with tags
+        # Add combined stable instructions with tags.
         if full_custom_prompt:
             cacheable_prefix += f">>> SERVER OPTIMIZATIONS\n{full_custom_prompt}\n<<< SERVER OPTIMIZATIONS\n\n"
 
-        dynamic_suffix = f"\n\n{plan}\n\nPlease provide the analysis in {lang}."
+        dynamic_suffix = ""
+        if query_applied_optimizations_context:
+            dynamic_suffix += (
+                f">>> QUERY OPTIMIZATIONS\n{query_applied_optimizations_context}<<< QUERY OPTIMIZATIONS\n\n"
+            )
+        dynamic_suffix += f"{plan}\n\nPlease provide the analysis in {lang}."
         return {"cacheable_prefix": cacheable_prefix, "dynamic_suffix": dynamic_suffix}
