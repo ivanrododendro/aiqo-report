@@ -7,6 +7,7 @@
 
   const BYTES_PER_BUFFER_BLOCK = 8192;
   const BUFFER_KEYS_FOR_TOTAL_IO = ['shared_read', 'shared_dirtied', 'shared_written', 'temp_read', 'temp_written'];
+  const QUERY_POINT_HOVER_RADIUS_PX = 12;
 
   AIQO.Core.ChartFactory = class ChartFactory {
   constructor(reportData) {
@@ -405,6 +406,51 @@
   _createQueryChartOptions(selectedDay, annotations, onVisibilityChange) {
     return {
       responsive: true,
+      onHover: (event, activeElements, chart) => {
+        const canvas = chart && chart.canvas ? chart.canvas : event && event.native ? event.native.target : null;
+        if (!canvas) return;
+
+        const hoveredElements = Array.isArray(activeElements) ? activeElements : [];
+        if (hoveredElements.length > 0) {
+          canvas.style.cursor = 'pointer';
+          return;
+        }
+
+        const nativeEvent = event && event.native ? event.native : event;
+        if (!nativeEvent || typeof chart.getElementsAtEventForMode !== 'function') {
+          canvas.style.cursor = 'default';
+          return;
+        }
+
+        const nearbyPoints = chart.getElementsAtEventForMode(
+          nativeEvent,
+          'nearest',
+          { intersect: false },
+          false
+        );
+        if (!nearbyPoints.length) {
+          canvas.style.cursor = 'default';
+          return;
+        }
+
+        const nearestPoint = nearbyPoints[0] && nearbyPoints[0].element ? nearbyPoints[0].element : null;
+        if (!nearestPoint || typeof nearestPoint.x !== 'number' || typeof nearestPoint.y !== 'number') {
+          canvas.style.cursor = 'default';
+          return;
+        }
+
+        const eventX = typeof nativeEvent.offsetX === 'number' ? nativeEvent.offsetX : nativeEvent.x;
+        const eventY = typeof nativeEvent.offsetY === 'number' ? nativeEvent.offsetY : nativeEvent.y;
+        if (typeof eventX !== 'number' || typeof eventY !== 'number') {
+          canvas.style.cursor = 'default';
+          return;
+        }
+
+        const deltaX = nearestPoint.x - eventX;
+        const deltaY = nearestPoint.y - eventY;
+        const distance = Math.sqrt((deltaX * deltaX) + (deltaY * deltaY));
+        canvas.style.cursor = distance <= QUERY_POINT_HOVER_RADIUS_PX ? 'pointer' : 'default';
+      },
       plugins: {
         legend: {
           display: true,
