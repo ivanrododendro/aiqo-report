@@ -34,6 +34,16 @@ class DummyUsage:
         self.cache_read_input_tokens = cache_read_input_tokens
 
 
+class DummyUsageDetails:
+    def __init__(
+        self,
+        cached_tokens: int | None = None,
+        cache_creation_tokens: int | None = None,
+    ):
+        self.cached_tokens = cached_tokens
+        self.cache_creation_tokens = cache_creation_tokens
+
+
 class DummyMessage:
     def __init__(self, content: str):
         self.content = content
@@ -513,6 +523,46 @@ def test_call_ai_provider_claude_marks_cacheable_prefix(monkeypatch):
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
     assert messages[1]["content"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_accumulate_usage_reads_anthropic_cache_tokens_from_prompt_token_details():
+    caller = AiCaller(model="claude-3-7-sonnet", ai_call_timeout=15, lang="en", prompts={}, debug=False)
+
+    response = DummyResponse(
+        prompt_tokens=9,
+        completion_tokens=4,
+        content="ok",
+    )
+    response.usage.prompt_tokens_details = DummyUsageDetails(
+        cached_tokens=8,
+        cache_creation_tokens=5,
+    )
+    response.usage.cache_read_input_tokens = None
+    response.usage.cache_creation_input_tokens = None
+
+    caller._accumulate_usage(response)
+
+    assert caller.total_cached_input_tokens == 8
+    assert caller.total_cache_creation_input_tokens == 5
+
+
+def test_accumulate_usage_reads_anthropic_cache_tokens_from_private_usage_attrs():
+    caller = AiCaller(model="claude-3-7-sonnet", ai_call_timeout=15, lang="en", prompts={}, debug=False)
+
+    response = DummyResponse(
+        prompt_tokens=9,
+        completion_tokens=4,
+        content="ok",
+    )
+    response.usage.cache_read_input_tokens = None
+    response.usage.cache_creation_input_tokens = None
+    response.usage._cache_read_input_tokens = 7
+    response.usage._cache_creation_input_tokens = 3
+
+    caller._accumulate_usage(response)
+
+    assert caller.total_cached_input_tokens == 7
+    assert caller.total_cache_creation_input_tokens == 3
 
 
 def test_call_ai_provider_gemini_does_not_mark_cacheable_prefix_when_disabled(monkeypatch):

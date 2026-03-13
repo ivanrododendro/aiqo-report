@@ -50,6 +50,49 @@ class AiCaller:
         return default if value is None else value
 
     @staticmethod
+    def _get_max_usage_value(sources, key: str) -> int:
+        values: list[int] = []
+        for source in sources:
+            value = AiCaller._get_usage_value(source, key, None)
+            if isinstance(value, int):
+                values.append(value)
+        return max(values, default=0)
+
+    @staticmethod
+    def _resolve_cached_usage(usage, prompt_tokens_details, input_tokens_details) -> tuple[int, int]:
+        cache_read_tokens = AiCaller._get_max_usage_value(
+            [prompt_tokens_details, input_tokens_details, usage],
+            "cached_tokens",
+        )
+        if cache_read_tokens == 0:
+            cache_read_tokens = AiCaller._get_max_usage_value(
+                [usage, usage],
+                "cache_read_input_tokens",
+            )
+        if cache_read_tokens == 0:
+            cache_read_tokens = AiCaller._get_max_usage_value(
+                [usage],
+                "_cache_read_input_tokens",
+            )
+
+        cache_creation_tokens = AiCaller._get_max_usage_value(
+            [prompt_tokens_details, usage],
+            "cache_creation_tokens",
+        )
+        if cache_creation_tokens == 0:
+            cache_creation_tokens = AiCaller._get_max_usage_value(
+                [usage],
+                "cache_creation_input_tokens",
+            )
+        if cache_creation_tokens == 0:
+            cache_creation_tokens = AiCaller._get_max_usage_value(
+                [usage],
+                "_cache_creation_input_tokens",
+            )
+
+        return cache_read_tokens, cache_creation_tokens
+
+    @staticmethod
     def _get_provider_name(model_info) -> str | None:
         if not model_info:
             return None
@@ -225,15 +268,14 @@ class AiCaller:
             self.total_output_tokens += completion_tokens
 
         prompt_tokens_details = self._get_usage_value(usage, "prompt_tokens_details", None)
-        if prompt_tokens_details is not None:
-            self.total_cached_input_tokens += self._get_usage_value(prompt_tokens_details, "cached_tokens", 0)
-
         input_tokens_details = self._get_usage_value(usage, "input_tokens_details", None)
-        if input_tokens_details is not None:
-            self.total_cached_input_tokens += self._get_usage_value(input_tokens_details, "cached_tokens", 0)
-
-        self.total_cached_input_tokens += self._get_usage_value(usage, "cache_read_input_tokens", 0)
-        self.total_cache_creation_input_tokens += self._get_usage_value(usage, "cache_creation_input_tokens", 0)
+        cache_read_tokens, cache_creation_tokens = self._resolve_cached_usage(
+            usage,
+            prompt_tokens_details,
+            input_tokens_details,
+        )
+        self.total_cached_input_tokens += cache_read_tokens
+        self.total_cache_creation_input_tokens += cache_creation_tokens
 
         try:
             if has_provider_usage:
