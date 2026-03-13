@@ -5,6 +5,15 @@
   window.AIQO = window.AIQO || {};
   AIQO.Init = AIQO.Init || {};
 
+  function initializeBootstrapTooltips() {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
+      bootstrap.Tooltip.getOrCreateInstance(element, {
+        container: 'body',
+        trigger: 'hover focus',
+      });
+    });
+  }
+
   AIQO.Init.run = function(){
     // Core managers
     window.reportChartManager = new AIQO.Core.ReportChartManager(reportData);
@@ -20,5 +29,6 @@
     }
 
     if (AIQO.Components && AIQO.Components.QueryDetails) AIQO.Components.QueryDetails.init();
+    initializeBootstrapTooltips();
   };
 })();
