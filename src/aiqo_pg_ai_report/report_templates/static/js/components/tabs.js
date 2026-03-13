@@ -139,14 +139,46 @@
           const targetDay = link.getAttribute('data-target-day');
           const targetIndex = link.getAttribute('data-target-index');
           if (!targetDay || targetIndex === null) return;
-
-          const targetRow = document.getElementById(`query-tab-${targetDay}-${targetIndex}`);
-          if (!targetRow) return;
-
-          this._activateQueryRow(targetRow);
-          targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          this._navigateToDuplicateAnalysisTarget(targetDay, targetIndex);
         });
       });
+    },
+
+    _navigateToDuplicateAnalysisTarget(targetDay, targetIndex) {
+      const safeTargetDay =
+        window.ReportUtils && typeof ReportUtils.dateToSafeId === 'function'
+          ? ReportUtils.dateToSafeId(targetDay)
+          : targetDay;
+
+      const activateTargetRow = () => {
+        const targetRow = document.getElementById(
+          `query-tab-${safeTargetDay}-${targetIndex}`
+        );
+        if (!targetRow) return;
+
+        this._activateQueryRow(targetRow);
+        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+
+      const currentDayPane = document.querySelector('.day-tab-content:not(.d-none) .tab-pane.show.active');
+      const currentDay = currentDayPane ? currentDayPane.id.replace('tab-day-', '') : null;
+
+      if (currentDay === safeTargetDay) {
+        activateTargetRow();
+        return;
+      }
+
+      if (
+        window.reportNavigator &&
+        window.reportNavigator.tabNavigator &&
+        typeof window.reportNavigator.tabNavigator.navigateToDay === 'function'
+      ) {
+        window.reportNavigator.tabNavigator.navigateToDay(targetDay);
+        window.setTimeout(activateTargetRow, 450);
+        return;
+      }
+
+      activateTargetRow();
     },
 
     _activateQueryRow(row) {

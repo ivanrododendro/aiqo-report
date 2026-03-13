@@ -66,3 +66,37 @@ def test_add_duplicate_ai_analysis_links_maps_skipped_query_to_first_analyzed_oc
     processor._add_duplicate_ai_analysis_links(enhanced)
 
     assert enhanced["2025-11-26"][1]["duplicate_analysis_target"] == {"day": "2025-11-26", "index": 0}
+
+
+def test_add_duplicate_ai_analysis_links_maps_skipped_query_to_first_analyzed_occurrence_across_days():
+    processor = ReportDataProcessor()
+
+    reports_by_day = {
+        "2025-11-25": [
+            {
+                "code": "Q1",
+                "title": "First query",
+                "query_timestamp": "2025-11-25 23:55:00",
+                "duration": 1000,
+                "ai_hints": "AI hints available",
+                "buffers": None,
+                "wal": None,
+            }
+        ],
+        "2025-11-26": [
+            {
+                "code": "Q1",
+                "title": "Duplicate query",
+                "query_timestamp": "2025-11-26 10:05:00",
+                "duration": 1000,
+                "ai_hints": "AI analysis skipped, same query was already analyzed earlier.",
+                "buffers": None,
+                "wal": None,
+            }
+        ],
+    }
+
+    enhanced = processor._enhance_reports_by_day(reports_by_day, {}, {})
+    processor._add_duplicate_ai_analysis_links(enhanced)
+
+    assert enhanced["2025-11-26"][0]["duplicate_analysis_target"] == {"day": "2025-11-25", "index": 0}
