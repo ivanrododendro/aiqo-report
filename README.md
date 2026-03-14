@@ -16,6 +16,8 @@ It is well suited to scenarios where complexity, data volume and fragmentation m
 *   **Flexible Contextualization**: Allows users to provide DDL, server configuration, infrastructure details, and custom prompts to enhance AI analysis accuracy.   
 *   **Comprehensive HTML Reports**: Generates detailed, easy-to-read HTML reports summarizing performance metrics, AI findings and optimization opportunities.
 *   **Customizable AI Models**: Supports various AI providers and models (e.g. ChatGPT, Gemini, DeepSeek, ...) via `litellm`.
+*   **LLM Provider Cache**: Supports provider-side prompt caching for compatible LLM providers, with an option to disable it when required.
+*   **Native Builds Available**: Standalone native executables are available for Linux, macOS (Apple Silicon), and Windows.
 *   **Query Filtering**: Filter log entries based on specific strings to analyze only relevant queries.
 *   **Multilingual Output**: Supports generating reports in different languages.
 *   **Reproducible Outputs**: When using OpenAI models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
@@ -110,7 +112,7 @@ my_custom_contexts/
 To specify your custom context folder, use the `--context-folder` argument. For example:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
+./pg_aiqo_report_linux \
     --context-folder "./my_custom_contexts" \
     /path/to/your/postgresql.log
 ```
@@ -124,30 +126,19 @@ Navigate to the project's root directory.
 To analyze a PostgreSQL log file with default settings:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py /path/to/your/postgresql.log
+./pg_aiqo_report_linux /path/to/your/postgresql.log
 ```
 
 This will generate an HTML report in the current working directory (or `output/` if it exists), named similarly to `pg-ai-report_<timestamp>.html`.
 
 By default, the AI analysis is executed only on the first occurrence of each query code. Subsequent occurrences are reported with a message indicating that the same query was already analyzed earlier. Use `--analyze-all-queries` if you want an independent AI analysis for every matching log entry.
 
-## Building Standalone Executables with Nuitka
-
-To distribute the analyzer as a single binary per platform without requiring a system-wide Python installation, we rely on [Nuitka](https://nuitka.net/). Install dev dependencies (which now include Nuitka) and run the platform-specific build on the corresponding operating system:
-
-```bash
-poetry install --with dev
-./scripts/build_nuitka.sh <linux|macos-silicon|windows>
-```
-
-The script wraps the Nuitka invocation, bundles the prompt/template assets, and writes binaries to `dist/`. **Run the script on the same OS you are targeting** (e.g., run it on Windows to produce `pg_autoexplain.exe`).
-
 ### Advanced Usage
 
 You can customize the analysis using various command-line arguments:
 
 ```bash
-poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py \
+./pg_aiqo_report_linux \
     --model "gpt-4o-mini" \
     --language "en" \
     --format "json" \
