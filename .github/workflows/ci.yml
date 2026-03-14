@@ -33,13 +33,28 @@ jobs:
       - name: Build distribution
         run: poetry build
 
-  release-windows:
-    name: Release Windows Binary
+  release-binaries:
+    name: Release ${{ matrix.label }}
     needs: test
     if: github.event_name == 'release' && github.event.action == 'published'
     permissions:
       contents: write
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            artifact: dist/pg_aiqo_report_linux
+            label: Linux Binary
+          - os: macos-latest
+            target: macos-silicon
+            artifact: dist/pg_aiqo_report_macos_arm64
+            label: macOS Binary
+          - os: windows-latest
+            target: windows
+            artifact: dist/pg_aiqo_report_windows.exe
+            label: Windows Binary
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,69 +71,9 @@ jobs:
         run: poetry install --with dev --no-interaction
 
       - name: Build native binary
-        run: bash scripts/build_nuitka.sh windows
+        run: bash scripts/build_nuitka.sh ${{ matrix.target }}
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/pg_aiqo_report_windows.exe
-
-  release-linux:
-    name: Release Linux Binary
-    needs: release-windows
-    if: github.event_name == 'release' && github.event.action == 'published'
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Install build dependencies
-        run: poetry install --with dev --no-interaction
-
-      - name: Build native binary
-        run: bash scripts/build_nuitka.sh linux
-
-      - name: Upload release asset
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/pg_aiqo_report_linux
-
-  release-macos:
-    name: Release macOS Binary
-    needs: release-linux
-    if: github.event_name == 'release' && github.event.action == 'published'
-    permissions:
-      contents: write
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Install build dependencies
-        run: poetry install --with dev --no-interaction
-
-      - name: Build native binary
-        run: bash scripts/build_nuitka.sh macos-silicon
-
-      - name: Upload release asset
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/pg_aiqo_report_macos_arm64
+          files: ${{ matrix.artifact }}
