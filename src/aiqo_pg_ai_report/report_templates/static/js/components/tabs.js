@@ -17,20 +17,32 @@
         const rightPane = container.querySelector('.split:nth-child(2)');
         if (!leftPane || !rightPane || typeof Split !== 'function') return;
         try {
-          Split([leftPane, rightPane], {
+          const splitInstance = Split([leftPane, rightPane], {
             sizes: [30, 70],
-            minSize: [150, 300],
+            minSize: [0, 300],
             gutterSize: 6,
             cursor: 'col-resize',
-            gutter: function (index, direction) {
+            gutter: (index, direction) => {
               const gutter = document.createElement('div');
               gutter.className = 'gutter gutter-' + direction;
               gutter.style.background = '#ddd';
               gutter.style.cursor = 'col-resize';
               gutter.style.width = '6px';
+              gutter.setAttribute('data-bs-toggle', 'tooltip');
+              gutter.setAttribute('data-bs-placement', 'right');
+              gutter.addEventListener('dblclick', (event) => {
+                event.preventDefault();
+                this._toggleLeftSplitPane(container);
+              });
               return gutter;
             },
           });
+          container._aiqoSplitState = {
+            instance: splitInstance,
+            lastExpandedSizes: [30, 70],
+            isCollapsed: false,
+          };
+          this._syncSplitGutterTooltip(container);
         } catch (e) {
           console.warn('Split init failed for container', container.id, e);
         }
@@ -120,6 +132,81 @@
       });
 
       window.addEventListener('resize', () => this._renderQueryGantts());
+    },
+
+    _toggleLeftSplitPane(container) {
+      if (!container || !container._aiqoSplitState) return;
+
+      const splitState = container._aiqoSplitState;
+      const { instance } = splitState;
+      if (!instance) return;
+
+      if (splitState.isCollapsed) {
+        const restoredSizes =
+          Array.isArray(splitState.lastExpandedSizes) && splitState.lastExpandedSizes.length === 2
+            ? splitState.lastExpandedSizes
+            : [30, 70];
+        instance.setSizes(restoredSizes);
+        splitState.isCollapsed = false;
+        container.classList.remove('split-left-collapsed');
+      } else {
+        const currentSizes = instance.getSizes();
+        if (Array.isArray(currentSizes) && currentSizes.length === 2) {
+          splitState.lastExpandedSizes = currentSizes;
+        }
+        if (typeof instance.collapse === 'function') {
+          instance.collapse(0);
+        } else {
+          instance.setSizes([0, 100]);
+        }
+        splitState.isCollapsed = true;
+        container.classList.add('split-left-collapsed');
+      }
+
+      this._syncSplitGutterTooltip(container);
+      this._refreshSplitPaneLayout(container);
+    },
+
+    _syncSplitGutterTooltip(container) {
+      if (!container || !container._aiqoSplitState) return;
+
+      const gutter = container.querySelector('.gutter');
+      if (!gutter) return;
+
+      const tooltipText = container._aiqoSplitState.isCollapsed
+        ? 'Double-click to restore the left panel'
+        : 'Double-click to fully minimize the left panel';
+
+      gutter.setAttribute('title', tooltipText);
+      gutter.setAttribute('aria-label', tooltipText);
+      gutter.setAttribute('data-bs-title', tooltipText);
+
+      const tooltip = bootstrap.Tooltip.getInstance(gutter);
+      if (tooltip) {
+        tooltip.setContent({ '.tooltip-inner': tooltipText });
+      } else {
+        bootstrap.Tooltip.getOrCreateInstance(gutter, {
+          container: 'body',
+          trigger: 'hover focus',
+        });
+      }
+    },
+
+    _refreshSplitPaneLayout(container) {
+      window.requestAnimationFrame(() => {
+        this._renderQueryGantts();
+
+        const detailPane = container.querySelector('.split:nth-child(2)');
+        const activePane = detailPane
+          ? detailPane.querySelector('.query-tab-content .tab-pane.show.active')
+          : null;
+
+        if (activePane) {
+          this._scrollDetailPanelToFirstOpenAccordion(activePane);
+        }
+
+        window.dispatchEvent(new Event('resize'));
+      });
     },
 
     _bindQueryGanttSelection() {
