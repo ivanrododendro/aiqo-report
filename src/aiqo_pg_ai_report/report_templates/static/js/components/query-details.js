@@ -243,10 +243,52 @@
     return isElementVisible(container);
   }
 
-  function mountPev2(appId, report) {
+  function createPev2Markup() {
+    return '<pev2 :plan-source="plan" :plan-query="query" style="display: block; aspect-ratio: 16 / 9; width: 100%;"></pev2>';
+  }
+
+  function teardownPev2(container) {
+    if (!container) return;
+
+    if (container._aiqoPev2App && typeof container._aiqoPev2App.unmount === 'function') {
+      try {
+        container._aiqoPev2App.unmount();
+      } catch (error) {
+        console.error('Error unmounting pev2:', error);
+      }
+    }
+
+    container._aiqoPev2App = null;
+    container.innerHTML = createPev2Markup();
+  }
+
+  function schedulePev2Mount(appId, report, options = {}) {
     const container = document.getElementById(appId);
     if (!container) return;
-    if (container.hasAttribute('data-v-app')) return; // already mounted
+
+    const mountTicket = (container._aiqoPev2MountTicket || 0) + 1;
+    container._aiqoPev2MountTicket = mountTicket;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const targetContainer = document.getElementById(appId);
+        if (!targetContainer || targetContainer._aiqoPev2MountTicket !== mountTicket) return;
+        mountPev2(appId, report, options);
+      });
+    });
+  }
+
+  function mountPev2(appId, report, options = {}) {
+    const { forceRemount = false } = options;
+    const container = document.getElementById(appId);
+    if (!container) return;
+
+    const alreadyMounted = container.hasAttribute('data-v-app') || !!container._aiqoPev2App;
+    if (alreadyMounted && !forceRemount) return;
+    if (alreadyMounted) {
+      teardownPev2(container);
+    }
+
     if (!isPev2ReadyToMount(appId)) return;
 
     try {
@@ -293,6 +335,7 @@
       });
       app.component('pev2', pev2.Plan);
       app.mount(`#${appId}`);
+      container._aiqoPev2App = app;
     } catch (error) {
       console.error(`Error mounting pev2 for ${appId}:`, error);
       container.innerHTML = `<div class="alert alert-danger">Error loading execution plan: ${error.message}</div>`;
@@ -483,7 +526,7 @@
     );
     if (pev2Collapse) {
       pev2Collapse.addEventListener('shown.bs.collapse', () => {
-        mountPev2(appId, report);
+        schedulePev2Mount(appId, report, { forceRemount: true });
         setTimeout(() => refreshQueryChart(appId), 0);
       });
     }
@@ -514,7 +557,7 @@
       formatGeneralStats(generalStatsId, report);
       requestAnimationFrame(() => scrollToFirstOpenAccordion(appId));
       if (queryAccordionState.pev2) {
-        mountPev2(appId, report);
+        schedulePev2Mount(appId, report, { forceRemount: true });
       }
       renderQueryChart(appId, day, report);
     };
