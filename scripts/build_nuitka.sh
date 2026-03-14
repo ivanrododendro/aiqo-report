@@ -16,6 +16,8 @@ fi
 
 export PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENTRY_POINT="src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py"
+OUTPUT_BASENAME="pg_aiqo_report"
+TARGET_DIST_DIR="dist/${TARGET_OS}"
 
 export PYTHONPATH="src:${PYTHONPATH:-}"
 
@@ -51,25 +53,25 @@ COMMON_ARGS=(
   "--no-debug-c-warnings"
   "--include-data-dir=src/aiqo_pg_ai_report/prompts=prompts"
   "--include-data-dir=src/aiqo_pg_ai_report/report_templates=report_templates"
-  "--output-dir=dist"
+  "--output-dir=${TARGET_DIST_DIR}"
 )
 
-mkdir -p dist
+mkdir -p "$TARGET_DIST_DIR"
 
 case "$TARGET_OS" in
   linux)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
-      --output-filename=pg_aiqo_report_linux "$ENTRY_POINT"
+      --output-filename="${OUTPUT_BASENAME}" "$ENTRY_POINT"
     ;;
   macos-silicon)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
       --macos-target-arch=arm64 \
-      --output-filename=pg_aiqo_report_macos_arm64 "$ENTRY_POINT"
+      --output-filename="${OUTPUT_BASENAME}" "$ENTRY_POINT"
     ;;
   windows)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
       --assume-yes-for-downloads \
-      --output-filename=pg_aiqo_report_windows.exe "$ENTRY_POINT"
+      --output-filename="${OUTPUT_BASENAME}.exe" "$ENTRY_POINT"
     ;;
   *)
     echo "Unsupported target: $TARGET_OS (use linux, macos-silicon, or windows)" >&2
@@ -79,5 +81,5 @@ esac
 
 cat <<INFO
 
-Build complete for $TARGET_OS. Check the dist/ directory for the generated binary.
+Build complete for $TARGET_OS. Check ${TARGET_DIST_DIR}/ for the generated binary.
 INFO

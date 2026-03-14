@@ -22,18 +22,6 @@ It is well suited to scenarios where complexity, data volume and fragmentation m
 *   **Multilingual Output**: Supports generating reports in different languages.
 *   **Reproducible Outputs**: When using OpenAI models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
 
-## Dependencies & Requirements
-
-*   Python >= 3.11 <= 3.13
-*   The project uses `poetry` for dependency management.
-*   Key Python packages: `litellm`, `sqlparse`, `Jinja2`.
-
-To install the required dependencies, navigate to the project root and run:
-
-```bash
-poetry install
-```
-
 ## API Keys and LiteLLM Configuration
 
 This tool uses `litellm` to interface with various AI providers. You must configure your API keys as environment variables.
@@ -52,8 +40,17 @@ set GEMINI_API_KEY="your_gemini_api_key_here"
 
 You can also use a generic `LITELLM_API_KEY` if you are using a provider that `litellm` supports via this generic key. Refer to the [LiteLLM documentation](https://litellm.ai/docs/providers) for specific provider configurations.
 
-**Default Models**:
-The default model is `gemini-3.1-flash-lite-preview`. You can specify a different model using the `--model` CLI argument.
+## Basic Usage
+
+To analyze a PostgreSQL log file with default settings:
+
+```bash
+./pg_aiqo_report /path/to/your/postgresql.log
+```
+
+This will generate an HTML report in the current working directory (or `output/` if it exists), named similarly to `pg-ai-report_<timestamp>.html`.
+
+By default, the AI analysis is executed only on the first occurrence of each query code. Subsequent occurrences are reported with a message indicating that the same query was already analyzed earlier. Use `--analyze-all-queries` if you want an independent AI analysis for every matching log entry.
 
 ## PostgreSQL Configuration
 
@@ -112,33 +109,20 @@ my_custom_contexts/
 To specify your custom context folder, use the `--context-folder` argument. For example:
 
 ```bash
-./pg_aiqo_report_linux \
+./pg_aiqo_report \
     --context-folder "./my_custom_contexts" \
     /path/to/your/postgresql.log
 ```
 
-## Usage
+**Default Model**:
+The default model is `gemini-3.1-flash-lite-preview`. You can specify a different model using the `--model` CLI argument.
 
-Navigate to the project's root directory.
-
-### Basic Usage
-
-To analyze a PostgreSQL log file with default settings:
-
-```bash
-./pg_aiqo_report_linux /path/to/your/postgresql.log
-```
-
-This will generate an HTML report in the current working directory (or `output/` if it exists), named similarly to `pg-ai-report_<timestamp>.html`.
-
-By default, the AI analysis is executed only on the first occurrence of each query code. Subsequent occurrences are reported with a message indicating that the same query was already analyzed earlier. Use `--analyze-all-queries` if you want an independent AI analysis for every matching log entry.
-
-### Advanced Usage
+## Advanced Usage
 
 You can customize the analysis using various command-line arguments:
 
 ```bash
-./pg_aiqo_report_linux \
+./pg_aiqo_report \
     --model "gpt-4o-mini" \
     --language "en" \
     --format "json" \
@@ -152,6 +136,8 @@ You can customize the analysis using various command-line arguments:
     --disable-provider-cache \
     /path/to/your/postgresql.log
 ```
+
+When a GitHub Release is published, the CI workflow builds those binaries and uploads them as release assets using the same paths, so they remain visible in the release without overwriting each other.
 
 ### Full CLI Parameters Explanation
 
@@ -247,3 +233,30 @@ The tool generates a single, self-contained HTML report. This report typically i
     *   AI-generated optimization recommendations specific to that query.
     *   PEV2 Query visualizer
     *   Graph tracking qeury statistics over time
+
+## Build Dependencies & Requirements
+
+*   Python >= 3.11 <= 3.13
+*   The project uses `poetry` for dependency management.
+*   Key Python packages: `litellm`, `sqlparse`, `Jinja2`.
+
+To install the required dependencies, navigate to the project root and run:
+
+```bash
+poetry install
+```
+
+## Native Binaries
+
+Standalone binaries are produced with the same base name on every platform:
+
+- Linux: `dist/linux/pg_aiqo_report`
+- macOS (Apple Silicon): `dist/macos-silicon/pg_aiqo_report`
+- Windows: `dist/windows/pg_aiqo_report.exe`
+
+Build them with:
+
+```bash
+poetry install --with dev
+./scripts/build_nuitka.sh <linux|macos-silicon|windows>
+```
