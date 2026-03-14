@@ -45,14 +45,17 @@ jobs:
           - os: ubuntu-latest
             target: linux
             artifact: dist/linux/pg_aiqo_report
+            release_asset: dist/linux/pg_aiqo_report-linux
             label: Linux Binary
           - os: macos-latest
             target: macos-silicon
             artifact: dist/macos-silicon/pg_aiqo_report
+            release_asset: dist/macos-silicon/pg_aiqo_report-macos-silicon
             label: macOS Binary
           - os: windows-latest
             target: windows
             artifact: dist/windows/pg_aiqo_report.exe
+            release_asset: dist/windows/pg_aiqo_report-windows.exe
             label: Windows Binary
     runs-on: ${{ matrix.os }}
     steps:
@@ -73,7 +76,11 @@ jobs:
       - name: Build native binary
         run: bash scripts/build_nuitka.sh ${{ matrix.target }}
 
+      - name: Prepare release asset
+        shell: bash
+        run: cp "${{ matrix.artifact }}" "${{ matrix.release_asset }}"
+
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact }}
+          files: ${{ matrix.release_asset }}
