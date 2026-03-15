@@ -45,17 +45,17 @@ jobs:
           - os: ubuntu-latest
             target: linux
             artifact: dist/linux/pg_aiqo_report
-            release_asset: dist/linux/pg_aiqo_report-linux
+            archive_asset: dist/linux/pg_aiqo_report-linux.tar.gz
             label: Linux Binary
           - os: macos-latest
             target: macos-silicon
             artifact: dist/macos-silicon/pg_aiqo_report
-            release_asset: dist/macos-silicon/pg_aiqo_report-macos-silicon
+            archive_asset: dist/macos-silicon/pg_aiqo_report-macos-silicon.tar.gz
             label: macOS Binary
           - os: windows-latest
             target: windows
             artifact: dist/windows/pg_aiqo_report.exe
-            release_asset: dist/windows/pg_aiqo_report-windows.exe
+            archive_asset: dist/windows/pg_aiqo_report-windows.zip
             label: Windows Binary
     runs-on: ${{ matrix.os }}
     steps:
@@ -76,12 +76,18 @@ jobs:
       - name: Build native binary
         run: bash scripts/build_nuitka.sh ${{ matrix.target }}
 
-      - name: Prepare release asset
+      - name: Prepare tar.gz release asset
+        if: matrix.target != 'windows'
         shell: bash
-        run: cp "${{ matrix.artifact }}" "${{ matrix.release_asset }}"
+        run: tar -czf "${{ matrix.archive_asset }}" -C "$(dirname "${{ matrix.artifact }}")" "$(basename "${{ matrix.artifact }}")"
+
+      - name: Prepare zip release asset
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path '${{ matrix.artifact }}' -DestinationPath '${{ matrix.archive_asset }}' -Force
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
-          files: ${{ matrix.release_asset }}
+          files: ${{ matrix.archive_asset }}
