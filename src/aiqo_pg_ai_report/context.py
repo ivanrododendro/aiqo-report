@@ -182,7 +182,9 @@ class ContextLoader:
             custom_prompt=custom_prompt,
             lang=lang,
         )
-        full_prompt = prompt_segments["cacheable_prefix"] + prompt_segments["dynamic_suffix"]
+        cacheable_prefix = str(prompt_segments["cacheable_prefix"])
+        dynamic_suffix = str(prompt_segments["dynamic_suffix"])
+        full_prompt = cacheable_prefix + dynamic_suffix
 
         # DEBUG – log the complete prompt that will be sent to the AI provider
         logger.debug("Full prompt built for query %s:\n%s", query_code, full_prompt)
@@ -191,7 +193,7 @@ class ContextLoader:
 
     def build_prompt_segments_with_optimizations(
         self, plan: str, query_code: str, custom_prompt: str = None, lang: str = "en"
-    ) -> dict[str, str]:
+    ) -> dict[str, str | bool]:
         """Build a stable cacheable prefix and a dynamic suffix for provider-side prompt caching."""
         cacheable_prefix = ""
 
@@ -243,10 +245,23 @@ class ContextLoader:
         if full_custom_prompt:
             cacheable_prefix += f">>> SERVER OPTIMIZATIONS\n{full_custom_prompt}\n<<< SERVER OPTIMIZATIONS\n\n"
 
+        has_static_context = any(
+            [
+                bool(self.ddl_context),
+                bool(self.server_configuration_context),
+                bool(self.project_context),
+                bool(full_custom_prompt),
+            ]
+        )
+
         dynamic_suffix = ""
         if query_applied_optimizations_context:
             dynamic_suffix += (
                 f">>> QUERY OPTIMIZATIONS\n{query_applied_optimizations_context}<<< QUERY OPTIMIZATIONS\n\n"
             )
         dynamic_suffix += f"{plan}\n\nPlease provide the analysis in {lang}."
-        return {"cacheable_prefix": cacheable_prefix, "dynamic_suffix": dynamic_suffix}
+        return {
+            "cacheable_prefix": cacheable_prefix,
+            "dynamic_suffix": dynamic_suffix,
+            "has_static_context": has_static_context,
+        }

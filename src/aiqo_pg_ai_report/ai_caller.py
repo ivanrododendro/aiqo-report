@@ -105,6 +105,8 @@ class AiCaller:
         prompt: str = "",
         cacheable_prefix: str = "",
         dynamic_suffix: str = "",
+        has_static_context: bool = False,
+        cacheable_prefix_token_count: int = 0,
     ):
         return ProviderStrategyContext(
             model=self.model,
@@ -113,6 +115,8 @@ class AiCaller:
             prompt=prompt,
             cacheable_prefix=cacheable_prefix,
             dynamic_suffix=dynamic_suffix,
+            has_static_context=has_static_context,
+            cacheable_prefix_token_count=cacheable_prefix_token_count,
             disable_provider_cache=self.disable_provider_cache,
             ai_call_timeout=self.ai_call_timeout,
         )
@@ -137,6 +141,8 @@ class AiCaller:
         model_info,
         cacheable_prefix: str,
         dynamic_suffix: str,
+        has_static_context: bool,
+        cacheable_prefix_token_count: int,
     ):
         context = self._build_provider_context(
             provider=provider,
@@ -144,6 +150,8 @@ class AiCaller:
             prompt=prompt,
             cacheable_prefix=cacheable_prefix,
             dynamic_suffix=dynamic_suffix,
+            has_static_context=has_static_context,
+            cacheable_prefix_token_count=cacheable_prefix_token_count,
         )
         strategy = build_provider_strategy(provider, model=self.model)
         return strategy.build_messages(context)
@@ -155,11 +163,15 @@ class AiCaller:
         model_info,
         messages,
         cacheable_prefix: str,
+        has_static_context: bool,
+        cacheable_prefix_token_count: int,
     ):
         provider_context = self._build_provider_context(
             provider=provider,
             model_info=model_info,
             cacheable_prefix=cacheable_prefix,
+            has_static_context=has_static_context,
+            cacheable_prefix_token_count=cacheable_prefix_token_count,
         )
         strategy = build_provider_strategy(provider, model=self.model)
         return strategy.build_response_params(
@@ -168,7 +180,25 @@ class AiCaller:
             messages=messages,
         )
 
-    def _perform_ai_call(self, prompt, cacheable_prefix: str = "", dynamic_suffix: str = ""):
+    def _estimate_cacheable_prefix_tokens(self, effective_model: str, cacheable_prefix: str) -> int:
+        if not cacheable_prefix:
+            return 0
+
+        try:
+            return litellm.token_counter(model=effective_model, text=cacheable_prefix)
+        except Exception as e:
+            logger.warning(
+                f"Could not estimate cacheable prefix token count for model {effective_model}: {e}. Provider cache disabled for this call."
+            )
+            return 0
+
+    def _perform_ai_call(
+        self,
+        prompt,
+        cacheable_prefix: str = "",
+        dynamic_suffix: str = "",
+        has_static_context: bool = False,
+    ):
         initial_model_info = litellm.get_model_info(self.model)
         initial_provider = self._get_provider_name(initial_model_info)
         provider_context = self._build_provider_context(
@@ -177,6 +207,7 @@ class AiCaller:
             prompt=prompt,
             cacheable_prefix=cacheable_prefix,
             dynamic_suffix=dynamic_suffix,
+            has_static_context=has_static_context,
         )
         strategy = build_provider_strategy(initial_provider, model=self.model)
         effective_model = strategy.get_effective_model(provider_context)
@@ -184,12 +215,15 @@ class AiCaller:
             logger.info(f"Using Google AI Studio provider for model: {effective_model}")
         model_info = litellm.get_model_info(effective_model)
         provider = self._get_provider_name(model_info)
+        cacheable_prefix_token_count = self._estimate_cacheable_prefix_tokens(effective_model, cacheable_prefix)
         messages = self._build_messages(
             prompt=prompt,
             provider=provider,
             model_info=model_info,
             cacheable_prefix=cacheable_prefix,
             dynamic_suffix=dynamic_suffix,
+            has_static_context=has_static_context,
+            cacheable_prefix_token_count=cacheable_prefix_token_count,
         )
 
         try:
@@ -217,6 +251,8 @@ class AiCaller:
                 model_info=model_info,
                 messages=messages,
                 cacheable_prefix=cacheable_prefix,
+                has_static_context=has_static_context,
+                cacheable_prefix_token_count=cacheable_prefix_token_count,
             )
             response = litellm.completion(**response_params)
 
@@ -390,13 +426,20 @@ class AiCaller:
 
         return str(content)
 
-    def call_ai_provider(self, prompt, cacheable_prefix: str = "", dynamic_suffix: str = ""):
+    def call_ai_provider(
+        self,
+        prompt,
+        cacheable_prefix: str = "",
+        dynamic_suffix: str = "",
+        has_static_context: bool = False,
+    ):
         logger.info("Calling AI Model for plan analysis...")
         self.call_count += 1  # Increment call count when AI call is initiated
         return self._perform_ai_call(
             prompt,
             cacheable_prefix=cacheable_prefix,
             dynamic_suffix=dynamic_suffix,
+            has_static_context=has_static_context,
         )
 
     def show_stats(self):

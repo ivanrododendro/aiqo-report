@@ -281,16 +281,37 @@ class TextLogParser(AbstractLogParser):
         logger.info(f"Processing plain text file {file_obj.name} from {log_file_path}")
         line_number = 0
         lines_processed = 0
-        for line in file_obj:
+        pending_line: str | None = None
+
+        while True:
+            if pending_line is not None:
+                line = pending_line
+                pending_line = None
+            else:
+                line = file_obj.readline()
+                if not line:
+                    break
+
             line_number += 1
             lines_processed += 1
             if "plan:" in line:
                 try:
                     entry_start_line = line_number
-                    # Pass the file_obj (iterator) and the current line
-                    log_entry_text, consumed_lines = extract_plan_starting_at_line(file_obj, line)
-                    lines_processed += consumed_lines - 1  # first line already counted
-                    line_number += consumed_lines - 1
+                    plan_lines = [line]
+                    while True:
+                        next_line = file_obj.readline()
+                        if not next_line:
+                            break
+                        if re.match(r"^\d{4}-\d{2}-\d{2} ", next_line):
+                            pending_line = next_line
+                            break
+                        plan_lines.append(next_line)
+                        line_number += 1
+                        lines_processed += 1
+                        if next_line.strip().startswith("Settings:"):
+                            break
+
+                    log_entry_text = "".join(plan_lines)
                     if re.search(r'"Query Text"\s*:', log_entry_text):
                         parsed_entry = parse_json_log_entry(log_entry_text)
                     else:
@@ -346,12 +367,26 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
     query_text = query_text_raw.strip() if isinstance(query_text_raw, str) else ""
 
     if isinstance(query_text_raw, str):
-        # Prefer extracting job/task comments when present in a single line
-        comment_pattern = re.compile(
-            r"--\s*Job:\s*(?P<job>.*?)\s+--\s*Task\s*(?P<task>.*?)(?P<sql>(?:update|insert|select|delete|with|create|alter|drop)\b.*)",
+        stripped_query_text = query_text_raw.strip()
+        # Support both:
+        # 1. single-line payloads: "-- Job: X -- Task Y select ..."
+        # 2. multi-line payloads:
+        #    -- Job: X
+        #    -- Task Y
+        #    select ...
+        multiline_comment_pattern = re.compile(
+            r"--\s*Job:\s*(?P<job>[^\n\r]*)[\r\n]+\s*--\s*Task\s*(?P<task>[^\n\r]*)"
+            r"[\r\n]+(?P<sql>(?:update|insert|select|delete|with|create|alter|drop)\b.*)",
             re.IGNORECASE | re.DOTALL,
         )
-        comment_match = comment_pattern.match(query_text_raw.strip())
+        singleline_comment_pattern = re.compile(
+            r"--\s*Job:\s*(?P<job>.*?)\s+--\s*Task\s+(?P<task>.*?)(?:\s+|;\s*)(?P<sql>"
+            r"(?:update|insert|select|delete|with|create|alter|drop)\b.*)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        comment_match = multiline_comment_pattern.match(stripped_query_text)
+        if not comment_match and "\n" not in stripped_query_text and "\r" not in stripped_query_text:
+            comment_match = singleline_comment_pattern.match(stripped_query_text)
         if comment_match:
             job_name = f"-- Job: {comment_match.group('job').strip()}"
             query_name = f"-- Task {comment_match.group('task').strip()}"

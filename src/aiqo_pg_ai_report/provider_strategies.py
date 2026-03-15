@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 
 GEMINI_CONTEXT_CACHE_TTL = "3600s"
@@ -15,6 +16,8 @@ class ProviderStrategyContext:
     prompt: str
     cacheable_prefix: str
     dynamic_suffix: str
+    has_static_context: bool
+    cacheable_prefix_token_count: int
     disable_provider_cache: bool
     ai_call_timeout: int
 
@@ -30,6 +33,9 @@ class ProviderStrategyContext:
 
 
 class GenericProviderStrategy:
+    def should_enable_prompt_cache(self, context: ProviderStrategyContext, effective_model: str) -> bool:
+        return False
+
     def get_effective_model(self, context: ProviderStrategyContext) -> str:
         return context.model
 
@@ -53,6 +59,8 @@ class GenericProviderStrategy:
 
 
 class OpenAIProviderStrategy(GenericProviderStrategy):
+    MIN_CACHEABLE_TOKENS = 1024
+
     @staticmethod
     def _supports_prompt_caching(model_info: dict | None) -> bool:
         if not model_info:
@@ -74,7 +82,7 @@ class OpenAIProviderStrategy(GenericProviderStrategy):
             "drop_params": True,
         }
         if (
-            not context.disable_provider_cache
+            self.should_enable_prompt_cache(context, effective_model)
             and context.cacheable_prefix
             and self._supports_prompt_caching(context.model_info)
         ):
@@ -82,6 +90,15 @@ class OpenAIProviderStrategy(GenericProviderStrategy):
                 effective_model, context.cacheable_prefix
             )
         return response_params
+
+    def should_enable_prompt_cache(self, context: ProviderStrategyContext, effective_model: str) -> bool:
+        return (
+            not context.disable_provider_cache
+            and context.has_static_context
+            and bool(context.cacheable_prefix)
+            and context.cacheable_prefix_token_count >= self.MIN_CACHEABLE_TOKENS
+            and self._supports_prompt_caching(context.model_info)
+        )
 
 
 class AnthropicProviderStrategy(GenericProviderStrategy):
@@ -108,10 +125,27 @@ class AnthropicProviderStrategy(GenericProviderStrategy):
 
     @staticmethod
     def _should_mark_cacheable_prefix(context: ProviderStrategyContext) -> bool:
-        return not context.disable_provider_cache and bool(context.cacheable_prefix)
+        return AnthropicProviderStrategy().should_enable_prompt_cache(context, context.model)
+
+    def should_enable_prompt_cache(self, context: ProviderStrategyContext, effective_model: str) -> bool:
+        return (
+            not context.disable_provider_cache
+            and context.has_static_context
+            and bool(context.cacheable_prefix)
+            and context.cacheable_prefix_token_count >= self._get_min_cacheable_tokens(effective_model)
+        )
+
+    @staticmethod
+    def _get_min_cacheable_tokens(model: str) -> int:
+        normalized_model = model.lower()
+        if re.search(r"claude-3(?:[.-]?5)?-haiku|claude-3-haiku", normalized_model):
+            return 2048
+        return 1024
 
 
 class GeminiProviderStrategy(GenericProviderStrategy):
+    DEFAULT_MIN_CACHEABLE_TOKENS = 1024
+
     def get_effective_model(self, context: ProviderStrategyContext) -> str:
         if context.model.startswith("gemini-"):
             return "gemini/" + context.model
@@ -148,11 +182,24 @@ class GeminiProviderStrategy(GenericProviderStrategy):
         return bool(model_info.get("supports_prompt_caching"))
 
     def _should_mark_cacheable_prefix(self, context: ProviderStrategyContext) -> bool:
+        return self.should_enable_prompt_cache(context, context.model)
+
+    def should_enable_prompt_cache(self, context: ProviderStrategyContext, effective_model: str) -> bool:
         return (
             not context.disable_provider_cache
+            and context.has_static_context
             and bool(context.cacheable_prefix)
+            and context.cacheable_prefix_token_count >= self._get_min_cacheable_tokens(effective_model)
             and self._supports_prompt_caching(context.model_info)
         )
+
+    def _get_min_cacheable_tokens(self, model: str) -> int:
+        normalized_model = model.lower()
+        if "gemini-2.5-pro" in normalized_model:
+            return 4096
+        if "gemini-3-pro-preview" in normalized_model:
+            return 2048
+        return self.DEFAULT_MIN_CACHEABLE_TOKENS
 
 
 def build_provider_strategy(provider: str | None, model: str | None = None):

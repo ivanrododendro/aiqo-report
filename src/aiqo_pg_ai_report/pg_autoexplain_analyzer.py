@@ -163,10 +163,13 @@ class PGAutoExplainAnalyzer:
             custom_prompt=self.custom_prompt,
             lang=self.language,
         )
+        cacheable_prefix = str(prompt_segments["cacheable_prefix"])
+        dynamic_suffix = str(prompt_segments["dynamic_suffix"])
         ai_hints_result = self.ai_caller.call_ai_provider(
-            prompt_segments["cacheable_prefix"] + prompt_segments["dynamic_suffix"],
-            cacheable_prefix=prompt_segments["cacheable_prefix"],
-            dynamic_suffix=prompt_segments["dynamic_suffix"],
+            cacheable_prefix + dynamic_suffix,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+            has_static_context=bool(prompt_segments["has_static_context"]),
         )
         if ai_hints_result is None:
             return "AI analysis failed or timed out."

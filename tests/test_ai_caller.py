@@ -150,7 +150,12 @@ def test_call_ai_provider_openai_sets_prompt_cache_key(monkeypatch):
             prompt_tokens_details={"cached_tokens": 5},
         )
 
-    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 10)
+    def fake_token_counter(**kwargs):
+        if "text" in kwargs:
+            return 1024
+        return 10
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
         lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
@@ -164,6 +169,7 @@ def test_call_ai_provider_openai_sets_prompt_cache_key(monkeypatch):
         "static prompt\n\ndynamic",
         cacheable_prefix="static prompt",
         dynamic_suffix="\n\ndynamic",
+        has_static_context=True,
     )
 
     assert result == "result"
@@ -223,6 +229,8 @@ def test_build_messages_generic_chat_model_adds_system_message(monkeypatch):
         model_info={"litellm_provider": "custom"},
         cacheable_prefix="",
         dynamic_suffix="",
+        has_static_context=False,
+        cacheable_prefix_token_count=0,
     )
 
     assert messages == [
@@ -245,6 +253,8 @@ def test_build_messages_openai_uses_generic_message_shape(monkeypatch):
         model_info={"litellm_provider": "openai"},
         cacheable_prefix="static prompt",
         dynamic_suffix="\n\ndynamic",
+        has_static_context=True,
+        cacheable_prefix_token_count=1024,
     )
 
     assert messages == [
@@ -289,6 +299,8 @@ def test_build_response_params_openai_uses_prompt_cache_key_and_omits_top_k(monk
         model_info={"litellm_provider": "openai", "supports_prompt_caching": True},
         messages=[{"role": "user", "content": "prompt"}],
         cacheable_prefix="static prompt",
+        has_static_context=True,
+        cacheable_prefix_token_count=1024,
     )
 
     assert response_params["model"] == "gpt-4o-mini"
@@ -311,6 +323,8 @@ def test_build_response_params_gemini_sets_top_k_and_omits_prompt_cache_key(monk
         model_info={"litellm_provider": "gemini", "supports_prompt_caching": True},
         messages=[{"role": "user", "content": "prompt"}],
         cacheable_prefix="static prompt",
+        has_static_context=True,
+        cacheable_prefix_token_count=1024,
     )
 
     assert response_params["model"] == "gemini/gemini-2.5-flash"
@@ -326,7 +340,12 @@ def test_call_ai_provider_openai_does_not_set_prompt_cache_key_when_disabled(mon
         captured_completion.update(kwargs)
         return DummyResponse(prompt_tokens=7, completion_tokens=3, content="result")
 
-    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 10)
+    def fake_token_counter(**kwargs):
+        if "text" in kwargs:
+            return 1024
+        return 10
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
         lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
@@ -347,6 +366,7 @@ def test_call_ai_provider_openai_does_not_set_prompt_cache_key_when_disabled(mon
         "static prompt\n\ndynamic",
         cacheable_prefix="static prompt",
         dynamic_suffix="\n\ndynamic",
+        has_static_context=True,
     )
 
     assert result == "result"
@@ -367,6 +387,8 @@ def test_build_response_params_openai_omits_prompt_cache_key_when_model_does_not
         model_info={"litellm_provider": "openai", "supports_prompt_caching": False},
         messages=[{"role": "user", "content": "prompt"}],
         cacheable_prefix="static prompt",
+        has_static_context=True,
+        cacheable_prefix_token_count=1024,
     )
 
     assert "prompt_cache_key" not in response_params
@@ -381,7 +403,12 @@ def test_call_ai_provider_openai_reads_cached_tokens_from_input_tokens_details(m
             input_tokens_details={"cached_tokens": 4},
         )
 
-    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 10)
+    def fake_token_counter(**kwargs):
+        if "text" in kwargs:
+            return 1024
+        return 10
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
         lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
@@ -391,7 +418,7 @@ def test_call_ai_provider_openai_reads_cached_tokens_from_input_tokens_details(m
 
     caller = AiCaller(model="gpt-test", ai_call_timeout=5, lang="en", prompts={}, debug=False)
 
-    result = caller.call_ai_provider("prompt text", cacheable_prefix="prompt text")
+    result = caller.call_ai_provider("prompt text", cacheable_prefix="prompt text", has_static_context=True)
 
     assert result == "result"
     assert caller.total_cached_input_tokens == 4
@@ -459,7 +486,12 @@ def test_call_ai_provider_gemini_marks_cacheable_prefix_and_sets_top_k(monkeypat
         captured_completion.update(kwargs)
         return DummyResponse(prompt_tokens=None, completion_tokens=None, content="ok")
 
-    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 5)
+    def fake_token_counter(**kwargs):
+        if "text" in kwargs:
+            return 1024
+        return 5
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
         lambda model: {"max_input_tokens": 50, "litellm_provider": "gemini", "supports_prompt_caching": True},
@@ -473,6 +505,7 @@ def test_call_ai_provider_gemini_marks_cacheable_prefix_and_sets_top_k(monkeypat
         "shared prefix\n\ndynamic suffix",
         cacheable_prefix="shared prefix",
         dynamic_suffix="\n\ndynamic suffix",
+        has_static_context=True,
     )
 
     assert result == "ok"
@@ -500,7 +533,12 @@ def test_call_ai_provider_claude_marks_cacheable_prefix(monkeypatch):
             cache_read_input_tokens=2,
         )
 
-    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 5)
+    def fake_token_counter(**kwargs):
+        if "text" in kwargs:
+            return 1024
+        return 5
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
         lambda model: {"max_input_tokens": 50, "litellm_provider": "anthropic"},
@@ -514,6 +552,7 @@ def test_call_ai_provider_claude_marks_cacheable_prefix(monkeypatch):
         "shared prefix\n\ndynamic suffix",
         cacheable_prefix="shared prefix",
         dynamic_suffix="\n\ndynamic suffix",
+        has_static_context=True,
     )
 
     assert result == "ok"
@@ -572,7 +611,12 @@ def test_call_ai_provider_gemini_does_not_mark_cacheable_prefix_when_disabled(mo
         captured_completion.update(kwargs)
         return DummyResponse(prompt_tokens=None, completion_tokens=None, content="ok")
 
-    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 5)
+    def fake_token_counter(**kwargs):
+        if "text" in kwargs:
+            return 1024
+        return 5
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
         lambda model: {"max_input_tokens": 50, "litellm_provider": "gemini", "supports_prompt_caching": True},
@@ -593,6 +637,7 @@ def test_call_ai_provider_gemini_does_not_mark_cacheable_prefix_when_disabled(mo
         "shared prefix\n\ndynamic suffix",
         cacheable_prefix="shared prefix",
         dynamic_suffix="\n\ndynamic suffix",
+        has_static_context=True,
     )
 
     assert result == "ok"
@@ -609,7 +654,12 @@ def test_call_ai_provider_gemini_does_not_mark_cacheable_prefix_when_prompt_cach
         captured_completion.update(kwargs)
         return DummyResponse(prompt_tokens=6, completion_tokens=2, content="ok")
 
-    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", lambda **kwargs: 5)
+    def fake_token_counter(**kwargs):
+        if "text" in kwargs:
+            return 1024
+        return 5
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
         lambda model: {"max_input_tokens": 50, "litellm_provider": "gemini", "supports_prompt_caching": False},
@@ -623,6 +673,7 @@ def test_call_ai_provider_gemini_does_not_mark_cacheable_prefix_when_prompt_cach
         "shared prefix\n\ndynamic suffix",
         cacheable_prefix="shared prefix",
         dynamic_suffix="\n\ndynamic suffix",
+        has_static_context=True,
     )
 
     assert result == "ok"
@@ -630,6 +681,63 @@ def test_call_ai_provider_gemini_does_not_mark_cacheable_prefix_when_prompt_cach
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
     assert messages[1]["content"] == "shared prefix\n\ndynamic suffix"
+
+
+def test_call_ai_provider_gemini_does_not_mark_cacheable_prefix_without_static_context(monkeypatch):
+    captured_completion: dict = {}
+
+    def fake_completion(**kwargs):
+        captured_completion.update(kwargs)
+        return DummyResponse(prompt_tokens=6, completion_tokens=2, content="ok")
+
+    def fake_token_counter(**kwargs):
+        if "text" in kwargs:
+            return 4096
+        return 5
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", fake_token_counter)
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 50, "litellm_provider": "gemini", "supports_prompt_caching": True},
+    )
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda completion_response: 0.0)
+
+    caller = AiCaller(model="gemini-1.5", ai_call_timeout=15, lang="en", prompts={}, debug=False)
+
+    result = caller.call_ai_provider(
+        "shared prefix\n\ndynamic suffix",
+        cacheable_prefix="shared prefix",
+        dynamic_suffix="\n\ndynamic suffix",
+        has_static_context=False,
+    )
+
+    assert result == "ok"
+    messages = captured_completion["messages"]
+    assert messages[0]["role"] == "system"
+    assert messages[1]["role"] == "user"
+    assert messages[1]["content"] == "shared prefix\n\ndynamic suffix"
+
+
+def test_build_response_params_openai_omits_prompt_cache_key_below_threshold(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
+    )
+
+    caller = AiCaller(model="gpt-4o-mini", ai_call_timeout=7, lang="en", prompts={}, debug=False)
+
+    response_params = caller._build_response_params(
+        effective_model="gpt-4o-mini",
+        provider="openai",
+        model_info={"litellm_provider": "openai", "supports_prompt_caching": True},
+        messages=[{"role": "user", "content": "prompt"}],
+        cacheable_prefix="static prompt",
+        has_static_context=True,
+        cacheable_prefix_token_count=512,
+    )
+
+    assert "prompt_cache_key" not in response_params
 
 
 def test_call_ai_provider_handles_list_content(monkeypatch):

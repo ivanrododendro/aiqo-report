@@ -220,6 +220,38 @@ def test_json_parser_normalizes_workers_to_array():
     assert normalized_plan["Plan"]["Plans"][0]["Workers"][0]["Worker Number"] == 1
 
 
+def test_text_parser_handles_consecutive_json_plan_blocks(tmp_path):
+    log_path = tmp_path / "consecutive-json-plans.log"
+    log_path.write_text(
+        """
+2025-11-26 15:00:00 CET [200]: [1-1] db=test,user=test LOG:  duration: 10.0 ms  plan:
+{
+  "Query Text": "-- Job: TEST\\n-- Task First select 1",
+  "Plan": {
+    "Node Type": "Result",
+    "Actual Rows": 1
+  }
+}
+2025-11-26 15:01:00 CET [201]: [1-1] db=test,user=test LOG:  duration: 20.0 ms  plan:
+{
+  "Query Text": "-- Job: TEST\\n-- Task Second select 2",
+  "Plan": {
+    "Node Type": "Result",
+    "Actual Rows": 2
+  }
+}
+        """.strip()
+    )
+
+    entries = list(TextLogParser().parse_log_file(log_path))
+
+    assert len(entries) == 2
+    assert entries[0]["duration"] == 10.0
+    assert entries[0]["query_name"] == "-- Task First select 1"
+    assert entries[1]["duration"] == 20.0
+    assert entries[1]["query_name"] == "-- Task Second select 2"
+
+
 def test_text_parser_uses_nested_actual_rows_for_insert_root(tmp_path):
     log_path = tmp_path / "text-plan-insert-child-rows.log"
     log_path.write_text(
