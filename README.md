@@ -137,15 +137,7 @@ You can customize the analysis using various command-line arguments:
     /path/to/your/postgresql.log
 ```
 
-When a GitHub Release is published, the CI workflow builds those binaries and uploads them as release assets using the same paths, so they remain visible in the release without overwriting each other.
-
-To keep the release page readable, uploaded asset names include the target platform:
-
-- `pg_aiqo_report-linux`
-- `pg_aiqo_report-macos-silicon`
-- `pg_aiqo_report-windows.exe`
-
-### Full CLI Parameters Explanation
+### Full CLI Parameters 
 
 *   **`log_file_path`** (positional argument):
     *   The full path to the PostgreSQL `auto_explain` log file to be analyzed.
