@@ -4,7 +4,7 @@ The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed
 
 It is well suited to scenarios where complexity, data volume and fragmentation make it difficult or impossible to reproduce the execution plan outside the production environment.
 
-[![VirusTotal Clean](https://img.shields.io/badge/VirusTotal-Safe-brightgreen)](URL-REPORT-VIRUSTOTAL) [Sample HTML report here](docs/sample_report.zip?raw=true) ([VirusTotal Report](https://www.virustotal.com/gui/file/7acb0c7def7ae27d556efe4309ce0268ab1d30456a4e3577e976001d6635c2fd?nocache=1)), for a randomized dataset created using explain.dalibo.com sample plans. AI hint is at day may 4, real reports are more meaningful due to detailed context you can provide to AI analisys. 
+[![VirusTotal Clean](https://img.shields.io/badge/VirusTotal-Safe-brightgreen)](URL-REPORT-VIRUSTOTAL) [Sample HTML report here](docs/sample_report.zip?raw=true) for a randomized dataset created using explain.dalibo.com sample plans. AI hint is at day may 4, real reports are more meaningful due to detailed context you can provide to AI analisys. 
 
 ![](docs/infographic.webp)
 
