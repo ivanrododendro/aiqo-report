@@ -42,3 +42,23 @@ def test_build_prompt_segments_reports_no_static_context_when_only_base_prompts_
     )
 
     assert prompt_segments["has_static_context"] is False
+
+
+def test_build_general_hints_synthesis_prompt_segments_include_cacheable_context():
+    loader = ContextLoader(script_base_path=Path(__file__).resolve().parents[1] / "src/aiqo_pg_ai_report")
+    loader.server_configuration_context = "shared config"
+    loader.project_context = "shared project"
+
+    prompt_segments = loader.build_general_hints_synthesis_prompt_segments(
+        ai_hints=["<p>hint one</p>", "<p>hint two</p>"],
+        lang="it",
+    )
+
+    assert "GENERAL HINTS SYNTHESIS" in prompt_segments["cacheable_prefix"]
+    assert "shared config" in prompt_segments["cacheable_prefix"]
+    assert "shared project" in prompt_segments["cacheable_prefix"]
+    assert "HINTS LIST" in prompt_segments["dynamic_suffix"]
+    assert "<p>hint one</p>" in prompt_segments["dynamic_suffix"]
+    assert "<p>hint two</p>" in prompt_segments["dynamic_suffix"]
+    assert prompt_segments["dynamic_suffix"].endswith("Please provide the analysis in it.")
+    assert prompt_segments["has_static_context"] is True

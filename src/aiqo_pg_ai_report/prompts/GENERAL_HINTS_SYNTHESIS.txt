@@ -1,0 +1,30 @@
+GOAL
+Analyze the following list of AI-generated hints collected across multiple PostgreSQL query analyses.
+Identify the recurring optimization themes that are GENERIC, meaning they are not tied to a single table, index, or SQL statement.
+
+WORK INSTRUCTIONS
+1. Review the full list of hints and detect the generic recommendations that appear most often.
+2. ONLY keep recommendations that are cross-query, transverse, and realistically beneficial to multiple queries.
+3. Ignore any hint that depends on a specific table name, column name, index name, execution plan node tied to one query, or one-off SQL rewrite.
+4. Explicitly reject generic-but-not-transverse advice such as creating covering indexes, adding indexes, rewriting a specific query, partitioning a specific table, or changing DML for one workload only.
+5. Prefer actionable server-wide or platform-wide recommendations such as PostgreSQL configuration tuning, memory / parallelism / autovacuum strategy, statistics quality, maintenance processes, connection management, or infrastructure sizing when they clearly recur across multiple hints.
+6. Consolidate equivalent recommendations under a single general theme and synthesize the concrete parameter values suggested across the individual hints.
+7. For each selected theme, propose explicit target values or a narrow target range whenever the underlying hints make that possible.
+8. If multiple hints suggest different compatible values, infer a single recommended value or a small justified range that would be broadly compatible across the workload.
+9. Do NOT keep a theme if you cannot provide an operational recommendation with concrete settings, thresholds, or numerical targets, unless the hints are genuinely insufficient to infer any safe number.
+10. When the hints are insufficient to infer a concrete value, say so explicitly and prefer omitting that theme rather than producing vague advice.
+11. Rank the themes by their likely impact across the largest number of queries.
+12. For each selected theme, explain briefly why it is broadly applicable, which family of queries would benefit, and why the proposed value or range is compatible with the recurring hints.
+13. Limit the output to the 3 most relevant themes.
+
+FORMAT
+- Generate HTML code only.
+- Do not generate main structure HTML tags, just the relevant fragment.
+- Use <code> tags for PostgreSQL parameter names and SQL snippets.
+- Use a short introductory paragraph followed by an ordered list.
+- Each list item must contain a short title in <strong> and one concise explanation paragraph.
+- Each retained recommendation must include at least one explicit numeric value, numeric range, threshold, size, timeout, ratio, or percentage.
+- Prefer formulations such as <code>random_page_cost = 1.1</code>, <code>work_mem = 64MB-128MB</code>, <code>checkpoint_timeout = 30min</code>, or <code>max_wal_size = 8GB-16GB</code> when justified by the recurring hints.
+- Avoid generic formulations like "increase", "tune", "review", "consider adjusting", or "optimize" unless they are immediately followed by a concrete proposed value or range.
+- If no truly transverse and actionable recommendation exists, output a short paragraph explaining that no cross-query synthesis is justified.
+- Strictly avoid markdown or asciidoc.

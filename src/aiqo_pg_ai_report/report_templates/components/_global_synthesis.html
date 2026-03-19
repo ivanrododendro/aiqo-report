@@ -43,6 +43,28 @@
             </div>
         </div>
     </div>
+    {% if ai.general_hints_synthesis %}
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingGeneralHintsSynthesisCollapse">
+            <button class="accordion-button collapsed"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#generalHintsSynthesisCollapse"
+                    aria-expanded="false"
+                    aria-controls="generalHintsSynthesisCollapse">
+                <span class="h3 mb-0">Recurring generic AI hints</span>
+            </button>
+        </h2>
+        <div id="generalHintsSynthesisCollapse"
+             class="accordion-collapse collapse"
+             aria-labelledby="headingGeneralHintsSynthesisCollapse"
+             data-bs-parent="#accordionGlobalSynthesis">
+            <div class="accordion-body">
+                <div class="alert alert-info mb-0">{{ ai.general_hints_synthesis | safe }}</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="accordion-item">
         <h2 class="accordion-header" id="headingDailyCumulatedTimeChartCollapse">

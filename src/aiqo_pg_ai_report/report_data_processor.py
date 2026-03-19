@@ -64,7 +64,7 @@ class ReportDataProcessor:
             "cost": log_entry["cost"],
             "rows": log_entry["rows"],
             "buffers": log_entry.get("buffers"),
-            "wal": log_entry.get("wal")
+            "wal": log_entry.get("wal"),
         }
 
     def update_statistics(self, report):
@@ -116,6 +116,7 @@ class ReportDataProcessor:
         server_config_context,
         project_context,
         skip_ai_analysis,
+        general_hints_synthesis,
     ):
         """
         Prepares a complete, structured context object for the report template.
@@ -179,6 +180,9 @@ class ReportDataProcessor:
                 "server_config": server_config_context,
                 "project": project_context,
             },
+            "ai": {
+                "general_hints_synthesis": general_hints_synthesis,
+            },
             "charts": {
                 "all_dates": all_dates,
                 "daily_trends": chart_data["daily_trends"],
@@ -217,7 +221,7 @@ class ReportDataProcessor:
     def _build_date_hierarchy(self, all_dates):
         """
         Build a hierarchical structure of dates organized by year, month, and day.
-        
+
         Returns:
             dict: {
                 "years": {
@@ -239,59 +243,60 @@ class ReportDataProcessor:
             }
         """
         month_names = {
-            "01": "January", "02": "February", "03": "March", "04": "April",
-            "05": "May", "06": "June", "07": "July", "08": "August",
-            "09": "September", "10": "October", "11": "November", "12": "December"
+            "01": "January",
+            "02": "February",
+            "03": "March",
+            "04": "April",
+            "05": "May",
+            "06": "June",
+            "07": "July",
+            "08": "August",
+            "09": "September",
+            "10": "October",
+            "11": "November",
+            "12": "December",
         }
-        
-        hierarchy = {
-            "years": {},
-            "all_years": [],
-            "all_months": [],
-            "all_days": all_dates
-        }
-        
+
+        hierarchy = {"years": {}, "all_years": [], "all_months": [], "all_days": all_dates}
+
         # Group dates by year and month
         for date_str in all_dates:
             try:
                 year = date_str[:4]
                 month = date_str[5:7]
                 year_month = f"{year}-{month}"
-                
+
                 # Initialize year if not exists
                 if year not in hierarchy["years"]:
-                    hierarchy["years"][year] = {
-                        "months": {},
-                        "all_days": []
-                    }
+                    hierarchy["years"][year] = {"months": {}, "all_days": []}
                     hierarchy["all_years"].append(year)
-                
+
                 # Initialize month if not exists
                 if month not in hierarchy["years"][year]["months"]:
                     hierarchy["years"][year]["months"][month] = {
                         "name": month_names.get(month, month),
                         "year_month": year_month,
-                        "days": []
+                        "days": [],
                     }
                     if year_month not in hierarchy["all_months"]:
                         hierarchy["all_months"].append(year_month)
-                
+
                 # Add day to month and year
                 hierarchy["years"][year]["months"][month]["days"].append(date_str)
                 hierarchy["years"][year]["all_days"].append(date_str)
-                
+
             except Exception as e:
                 logger.warning(f"Error processing date {date_str} for hierarchy: {e}")
-        
+
         # Sort everything
         hierarchy["all_years"].sort()
         hierarchy["all_months"].sort()
-        
+
         for year_data in hierarchy["years"].values():
             year_data["all_days"].sort()
             for month_data in year_data["months"].values():
                 month_data["days"].sort()
-        
+
         return hierarchy
 
     def _prepare_chart_data(self, query_stats, daily_query_stats, all_dates):
@@ -465,9 +470,8 @@ class ReportDataProcessor:
                 # Add flags for UI indicators
                 # Check if query_optimizations is not empty for the specific query code
                 enhanced_report["has_query_optimizations"] = bool(query_optimizations.get(report["code"]))
-                enhanced_report["has_ai_hints"] = (
-                    report.get("ai_hints")
-                    and not report["ai_hints"].startswith("AI analysis skipped")
+                enhanced_report["has_ai_hints"] = report.get("ai_hints") and not report["ai_hints"].startswith(
+                    "AI analysis skipped"
                 )
 
                 # Truncate name for display

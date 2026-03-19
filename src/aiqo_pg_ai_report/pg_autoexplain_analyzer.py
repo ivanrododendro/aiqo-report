@@ -77,6 +77,7 @@ class PGAutoExplainAnalyzer:
         self.filter_strings = args.filter
         self.custom_prompt = args.custom_prompt
         self.target_query_mode = args.target_query_mode
+        self.disable_general_hints_synthesis = args.disable_general_hints_synthesis
         self.context_folder = args.context_folder  # Nouveau paramètre renommé
         self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
 
@@ -123,7 +124,7 @@ class PGAutoExplainAnalyzer:
             logger.debug("Skipping AI analysis (skip_ai_analysis flag is true)")
             return False, ""
 
-        if self.limit_ai_calls != -1 and (self.ai_caller.call_count >= self.limit_ai_calls):
+        if self.limit_ai_calls != -1 and self.ai_caller.call_count >= self.limit_ai_calls:
             logger.warning("AI call limit reached. Skipping AI analysis for query")
             return False, ""
 
@@ -206,6 +207,62 @@ class PGAutoExplainAnalyzer:
         self.data_processor.update_statistics(report)
 
     @staticmethod
+    def _is_general_hint_candidate(ai_hints: str) -> bool:
+        """Return True when an AI hint contains actionable model output suitable for synthesis."""
+        if not ai_hints:
+            return False
+
+        excluded_prefixes = (
+            "AI analysis skipped",
+            "AI analysis failed",
+            "No analysis content found",
+            "Could not estimate token count",
+            "Token count (",
+        )
+        return not ai_hints.startswith(excluded_prefixes)
+
+    def _build_general_hints_synthesis(self) -> str | None:
+        """Generate a global synthesis of recurring generic hints when enough AI analyses are available."""
+        if self.skip_ai_analysis:
+            logger.info("Skipping general hints synthesis because AI analysis is disabled")
+            return None
+
+        if self.disable_general_hints_synthesis:
+            logger.info("Skipping general hints synthesis because it was disabled by CLI flag")
+            return None
+
+        ai_hints_list = [
+            report["ai_hints"]
+            for report in self.data_processor.all_reports
+            if self._is_general_hint_candidate(report.get("ai_hints", ""))
+        ]
+        if len(ai_hints_list) < 2:
+            logger.info(
+                "Skipping general hints synthesis because only %s AI-analyzed quer%s available",
+                len(ai_hints_list),
+                "y is" if len(ai_hints_list) == 1 else "ies are",
+            )
+            return None
+
+        logger.info("Generating general hints synthesis from %s AI analyses", len(ai_hints_list))
+        prompt_segments = self.context_loader.build_general_hints_synthesis_prompt_segments(
+            ai_hints_list,
+            lang=self.language,
+        )
+        cacheable_prefix = str(prompt_segments["cacheable_prefix"])
+        dynamic_suffix = str(prompt_segments["dynamic_suffix"])
+        synthesis = self.ai_caller.call_ai_provider(
+            cacheable_prefix + dynamic_suffix,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+            has_static_context=bool(prompt_segments["has_static_context"]),
+        )
+        if synthesis is None:
+            logger.warning("General hints synthesis failed or timed out")
+            return None
+        return synthesis
+
+    @staticmethod
     def _format_int_locale(value: int) -> str:
         """Format integers using the current locale; fall back to comma separators."""
         try:
@@ -285,6 +342,7 @@ class PGAutoExplainAnalyzer:
             logger.info(f"Language for AI output: {self.language}")
             logger.info(f"AI Analysis only for Seq Scan queries : {self.only_seq_scan_ai_analysis}")
             logger.info(f"Analyze all query occurrences independently: {self.analyze_all_queries}")
+            logger.info(f"General hints synthesis disabled: {self.disable_general_hints_synthesis}")
             logger.info(f"Provider-side prompt cache disabled: {self.args.disable_provider_cache}")
             if self.custom_prompt:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
@@ -330,6 +388,7 @@ class PGAutoExplainAnalyzer:
             if self.skip_ai_analysis
             else f"PostgreSQL Auto Explain AI Report ({self.model}) "
         )
+        general_hints_synthesis = self._build_general_hints_synthesis()
 
         # Passer les optimisations collectées au générateur de rapport
         self.report_generator.generate_report(
@@ -347,6 +406,7 @@ class PGAutoExplainAnalyzer:
             self.context_loader.server_configuration_context,
             self.context_loader.project_context,
             self.skip_ai_analysis,  # Pass the skip_ai_analysis flag
+            general_hints_synthesis,
         )
 
         self.ai_caller.show_stats()
@@ -391,7 +451,10 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--limit-ai-calls",
         type=int,
         default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
-        help=f"Maximum number of AI calls to make. Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})",
+        help=(
+            "Maximum number of per-query AI calls to make. "
+            f"Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})"
+        ),
     )
     parser.add_argument(
         "--ai-call-timeout",
@@ -403,6 +466,11 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--disable-provider-cache",
         action="store_true",
         help="Disable provider-side prompt caching for all supported LLM providers (default: false)",
+    )
+    parser.add_argument(
+        "--disable-general-hints-synthesis",
+        action="store_true",
+        help="Disable the additional AI call that synthesizes recurring generic hints across analyzed queries.",
     )
     parser.add_argument("--language", default=DEFAULT_LANG, help=f"Language for AI output (default: ${DEFAULT_LANG})")
     parser.add_argument(

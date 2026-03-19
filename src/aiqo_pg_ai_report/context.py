@@ -18,6 +18,7 @@ class ContextLoader:
         self.query_optimizations_cache = {}
         self.system_prompt = None
         self.format_prompt = None
+        self.general_hints_synthesis_prompt = None
 
         self._load_ai_instruction_prompts()  # Load AI instruction prompts
 
@@ -42,17 +43,23 @@ class ContextLoader:
             sys.exit(1)
 
     def _load_ai_instruction_prompts(self):
-        """Loads the system, format, and main plan analysis prompts."""
+        """Loads AI instruction prompts required by the application."""
         system_file_path = self.script_base_path / "prompts/SYSTEM.txt"
         format_file_path = self.script_base_path / "prompts/FORMAT.txt"
+        general_hints_synthesis_file_path = self.script_base_path / "prompts/GENERAL_HINTS_SYNTHESIS.txt"
 
         self.system_prompt = self._load_file_content(system_file_path, "System prompt", required=True)
         self.format_prompt = self._load_file_content(format_file_path, "Format prompt", required=True)
+        self.general_hints_synthesis_prompt = self._load_file_content(
+            general_hints_synthesis_file_path,
+            "General hints synthesis prompt",
+            required=True,
+        )
 
-        if not (self.system_prompt and self.format_prompt):
+        if not (self.system_prompt and self.format_prompt and self.general_hints_synthesis_prompt):
             logger.error("Failed to load all required AI instruction prompts. Exiting.")
             sys.exit(1)
-        logger.info("Loaded system and format prompts.")
+        logger.info("Loaded AI instruction prompts.")
 
     def _parse_optimization_file(self, file_path: Path):
         """Helper to read and parse an optimization file."""
@@ -168,6 +175,46 @@ class ContextLoader:
 
         return self.query_optimizations_cache.get(query_code, [])
 
+    def build_general_hints_synthesis_prompt(self, ai_hints: list[str], lang: str = "en") -> str:
+        """Build the dedicated prompt used to synthesize recurring generic AI hints."""
+        prompt_segments = self.build_general_hints_synthesis_prompt_segments(ai_hints, lang=lang)
+        return str(prompt_segments["cacheable_prefix"]) + str(prompt_segments["dynamic_suffix"])
+
+    def build_general_hints_synthesis_prompt_segments(self, ai_hints: list[str], lang: str = "en") -> dict[str, str | bool]:
+        """Build a stable cacheable prefix and a dynamic suffix for the final hints synthesis."""
+        if not self.general_hints_synthesis_prompt:
+            logger.error("General hints synthesis prompt is not loaded.")
+            sys.exit(1)
+
+        formatted_hints = "\n\n".join(
+            f"Hint #{index}:\n{hint.strip()}" for index, hint in enumerate(ai_hints, start=1) if hint.strip()
+        )
+
+        cacheable_prefix = f">>> GENERAL HINTS SYNTHESIS\n{self.general_hints_synthesis_prompt}\n<<< GENERAL HINTS SYNTHESIS\n\n"
+        if self.server_configuration_context:
+            cacheable_prefix += (
+                f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
+            )
+        if self.project_context:
+            cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
+
+        dynamic_suffix = (
+            f">>> HINTS LIST\n{formatted_hints}\n<<< HINTS LIST\n\n"
+            f"Please provide the analysis in {lang}."
+        )
+
+        return {
+            "cacheable_prefix": cacheable_prefix,
+            "dynamic_suffix": dynamic_suffix,
+            "has_static_context": any(
+                [
+                    bool(self.general_hints_synthesis_prompt),
+                    bool(self.server_configuration_context),
+                    bool(self.project_context),
+                ]
+            ),
+        }
+
     def build_full_prompt_with_optimizations(
         self, plan: str, query_code: str, custom_prompt: str = None, lang: str = "en"
     ) -> str:
@@ -221,7 +268,9 @@ class ContextLoader:
         query_applied_optimizations_context = ""
         current_query_opts = self.get_query_optimizations(query_code)
         if self.server_optimizations:
-            server_applied_optimizations_context += "The following server-wide optimizations have already been applied:\n"
+            server_applied_optimizations_context += (
+                "The following server-wide optimizations have already been applied:\n"
+            )
             for opt in self.server_optimizations:
                 server_applied_optimizations_context += f"  - {opt['date']}: {opt['text']}\n"
             server_applied_optimizations_context += "\n"

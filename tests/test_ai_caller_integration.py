@@ -262,7 +262,9 @@ def test_analyze_all_queries_flag_forces_ai_call_for_each_occurrence(monkeypatch
     )
     monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: "ABCDEF123456")
 
-    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-m", "gpt-4o", "--analyze-all-queries"])
+    args = pg_autoexplain_analyzer.parse_cli_arguments(
+        [str(log_path), "-m", "gpt-4o", "--analyze-all-queries", "--disable-general-hints-synthesis"]
+    )
     analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
     analyzer.context_loader.query_optimizations_cache = {}
     analyzer.context_loader.server_optimizations = []
@@ -277,3 +279,291 @@ def test_analyze_all_queries_flag_forces_ai_call_for_each_occurrence(monkeypatch
     assert len(completion_calls) == 2
     assert analyzer.data_processor.all_reports[0]["ai_hints"] == "hints 1"
     assert analyzer.data_processor.all_reports[1]["ai_hints"] == "hints 2"
+
+
+def test_general_hints_synthesis_runs_when_at_least_two_queries_are_analyzed(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+    completion_calls = []
+    captured_reports = []
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.litellm,
+        "get_model_info",
+        lambda model: {"max_input_tokens": 128000, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "token_counter", lambda **kwargs: 10)
+
+    class DummyUsage:
+        def __init__(self) -> None:
+            self.prompt_tokens = 5
+            self.completion_tokens = 2
+
+    class DummyMessage:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyChoice:
+        def __init__(self, content: str) -> None:
+            self.message = DummyMessage(content)
+
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.usage = DummyUsage()
+            self.choices = [DummyChoice(content)]
+
+    def fake_completion(**kwargs):
+        messages = kwargs["messages"]
+        prompt_text = messages[-1]["content"]
+        completion_calls.append(prompt_text)
+        if "GENERAL HINTS SYNTHESIS" in prompt_text:
+            return DummyResponse("<p>generic synthesis</p>")
+        return DummyResponse(f"<p>hint {len(completion_calls)}</p>")
+
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion", fake_completion)
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion_cost", lambda completion_response: 0.0)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "get_query_optimizations", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                _build_log_entry("2025-11-26 14:42:44 CET", "-- Task First"),
+                _build_log_entry("2025-11-26 14:43:44 CET", "-- Task Second"),
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.SQLUtils,
+        "get_query_code",
+        lambda *_: f"CODE{len(captured_reports) + len(completion_calls)}",
+    )
+
+    def fake_generate_report(*args, **kwargs):
+        captured_reports.append(args)
+
+    monkeypatch.setattr(pg_autoexplain_analyzer.ReportGenerator, "generate_report", fake_generate_report)
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-m", "gpt-4o", "--analyze-all-queries"])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+    analyzer.context_loader.query_optimizations_cache = {}
+    analyzer.context_loader.server_optimizations = []
+    analyzer.context_loader.event_optimizations = []
+    analyzer.context_loader.ddl_context = None
+    analyzer.context_loader.server_configuration_context = None
+    analyzer.context_loader.project_context = None
+
+    analyzer.run()
+
+    assert len(completion_calls) == 3
+    assert any("GENERAL HINTS SYNTHESIS" in prompt for prompt in completion_calls)
+    assert captured_reports[0][-1] == "<p>generic synthesis</p>"
+
+
+def test_general_hints_synthesis_does_not_consume_query_ai_call_limit(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+    completion_calls = []
+    captured_reports = []
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.litellm,
+        "get_model_info",
+        lambda model: {"max_input_tokens": 128000, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "token_counter", lambda **kwargs: 10)
+
+    class DummyUsage:
+        def __init__(self) -> None:
+            self.prompt_tokens = 5
+            self.completion_tokens = 2
+
+    class DummyMessage:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyChoice:
+        def __init__(self, content: str) -> None:
+            self.message = DummyMessage(content)
+
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.usage = DummyUsage()
+            self.choices = [DummyChoice(content)]
+
+    def fake_completion(**kwargs):
+        prompt_text = kwargs["messages"][-1]["content"]
+        completion_calls.append(prompt_text)
+        if "GENERAL HINTS SYNTHESIS" in prompt_text:
+            return DummyResponse("<p>generic synthesis</p>")
+        return DummyResponse(f"<p>hint {len(completion_calls)}</p>")
+
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion", fake_completion)
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion_cost", lambda completion_response: 0.0)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "get_query_optimizations", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                _build_log_entry("2025-11-26 14:42:44 CET", "-- Task First"),
+                _build_log_entry("2025-11-26 14:43:44 CET", "-- Task Second"),
+                _build_log_entry("2025-11-26 14:44:44 CET", "-- Task Third"),
+            ]
+        ),
+    )
+    query_codes = iter(["CODE1", "CODE2", "CODE3"])
+    monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: next(query_codes))
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ReportGenerator,
+        "generate_report",
+        lambda *args, **kwargs: captured_reports.append(args),
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments(
+        [str(log_path), "-m", "gpt-4o", "--analyze-all-queries", "-l", "3"]
+    )
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+    analyzer.context_loader.query_optimizations_cache = {}
+    analyzer.context_loader.server_optimizations = []
+    analyzer.context_loader.event_optimizations = []
+    analyzer.context_loader.ddl_context = None
+    analyzer.context_loader.server_configuration_context = None
+    analyzer.context_loader.project_context = None
+
+    analyzer.run()
+
+    assert len(completion_calls) == 4
+    assert "GENERAL HINTS SYNTHESIS" in completion_calls[-1]
+    assert analyzer.data_processor.all_reports[0]["ai_hints"] == "<p>hint 1</p>"
+    assert analyzer.data_processor.all_reports[1]["ai_hints"] == "<p>hint 2</p>"
+    assert analyzer.data_processor.all_reports[2]["ai_hints"] == "<p>hint 3</p>"
+    assert captured_reports[0][-1] == "<p>generic synthesis</p>"
+
+
+def test_general_hints_synthesis_can_be_disabled_via_cli(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+    completion_calls = []
+    captured_reports = []
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.litellm,
+        "get_model_info",
+        lambda model: {"max_input_tokens": 128000, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "token_counter", lambda **kwargs: 10)
+
+    class DummyUsage:
+        def __init__(self) -> None:
+            self.prompt_tokens = 5
+            self.completion_tokens = 2
+
+    class DummyMessage:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyChoice:
+        def __init__(self, content: str) -> None:
+            self.message = DummyMessage(content)
+
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.usage = DummyUsage()
+            self.choices = [DummyChoice(content)]
+
+    def fake_completion(**kwargs):
+        prompt_text = kwargs["messages"][-1]["content"]
+        completion_calls.append(prompt_text)
+        return DummyResponse("<p>hint</p>")
+
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion", fake_completion)
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion_cost", lambda completion_response: 0.0)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "get_query_optimizations", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                _build_log_entry("2025-11-26 14:42:44 CET", "-- Task First"),
+                _build_log_entry("2025-11-26 14:43:44 CET", "-- Task Second"),
+            ]
+        ),
+    )
+    query_codes = iter(["CODE1", "CODE2"])
+    monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: next(query_codes))
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ReportGenerator,
+        "generate_report",
+        lambda *args, **kwargs: captured_reports.append(args),
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments(
+        [str(log_path), "-m", "gpt-4o", "--analyze-all-queries", "--disable-general-hints-synthesis"]
+    )
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+    analyzer.context_loader.query_optimizations_cache = {}
+    analyzer.context_loader.server_optimizations = []
+    analyzer.context_loader.event_optimizations = []
+    analyzer.context_loader.ddl_context = None
+    analyzer.context_loader.server_configuration_context = None
+    analyzer.context_loader.project_context = None
+
+    analyzer.run()
+
+    assert args.disable_general_hints_synthesis is True
+    assert len(completion_calls) == 2
+    assert all("GENERAL HINTS SYNTHESIS" not in prompt for prompt in completion_calls)
+    assert captured_reports[0][-1] is None
+
+
+def test_general_hints_synthesis_uses_cacheable_segments_with_shared_context(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+    captured_ai_calls = []
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ContextLoader,
+        "load_all_contexts",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "get_query_optimizations", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                _build_log_entry("2025-11-26 14:42:44 CET", "-- Task First"),
+                _build_log_entry("2025-11-26 14:43:44 CET", "-- Task Second"),
+            ]
+        ),
+    )
+    query_codes = iter(["CODE1", "CODE2"])
+    monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: next(query_codes))
+    monkeypatch.setattr(pg_autoexplain_analyzer.ReportGenerator, "generate_report", lambda *args, **kwargs: None)
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "--analyze-all-queries"])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+    analyzer.context_loader.query_optimizations_cache = {}
+    analyzer.context_loader.server_optimizations = []
+    analyzer.context_loader.event_optimizations = []
+    analyzer.context_loader.ddl_context = None
+    analyzer.context_loader.optimization_base_path = Path("tests/data/CONTEXT")
+    analyzer.context_loader.server_configuration_context = "shared config"
+    analyzer.context_loader.project_context = "shared project"
+
+    def fake_call_ai_provider(prompt, **kwargs):
+        captured_ai_calls.append({"prompt": prompt, **kwargs})
+        if "GENERAL HINTS SYNTHESIS" in prompt:
+            return "<p>generic synthesis</p>"
+        return "<p>query hint</p>"
+
+    monkeypatch.setattr(analyzer.ai_caller, "call_ai_provider", fake_call_ai_provider)
+
+    analyzer.run()
+
+    synthesis_call = captured_ai_calls[-1]
+    assert "GENERAL HINTS SYNTHESIS" in synthesis_call["cacheable_prefix"]
+    assert "shared config" in synthesis_call["cacheable_prefix"]
+    assert "shared project" in synthesis_call["cacheable_prefix"]
+    assert "HINTS LIST" in synthesis_call["dynamic_suffix"]
+    assert synthesis_call["has_static_context"] is True
