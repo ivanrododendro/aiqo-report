@@ -17,3 +17,17 @@
 {% include 'components/_tabs.html' %}
 {% include 'components/_global_synthesis.html' %}
 {% include 'components/_context_section.html' %}
+
+<div class="modal fade" id="planCompareModal" tabindex="-1" aria-labelledby="planCompareModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl plan-compare-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header plan-compare-modal-header">
+                <div>
+                    <h5 class="modal-title" id="planCompareModalTitle">Plan comparison</h5>
+                    <div class="small text-muted" id="planCompareModalSubtitle"></div>
+                </div>
+            </div>
+            <div class="modal-body" id="planCompareModalBody"></div>
+        </div>
+    </div>
+</div>
