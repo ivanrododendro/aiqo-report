@@ -63,7 +63,7 @@ jobs:
         run: |
           mkdir -p docs
           if [ -n "${GEMINI_API_KEY}" ]; then
-            poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log -r docs/sample.log_report.html -language english
+            poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log -r docs/sample.log_report.html --language english
           else
             poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log --skip_ai_analysis -r docs/sample.log_report.html
           fi
