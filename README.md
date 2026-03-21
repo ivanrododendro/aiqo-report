@@ -258,3 +258,5 @@ Build them with:
 poetry install --with dev
 ./scripts/build_nuitka.sh <linux|macos-silicon|windows>
 ```
+
+The GitHub Actions release workflow persists Nuitka caches between runs by restoring `${GITHUB_WORKSPACE}/.github-cache/nuitka/<target>` through `actions/cache`. When `ccache` is available, the build script points Nuitka to that cached compiler store automatically.

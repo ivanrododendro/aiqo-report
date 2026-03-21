@@ -102,6 +102,9 @@ jobs:
             archive_asset: dist/windows/pg_aiqo_report-windows.zip
             label: Windows Binary
     runs-on: ${{ matrix.os }}
+    env:
+      NUITKA_CACHE_DIR: ${{ github.workspace }}/.github-cache/nuitka/${{ matrix.target }}
+      NUITKA_CACHE_DIR_CCACHE: ${{ github.workspace }}/.github-cache/nuitka/${{ matrix.target }}/ccache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,6 +113,26 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ccache (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ccache
+
+      - name: Install ccache (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ccache
+
+      - name: Restore Nuitka build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.NUITKA_CACHE_DIR }}
+          key: nuitka-${{ runner.os }}-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('poetry.lock', 'pyproject.toml', 'scripts/build_nuitka.sh', '.github/workflows/ci.yml') }}
+          restore-keys: |
+            nuitka-${{ runner.os }}-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-
+            nuitka-${{ runner.os }}-${{ matrix.target }}-
 
       - name: Install Poetry
         run: pipx install poetry
