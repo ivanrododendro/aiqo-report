@@ -20,6 +20,17 @@ OUTPUT_BASENAME="pg_aiqo_report"
 TARGET_DIST_DIR="dist/${TARGET_OS}"
 
 export PYTHONPATH="src:${PYTHONPATH:-}"
+export NUITKA_CACHE_DIR="${NUITKA_CACHE_DIR:-${PROJECT_ROOT}/.nuitka-cache}"
+export NUITKA_CACHE_DIR_CCACHE="${NUITKA_CACHE_DIR_CCACHE:-${NUITKA_CACHE_DIR}/ccache}"
+mkdir -p "${NUITKA_CACHE_DIR_CCACHE}"
+
+if command -v ccache >/dev/null 2>&1; then
+  export NUITKA_CCACHE_BINARY="${NUITKA_CCACHE_BINARY:-$(command -v ccache)}"
+  echo "Using ccache from ${NUITKA_CCACHE_BINARY}"
+else
+  echo "ccache not found in PATH; Nuitka will build without compiler cache."
+fi
+
 
 # Precompute version for frozen builds to avoid setuptools_scm at runtime
 export VERSION_FILE="$PROJECT_ROOT/src/aiqo_pg_ai_report/_version_generated.txt"
