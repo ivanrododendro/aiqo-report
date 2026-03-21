@@ -1,0 +1,32 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="background" x1="18" y1="14" x2="176" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F8088"/>
+      <stop offset="1" stop-color="#5AA2A6"/>
+    </linearGradient>
+    <filter id="shadow" x="14" y="14" width="164" height="164" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1E5E66" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <rect x="8" y="8" width="176" height="176" rx="34" fill="url(#background)"/>
+  </g>
+
+  <g stroke="#F5ECE7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M96 28V92"/>
+    <path d="M92 38C85 28 72 24 59 27C47 30 38 40 36 53C35 62 38 70 43 77C40 85 42 95 48 102C54 109 63 113 72 112C77 118 84 121 91 121"/>
+    <path d="M100 38C107 28 120 24 133 27C145 30 154 40 156 53C157 62 154 70 149 77C152 85 150 95 144 102C138 109 129 113 120 112C115 118 108 121 101 121"/>
+    <path d="M79 46C73 43 65 44 60 49"/>
+    <path d="M66 63C58 65 52 72 51 80"/>
+    <path d="M76 82C68 84 62 91 61 100"/>
+    <path d="M113 46C119 43 127 44 132 49"/>
+    <path d="M126 63C134 65 140 72 141 80"/>
+    <path d="M116 82C124 84 130 91 131 100"/>
+  </g>
+
+  <path d="M110 92L129 111L159 81" stroke="#5D7CFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M144 81H159V96" stroke="#5D7CFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="96" y="164" text-anchor="middle" fill="#F5ECE7" font-size="66" font-weight="800" font-family="Arial, Helvetica, sans-serif">SQL</text>
+</svg>
