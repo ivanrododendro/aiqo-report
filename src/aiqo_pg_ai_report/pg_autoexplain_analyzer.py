@@ -19,7 +19,7 @@ from aiqo_pg_ai_report.log_parser import JsonLogParser, TextLogParser
 from aiqo_pg_ai_report.report_generator import ReportGenerator
 from aiqo_pg_ai_report.sql_utils import SQLUtils
 from aiqo_pg_ai_report.context import ContextLoader
-from aiqo_pg_ai_report.version import get_build_date, get_package_version, get_litellm_version
+from aiqo_pg_ai_report.version import get_package_version, get_litellm_version
 
 DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selection
 DEFAULT_MODEL = "gemini-3.1-flash-lite-preview"
@@ -425,9 +425,7 @@ class PGAutoExplainAnalyzer:
 
 
 def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
-    version_string = (
-        f"{get_package_version()} (build date {get_build_date()}, litellm {get_litellm_version()})"
-    )
+    version_string = f"{get_package_version()} (litellm {get_litellm_version()})"
     parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
     parser.add_argument(
         "log_filename", nargs="?", help="Path to the PostgreSQL log file or directory containing log files."
@@ -443,7 +441,7 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--version",
         action="version",
         version=f"%(prog)s {version_string}",
-        help="Show the current tool version, embedded build date, and detected litellm version, then exit.",
+        help="Show the current version derived from git tags and exit.",
     )
     parser.add_argument(
         "-m", "--model", default=DEFAULT_MODEL, help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})"

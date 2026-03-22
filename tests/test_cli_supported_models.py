@@ -8,7 +8,6 @@ from aiqo_pg_ai_report import pg_autoexplain_analyzer
 @pytest.fixture(autouse=True)
 def stub_versions(monkeypatch):
     monkeypatch.setattr(pg_autoexplain_analyzer, "get_package_version", lambda: "x")
-    monkeypatch.setattr(pg_autoexplain_analyzer, "get_build_date", lambda: "2026-03-22T00:00:00Z")
     monkeypatch.setattr(pg_autoexplain_analyzer, "get_litellm_version", lambda: "y")
 
 

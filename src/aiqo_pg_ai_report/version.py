@@ -10,23 +10,22 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _EMBEDDED_VERSION_FILE = Path(__file__).with_name("_version_generated.txt")
-_EMBEDDED_BUILD_DATE_FILE = Path(__file__).with_name("_build_date_generated.txt")
 
 
-def _read_embedded_text(path: Path, description: str) -> str | None:
+def _read_embedded_version() -> str | None:
     try:
-        if path.exists():
-            text = path.read_text(encoding="utf-8").strip()
+        if _EMBEDDED_VERSION_FILE.exists():
+            text = _EMBEDDED_VERSION_FILE.read_text(encoding="utf-8").strip()
             return text or None
     except Exception as exc:  # pragma: no cover - defensive fallback
-        logger.debug("Unable to read embedded %s file: %s", description, exc)
+        logger.debug("Unable to read embedded version file: %s", exc)
     return None
 
 
 @lru_cache(maxsize=1)
 def get_package_version() -> str:
     """Return the package version resolved from embedded file, metadata, or git tags."""
-    embedded_version = _read_embedded_text(_EMBEDDED_VERSION_FILE, "version")
+    embedded_version = _read_embedded_version()
     if embedded_version:
         return embedded_version
 
@@ -49,17 +48,6 @@ def get_package_version() -> str:
 
     # Frozen binary without embedded version falls back to a safe default.
     logger.debug("Running in frozen mode with no embedded version; defaulting to unknown.")
-    return "unknown"
-
-
-@lru_cache(maxsize=1)
-def get_build_date() -> str:
-    """Return the embedded build date if available."""
-    embedded_build_date = _read_embedded_text(_EMBEDDED_BUILD_DATE_FILE, "build date")
-    if embedded_build_date:
-        return embedded_build_date
-
-    logger.debug("No embedded build date found; defaulting to unknown.")
     return "unknown"
 
 
