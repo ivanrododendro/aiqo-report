@@ -34,13 +34,16 @@ fi
 
 # Precompute version for frozen builds to avoid setuptools_scm at runtime
 export VERSION_FILE="$PROJECT_ROOT/src/aiqo_pg_ai_report/_version_generated.txt"
+export BUILD_DATE_FILE="$PROJECT_ROOT/src/aiqo_pg_ai_report/_build_date_generated.txt"
 poetry run python - <<'PY'
 import os
 from importlib import import_module
 from pathlib import Path
+from datetime import datetime, timezone
 
 project_root = Path(os.environ["PROJECT_ROOT"])
 version_file = Path(os.environ["VERSION_FILE"])
+build_date_file = Path(os.environ["BUILD_DATE_FILE"])
 
 try:
     scm = import_module("setuptools_scm")
@@ -49,8 +52,20 @@ except Exception as exc:  # noqa: BLE001
     print(f"Warning: could not compute version via setuptools_scm: {exc}")
     version = "0.0.0"
 
+build_date_override = os.environ.get("AIQO_BUILD_DATE", "").strip()
+source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+
+if build_date_override:
+    build_date = build_date_override
+elif source_date_epoch:
+    build_date = datetime.fromtimestamp(int(source_date_epoch), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+else:
+    build_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
 version_file.write_text(version, encoding="utf-8")
+build_date_file.write_text(build_date, encoding="utf-8")
 print(f"Wrote embedded version {version} to {version_file}")
+print(f"Wrote embedded build date {build_date} to {build_date_file}")
 PY
 
 COMMON_ARGS=(
@@ -62,6 +77,7 @@ COMMON_ARGS=(
   "--nofollow-import-to=pytest"
   "--no-deployment-flag=self-execution"
   "--include-data-file=${VERSION_FILE}=aiqo_pg_ai_report/_version_generated.txt"
+  "--include-data-file=${BUILD_DATE_FILE}=aiqo_pg_ai_report/_build_date_generated.txt"
   "--no-debug-c-warnings"
   "--include-data-dir=src/aiqo_pg_ai_report/prompts=prompts"
   "--include-data-dir=src/aiqo_pg_ai_report/report_templates=report_templates"
