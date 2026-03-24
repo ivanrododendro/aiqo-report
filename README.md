@@ -10,15 +10,12 @@ It is well suited to scenarios where complexity, data volume and fragmentation m
 
 ## Features
 
+*   **Comprehensive HTML Reports**: Generates detailed, easy-to-read HTML reports summarizing performance metrics, queries timelines, AI findings and optimization opportunities.
 *   **Query Code Tracking**: Generates a unique "query code" (hash) for each normalized SQL query, enabling consistent tracking and application of query-specific optimizations across different log executions.
-*   **AI-Powered Analysis**: Leverages large language models (LLMs) to analyze `EXPLAIN` plans from PostgreSQL logs and identify performance bottlenecks. Provides concrete recommendations for query, server, and infrastructure optimizations based on AI analysis.
-*   **Per-Query AI Deduplication**: By default, AI analysis is executed only once for each query code. Subsequent occurrences are kept in the report but marked as already analyzed instead of triggering a new AI call.
+*   **AI-Powered Analysis with Customizable AI Models**: Leverages large language models (LLMs) to analyze `EXPLAIN` plans from PostgreSQL logs and identify performance bottlenecks. Provides concrete recommendations for query, server, and infrastructure optimizations based on AI analysis. By default, AI analysis is executed only once for each query code. Subsequent occurrences are kept in the report but marked as already analyzed instead of triggering a new AI call. Supports various AI providers and models (e.g. ChatGPT, Gemini, DeepSeek, ...) via `litellm`. Supports provider-side prompt caching for compatible LLM providers, with an option to disable it when required.
+*   **Exceution plan compare**: The report allows to compare execution plans for two occurencies of a same query to analyze the evolution over time.
 *   **Flexible Contextualization**: Allows users to provide DDL, server configuration, infrastructure details, and custom prompts to enhance AI analysis accuracy.   
-*   **Comprehensive HTML Reports**: Generates detailed, easy-to-read HTML reports summarizing performance metrics, AI findings and optimization opportunities.
-*   **Customizable AI Models**: Supports various AI providers and models (e.g. ChatGPT, Gemini, DeepSeek, ...) via `litellm`.
-*   **LLM Provider Cache**: Supports provider-side prompt caching for compatible LLM providers, with an option to disable it when required.
 *   **Native Builds Available**: Standalone native executables are available for Linux, macOS (Apple Silicon), and Windows.
-*   **Query Filtering**: Filter log entries based on specific strings to analyze only relevant queries.
 *   **Multilingual Output**: Supports generating reports in different languages.
 *   **Reproducible Outputs**: When using OpenAI models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
 
