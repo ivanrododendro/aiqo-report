@@ -41,6 +41,7 @@ class ReportGenerator:
         self._setup_custom_filters()
         self._setup_minification_filters()
         self.template = self.env.get_template("report_template.html")
+        self.target_query_template = self.env.get_template("target_query_report_template.html")
         self.data_processor = ReportDataProcessor()
         self.debug = debug
 
@@ -176,6 +177,78 @@ class ReportGenerator:
         )
 
         html_report = self.template.render(**context)
+        html_report = self._minify_html(html_report)
+        Path(output_path).write_text(html_report, encoding="utf-8", newline="\n")
+
+    def generate_target_query_report(
+        self,
+        output_path,
+        title,
+        model,
+        app_version,
+        query_stats,
+        reports_by_day,
+        daily_query_stats,
+        query_optimizations,
+        server_optimizations,
+        event_optimizations,
+        ddl_context,
+        server_config_context,
+        project_context,
+        skip_ai_analysis,
+        general_hints_synthesis,
+        target_query_code,
+    ):
+        logger.info(f"Generating target query HTML report in {output_path}")
+
+        context = self.data_processor.prepare_report_context(
+            title=title,
+            model=model,
+            app_version=app_version,
+            query_stats=query_stats,
+            reports_by_day=reports_by_day,
+            daily_query_stats=daily_query_stats,
+            query_optimizations=query_optimizations,
+            server_optimizations=server_optimizations,
+            event_optimizations=event_optimizations,
+            ddl_context=ddl_context,
+            server_config_context=server_config_context,
+            project_context=project_context,
+            skip_ai_analysis=skip_ai_analysis,
+            general_hints_synthesis=general_hints_synthesis,
+        )
+
+        sorted_days = sorted(context["reports"]["by_day"].keys())
+        if not sorted_days:
+            raise ValueError("Target query report requires at least one day with reports.")
+
+        selected_day = sorted_days[-1]
+        selected_reports = context["reports"]["by_day"][selected_day]
+        selected_index = len(selected_reports) - 1
+        selected_report = selected_reports[selected_index]
+
+        context["target_query"] = {
+            "code": target_query_code,
+            "short_code": target_query_code[:6],
+            "occurrences": sum(len(reports) for reports in context["reports"]["by_day"].values()),
+            "selected_day": selected_day,
+            "selected_index": selected_index,
+            "selected_report": selected_report,
+        }
+        context["context_json"] = json.dumps(
+            {
+                "statistics": context["statistics"],
+                "charts": context["charts"],
+                "optimizations": context["optimizations"],
+                "date_hierarchy": context["date_hierarchy"],
+                "reports": {
+                    "by_day": context["reports"]["by_day"],
+                    "by_code": context["reports"]["by_code"],
+                },
+            }
+        )
+
+        html_report = self.target_query_template.render(**context)
         html_report = self._minify_html(html_report)
         Path(output_path).write_text(html_report, encoding="utf-8", newline="\n")
 

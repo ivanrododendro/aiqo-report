@@ -1,0 +1,138 @@
+{% macro target_query_details_content(report, day, index, optimizations) %}
+{% set app_id = 'app-' ~ day | safe_id ~ '-' ~ index %}
+
+<div class="card">
+    <div class="card-header">
+        <h6 class="mb-0 text-truncate"
+            style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
+            title="{{ report.title }}">
+            {{ report.title }}
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="accordion mb-3" id="accordion-{{ app_id }}">
+            {% if report.ai_hints %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-ai-{{ app_id }}">
+                    <button class="accordion-button fw-bold" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-ai-{{ app_id }}" aria-expanded="true"
+                            aria-controls="collapse-ai-{{ app_id }}" data-query-accordion-key="ai">
+                        AI Suggestions
+                    </button>
+                </h2>
+                <div id="collapse-ai-{{ app_id }}" class="accordion-collapse collapse show"
+                     aria-labelledby="heading-ai-{{ app_id }}" data-query-accordion-key="ai">
+                    <div class="accordion-body">
+                        <div class="alert alert-info mb-0 d-flex justify-content-between align-items-center gap-3">
+                            <div class="flex-grow-1">{{ report.ai_hints | safe }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% set query_optimizations_for_query = (optimizations.query | default({}, true)).get(report.code, []) %}
+            {% if query_optimizations_for_query %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-queryopt-{{ app_id }}">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-queryopt-{{ app_id }}" aria-expanded="false"
+                            aria-controls="collapse-queryopt-{{ app_id }}" data-query-accordion-key="queryopt">
+                        Optimizations
+                    </button>
+                </h2>
+                <div id="collapse-queryopt-{{ app_id }}" class="accordion-collapse collapse"
+                     aria-labelledby="heading-queryopt-{{ app_id }}" data-query-accordion-key="queryopt">
+                    <div class="accordion-body">
+                        <div class="mb-0" id="opt-list-{{ app_id }}">
+                        {% for opt in query_optimizations_for_query %}
+                            <div data-opt-date="{{ opt.date }}" data-opt-text="{{ opt.text }}">
+                                (<strong>{{ loop.index }}</strong>) {{ opt.text }}
+                                <span class="badge badge-annotation-query ms-2">{{ opt.date }}</span>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-chart-{{ app_id }}">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-chart-{{ app_id }}" aria-expanded="false"
+                            aria-controls="collapse-chart-{{ app_id }}" data-query-accordion-key="chart">
+                        Execution time trend
+                    </button>
+                </h2>
+                <div id="collapse-chart-{{ app_id }}" class="accordion-collapse collapse"
+                     aria-labelledby="heading-chart-{{ app_id }}" data-query-accordion-key="chart">
+                    <div class="accordion-body">
+                        <div class="d-flex align-items-center gap-3 mb-2 small">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="toggle-ann-query-{{ app_id }}" data-query-annotation-key="includeQuery" checked>
+                                <label class="form-check-label" for="toggle-ann-query-{{ app_id }}">Optimizations</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="toggle-ann-server-{{ app_id }}" data-query-annotation-key="includeServer">
+                                <label class="form-check-label" for="toggle-ann-server-{{ app_id }}">Server Optimizations</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="toggle-ann-generic-{{ app_id }}" data-query-annotation-key="includeGeneric">
+                                <label class="form-check-label" for="toggle-ann-generic-{{ app_id }}">Events</label>
+                            </div>
+                        </div>
+                        <canvas id="execTimeChart-{{ app_id }}" width="400" height="160"
+                                data-query-opt-list="opt-list-{{ app_id }}"
+                                data-server-opt-list="server-opt-list-{{ app_id }}"></canvas>
+
+{% set legend_entries_generic = optimizations.annotations.legend_entries.generic | default([], true) %}
+{% set server_legend_all = (
+    legend_entries_generic | selectattr('type', 'equalto', 'Server') | list
+) + (
+    legend_entries_generic | selectattr('type', 'equalto', 'Serveur') | list
+) %}
+{% set event_legend_all = (
+    legend_entries_generic | selectattr('type', 'equalto', 'Event') | list
+) + (
+    legend_entries_generic | selectattr('type', 'equalto', 'Événement') | list
+) + (
+    legend_entries_generic | selectattr('type', 'equalto', 'Evenement') | list
+) + (
+    legend_entries_generic | selectattr('type', 'equalto', 'Evento') | list
+) %}
+
+                        {% if server_legend_all %}
+                        <div class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-server-list-{{ app_id }}">
+                            <h6 class="fw-bold mb-2">Server Optimizations</h6>
+                            <div class="mb-0">
+                                {% for entry in server_legend_all %}
+                                <div>
+                                    (<strong>{{ entry.id }}</strong>) <code>{{ entry.text }}</code>
+                                    <span class="badge badge-annotation-server ms-2">{{ entry.date }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if event_legend_all %}
+                        <div class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-event-list-{{ app_id }}">
+                            <h6 class="fw-bold mb-2">Events</h6>
+                            <div class="mb-0">
+                                {% for entry in event_legend_all %}
+                                <div>
+                                    (<strong>{{ entry.id }}</strong>) {{ entry.text }}
+                                    <span class="badge badge-annotation-event ms-2">{{ entry.date }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}

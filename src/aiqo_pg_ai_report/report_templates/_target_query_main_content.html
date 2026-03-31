@@ -1,0 +1,75 @@
+{% from 'components/_target_query_details.html' import target_query_details_content %}
+
+<div class="d-flex justify-content-between align-items-center my-4">
+    <div>
+        {% if metadata.model and not metadata.skip_ai_analysis %}
+        <h1 class="text-start mb-2">PostgreSQL Auto Explain Report ({{ metadata.model }})</h1>
+        {% else %}
+        <h1 class="text-start mb-2">PostgreSQL Auto Explain Report</h1>
+        {% endif %}
+        <h3 class="text-start text-muted mb-1">Report date: {{ metadata.timestamp | default("N/A") }}</h3>
+        <p class="text-start text-muted mb-0">Version: v{{ metadata.version | default("unknown") }}</p>
+    </div>
+    <div class="flex-shrink-0">
+        <a href="https://aiqueryoptimizer.com">
+            <img src="data:image/png;base64,{{ 'static/img/aiqo-report-large.png' | embed_image }}" alt="AIQO Logo" style="max-height: 120px; height: auto;">
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-12 col-lg-4">
+        <div class="card card-body h-100">
+            <h6 class="text-muted mb-2">Target Query</h6>
+            <div class="h4 mb-0">[{{ target_query.short_code }}]</div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card card-body h-100">
+            <h6 class="text-muted mb-2">Occurrences</h6>
+            <div class="h4 mb-0">{{ target_query.occurrences }}</div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card card-body h-100">
+            <h6 class="text-muted mb-2">Selected execution</h6>
+            <div class="small mb-0">{{ target_query.selected_report.query_timestamp | default("N/A") }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="day-tab-content" id="dayTabContent-target-query">
+    <div class="tab-pane fade show active" id="tab-day-{{ target_query.selected_day | safe_id }}" role="tabpanel">
+        <div class="card card-body mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Target query details</h6>
+                <p class="text-muted mb-0 ms-3">Execution count: {{ target_query.occurrences }}</p>
+            </div>
+            <div class="d-none" aria-hidden="true">
+                <button class="query-gantt-row active"
+                        id="query-tab-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}"
+                        type="button"
+                        data-bs-placement="right"
+                        role="tab"
+                        data-query-target="#query-content-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}"
+                        data-query-code="{{ target_query.selected_report.code }}"
+                        data-query-title="{{ target_query.selected_report.title }}"
+                        data-start-utc="{{ target_query.selected_report.query_start_utc if target_query.selected_report.query_start_utc is not none else '' }}"
+                        data-end-utc="{{ target_query.selected_report.query_end_utc if target_query.selected_report.query_end_utc is not none else '' }}"
+                        aria-controls="query-content-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}"
+                        aria-selected="true">
+                    {{ target_query.selected_report.short_code }}
+                </button>
+            </div>
+
+            <div class="tab-content query-tab-content mt-3" id="queryTabContent-{{ target_query.selected_day | safe_id }}">
+                <div class="tab-pane fade show active"
+                     id="query-content-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}"
+                     role="tabpanel"
+                     aria-labelledby="query-tab-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}">
+                    {{ target_query_details_content(target_query.selected_report, target_query.selected_day, target_query.selected_index, optimizations) }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

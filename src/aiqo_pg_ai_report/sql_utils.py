@@ -6,10 +6,12 @@ import sqlparse
 
 
 class SQLUtils:
+    SHORT_QUERY_CODE_LENGTH = 6
     _STRING_LITERAL_RE = re.compile(r"(?:E)?'(?:''|[^'])*'")
     _DOLLAR_QUOTED_RE = re.compile(r"\$[^$]*\$.*?\$[^$]*\$", re.DOTALL)
     _NUMERIC_LITERAL_RE = re.compile(r"(?<![\w$])[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?(?![\w$])")
     _WHITESPACE_RE = re.compile(r"\s+")
+    _SHORT_QUERY_CODE_RE = re.compile(r"^[0-9A-F]{6}$")
 
     @staticmethod
     def normalize_sql(sql):
@@ -37,3 +39,16 @@ class SQLUtils:
         normalized_query = SQLUtils.normalize_sql(query)
         value_str = str(normalized_query).encode("utf-8")
         return hashlib.sha256(value_str).hexdigest().upper()
+
+    @staticmethod
+    def get_short_query_code(query: str) -> str:
+        return SQLUtils.get_query_code(query)[: SQLUtils.SHORT_QUERY_CODE_LENGTH]
+
+    @staticmethod
+    def normalize_short_query_code(value: str) -> str:
+        normalized_value = (value or "").strip().upper()
+        if not SQLUtils._SHORT_QUERY_CODE_RE.fullmatch(normalized_value):
+            raise ValueError(
+                f"Invalid target query filter '{value}'. Expected exactly {SQLUtils.SHORT_QUERY_CODE_LENGTH} hexadecimal characters."
+            )
+        return normalized_value

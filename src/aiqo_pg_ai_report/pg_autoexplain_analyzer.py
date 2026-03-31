@@ -5,7 +5,6 @@ import locale
 import logging
 import sys  # Import sys for exit
 import time
-from collections import defaultdict
 from pathlib import Path
 
 import litellm
@@ -25,6 +24,7 @@ DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selectio
 DEFAULT_MODEL = "gemini-3.1-flash-lite-preview"
 DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
 DEFAULT_DUPLICATE_QUERY_AI_SKIP_MESSAGE = "AI analysis skipped, same query was already analyzed earlier."
+DEFAULT_TARGET_QUERY_AI_SKIP_MESSAGE = "AI analysis skipped for target query mode."
 
 # Configure logging (default to INFO, can be overridden by CLI)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -76,7 +76,7 @@ class PGAutoExplainAnalyzer:
         self.only_seq_scan_ai_analysis = args.only_seq_scan_ai_analysis
         self.filter_strings = args.filter
         self.custom_prompt = args.custom_prompt
-        self.target_query_mode = args.target_query_mode
+        self.target_query = args.target_query
         self.disable_general_hints_synthesis = args.disable_general_hints_synthesis
         self.context_folder = args.context_folder  # Nouveau paramètre renommé
         self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
@@ -207,6 +207,169 @@ class PGAutoExplainAnalyzer:
         self.data_processor.update_statistics(report)
 
     @staticmethod
+    def _sort_entries_by_timestamp(entries: list[dict]) -> list[dict]:
+        return sorted(entries, key=lambda entry: (str(entry.get("timestamp", "")), int(entry.get("source_line") or 0)))
+
+    def _collect_target_query_entries(self, log_files: list[Path]) -> tuple[str | None, list[dict]]:
+        matching_entries: list[dict] = []
+        target_query_code: str | None = None
+
+        for log_file in log_files:
+            for parsed_entry in self.log_parser.parse_log_file(log_file):
+                query_code = SQLUtils.get_query_code(parsed_entry["query_text"])
+                if query_code[: SQLUtils.SHORT_QUERY_CODE_LENGTH] != self.target_query:
+                    continue
+
+                if target_query_code is None:
+                    target_query_code = query_code
+                elif target_query_code != query_code:
+                    logger.error(
+                        "Target query filter %s matched multiple normalized SQL statements: %s and %s",
+                        self.target_query,
+                        target_query_code,
+                        query_code,
+                    )
+                    sys.exit(1)
+
+                parsed_entry["query_code"] = query_code
+                matching_entries.append(parsed_entry)
+
+        return target_query_code, self._sort_entries_by_timestamp(matching_entries)
+
+    def _perform_target_query_ai_analysis(self, query_code: str, target_entries: list[dict]) -> str:
+        if self.skip_ai_analysis:
+            logger.info("Skipping target query AI analysis because AI analysis is disabled")
+            return DEFAULT_TARGET_QUERY_AI_SKIP_MESSAGE
+
+        if self.limit_ai_calls != -1 and self.ai_caller.call_count >= self.limit_ai_calls:
+            logger.warning("AI call limit reached. Skipping target query AI analysis")
+            return DEFAULT_TARGET_QUERY_AI_SKIP_MESSAGE
+
+        prompt_segments = self.context_loader.build_target_query_prompt_segments(
+            query_code=query_code,
+            query_text=target_entries[0]["query_text"],
+            occurrences=target_entries,
+            custom_prompt=self.custom_prompt,
+            lang=self.language,
+        )
+        cacheable_prefix = str(prompt_segments["cacheable_prefix"])
+        dynamic_suffix = str(prompt_segments["dynamic_suffix"])
+        ai_hints_result = self.ai_caller.call_ai_provider(
+            cacheable_prefix + dynamic_suffix,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+            has_static_context=bool(prompt_segments["has_static_context"]),
+        )
+        if ai_hints_result is None:
+            return "AI analysis failed or timed out."
+        return ai_hints_result
+
+    @staticmethod
+    def _format_target_query_metric(metric_name: str, values: list[float | int | None]) -> str:
+        filtered_values = [value for value in values if value is not None]
+        if not filtered_values:
+            return f"{metric_name}: n/a"
+        return (
+            f"{metric_name}: min={min(filtered_values)} max={max(filtered_values)} "
+            f"last={filtered_values[-1]} samples={len(filtered_values)}"
+        )
+
+    def _build_target_query_stdout_output(
+        self,
+        query_code: str,
+        target_entries: list[dict],
+        report_filename: Path,
+    ) -> str:
+        first_entry = target_entries[0]
+        timestamps = [str(entry.get("timestamp", "")) for entry in target_entries if entry.get("timestamp")]
+        durations = [entry.get("duration") for entry in target_entries]
+        costs = [entry.get("cost") for entry in target_entries]
+        rows = [entry.get("rows") for entry in target_entries]
+        query_optimizations = self.context_loader.get_query_optimizations(query_code)
+
+        metadata_lines = [
+            "Target Query Analysis",
+            f"Short query code: {query_code[:6]}",
+            f"Full query code: {query_code}",
+            f"Occurrences: {len(target_entries)}",
+            (f"Execution range: {timestamps[0]} -> {timestamps[-1]}" if timestamps else "Execution range: n/a"),
+            f"Server optimizations loaded: {len(self.context_loader.server_optimizations)}",
+            f"Event entries loaded: {len(self.context_loader.event_optimizations)}",
+            f"Query optimizations loaded: {len(query_optimizations)}",
+            self._format_target_query_metric("Duration ms", durations),
+            self._format_target_query_metric("Total cost", costs),
+            self._format_target_query_metric("Rows", rows),
+            "",
+            "SQL",
+            first_entry["query_text"],
+            "",
+            f"HTML report: {report_filename}",
+        ]
+
+        return "\n".join(metadata_lines).strip() + "\n"
+
+    @staticmethod
+    def _build_target_query_report_payload(query_code: str, target_entries: list[dict], ai_result: str) -> dict:
+        from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
+
+        target_data_processor = ReportDataProcessor()
+        last_index = len(target_entries) - 1
+
+        for index, entry in enumerate(target_entries):
+            report_ai_hints = ai_result if index == last_index else ""
+            report = target_data_processor.create_report_entry(entry, query_code, report_ai_hints)
+            target_data_processor.update_statistics(report)
+
+        return {
+            "query_stats": target_data_processor.get_query_stats_list(),
+            "reports_by_day": target_data_processor.reports_by_day,
+            "daily_query_stats": target_data_processor.daily_query_stats,
+        }
+
+    def _run_target_query_mode(self, log_files: list[Path], report_filename: Path, start_time: float) -> None:
+        logger.info("Target Query Mode is ENABLED for filter %s", self.target_query)
+        if self.analyze_all_queries:
+            logger.info("Ignoring --analyze-all-queries in target query mode because the analysis is aggregated")
+
+        query_code, target_entries = self._collect_target_query_entries(log_files)
+
+        if not target_entries or query_code is None:
+            logger.error("No query matched target query filter %s", self.target_query)
+            self.ai_caller.show_stats()
+            self._log_processing_statistics(log_files, start_time, total_queries_override=0)
+            sys.exit(1)
+
+        self.context_loader.get_query_optimizations(query_code)
+        ai_result = self._perform_target_query_ai_analysis(query_code, target_entries)
+        target_report_payload = self._build_target_query_report_payload(query_code, target_entries, ai_result)
+        self.report_generator.generate_target_query_report(
+            str(report_filename),
+            "PostgreSQL Auto Explain Report"
+            if self.skip_ai_analysis
+            else f"PostgreSQL Auto Explain AI Report ({self.model}) ",
+            self.model,
+            get_package_version(),
+            target_report_payload["query_stats"],
+            target_report_payload["reports_by_day"],
+            target_report_payload["daily_query_stats"],
+            self.context_loader.query_optimizations_cache,
+            self.context_loader.server_optimizations,
+            self.context_loader.event_optimizations,
+            self.context_loader.ddl_context,
+            self.context_loader.server_configuration_context,
+            self.context_loader.project_context,
+            self.skip_ai_analysis,
+            None,
+            query_code,
+        )
+        logger.info("Output target query report: %s", report_filename)
+        stdout_output = self._build_target_query_stdout_output(query_code, target_entries, report_filename)
+        print(stdout_output, end="")
+
+        self.ai_caller.show_stats()
+        self._log_processing_statistics(log_files, start_time, total_queries_override=len(target_entries))
+
+    @staticmethod
     def _is_general_hint_candidate(ai_hints: str) -> bool:
         """Return True when an AI hint contains actionable model output suitable for synthesis."""
         if not ai_hints:
@@ -276,10 +439,28 @@ class PGAutoExplainAnalyzer:
             pass
         return f"{value:,}"
 
-    def _log_processing_statistics(self, log_files, start_time: float) -> None:
+    @staticmethod
+    def _ensure_target_query_hash_in_report_filename(report_filename: str | Path, short_query_code: str) -> Path:
+        report_path = Path(report_filename)
+        suffix = report_path.suffix or ".html"
+        stem = report_path.stem if report_path.suffix else report_path.name
+        expected_suffix = f"_{short_query_code}"
+
+        if stem.endswith(expected_suffix):
+            final_name = f"{stem}{suffix}"
+        else:
+            final_name = f"{stem}{expected_suffix}{suffix}"
+
+        return report_path.with_name(final_name)
+
+    def _log_processing_statistics(
+        self, log_files, start_time: float, total_queries_override: int | None = None
+    ) -> None:
         """Log summary metrics for the current run."""
         elapsed_seconds = time.perf_counter() - start_time
-        total_queries = len(self.data_processor.all_reports)
+        total_queries = (
+            total_queries_override if total_queries_override is not None else len(self.data_processor.all_reports)
+        )
         total_log_lines = getattr(self.log_parser, "total_log_lines_processed", 0)
         logger.info("--- Log processing statistics ---")
         logger.info("Total log files processed: %s", len(log_files))
@@ -327,8 +508,12 @@ class PGAutoExplainAnalyzer:
             )
             logger.info(f"Processing PostgreSQL log file {self.args.log_filename}")
 
+        if self.target_query:
+            report_filename = self._ensure_target_query_hash_in_report_filename(report_filename, self.target_query)
+
         resolved_report_filename = Path(report_filename).resolve()
-        logger.info(f"Output report: {resolved_report_filename}")
+        if not self.target_query:
+            logger.info(f"Output report: {resolved_report_filename}")
 
         # Load all contexts and optimizations using the ContextLoader
         self.context_loader.load_all_contexts(self.args.log_filename, self.directory_mode_active)
@@ -348,26 +533,38 @@ class PGAutoExplainAnalyzer:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
             # Updated log messages for DDL and server config context
             if self.context_loader.ddl_context:
-                logger.info(f"DDL context loaded from file: {self.context_loader.optimization_base_path / 'DDL.txt'}")
+                if self.context_loader.optimization_base_path:
+                    logger.info(
+                        f"DDL context loaded from file: {self.context_loader.optimization_base_path / 'DDL.txt'}"
+                    )
+                else:
+                    logger.info("DDL context loaded.")
             if self.context_loader.server_configuration_context:
-                logger.info(
-                    f"Server configuration context loaded from file: {self.context_loader.optimization_base_path / 'CONFIG.txt'}"
-                )
+                if self.context_loader.optimization_base_path:
+                    logger.info(
+                        f"Server configuration context loaded from file: {self.context_loader.optimization_base_path / 'CONFIG.txt'}"
+                    )
+                else:
+                    logger.info("Server configuration context loaded.")
             if self.context_loader.project_context:
-                logger.info(
-                    f"Project context loaded from file: {self.context_loader.optimization_base_path / 'PROJECT.txt'}"
-                )
+                if self.context_loader.optimization_base_path:
+                    logger.info(
+                        f"Project context loaded from file: {self.context_loader.optimization_base_path / 'PROJECT.txt'}"
+                    )
+                else:
+                    logger.info("Project context loaded.")
             # Log for context folder
             if self.context_loader.optimization_base_path:
                 logger.info(f"Optimization context loaded from folder: {self.context_loader.optimization_base_path}")
-
-        if self.target_query_mode:
-            logger.info("Target Query Mode is ENABLED.")
 
         if self.filter_strings:
             logger.info(
                 f"AI analysis will be filtered by: {', '.join(self.filter_strings)}. All queries will still be included in the report."
             )
+
+        if self.target_query:
+            self._run_target_query_mode(log_files, resolved_report_filename, start_time)
+            return
 
         for log_file in log_files:
             for parsed_entry in self.log_parser.parse_log_file(log_file):
@@ -504,10 +701,14 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "-r", "--report-filename", type=str, default=None, help="Override the HTML report filename (optional)"
     )
     parser.add_argument(
-        "--target-query-mode",
-        action="store_true",
-        default=False,
-        help="Enables target query mode for analysis (default: false)",
+        "--target-query",
+        "-tq",
+        type=str,
+        default=None,
+        help=(
+            "Analyze only the query matching the provided 6-character short hash. "
+            "In this mode the result is printed to stdout instead of generating the HTML report."
+        ),
     )
     parser.add_argument(
         "--context-folder",
@@ -533,6 +734,15 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
     if args.supported_models:
         _show_supported_models_and_exit()
+
+    if args.target_query is not None:
+        try:
+            args.target_query = SQLUtils.normalize_short_query_code(args.target_query)
+        except ValueError as exc:
+            parser.error(str(exc))
+
+    if args.target_query and args.filter:
+        parser.error("--target-query cannot be combined with --filter.")
 
     # New logic for path validation and directory mode detection
     if not args.log_filename:

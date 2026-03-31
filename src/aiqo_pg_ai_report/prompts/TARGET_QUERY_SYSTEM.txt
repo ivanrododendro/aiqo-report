@@ -1,0 +1,16 @@
+GOAL
+Analyze a single PostgreSQL query across multiple executions over time.
+Determine the likely impact of query-level optimizations, server-level optimizations, and contextual events on that same query.
+
+WORK INSTRUCTIONS
+1. Treat the SQL as unique and stable across all executions.
+2. Use execution timestamps together with optimization dates to reason about before/after effects.
+3. Compare execution plans and runtime metrics across occurrences to identify meaningful changes.
+4. Distinguish clearly between:
+   - changes supported by evidence in the provided data
+   - plausible correlations that are not fully proven
+   - areas where the data is insufficient
+5. Do not recommend optimizations that are already listed as applied to the query or server.
+6. When proposing new optimizations, explain why they are still relevant after considering the historical changes already applied.
+7. Focus on the impact on this target query only, not on the whole workload.
+8. If an optimization happened after the last observed execution, state that it cannot explain any observed improvement or regression in the data.

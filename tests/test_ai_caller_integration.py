@@ -567,3 +567,150 @@ def test_general_hints_synthesis_uses_cacheable_segments_with_shared_context(mon
     assert "shared project" in synthesis_call["cacheable_prefix"]
     assert "HINTS LIST" in synthesis_call["dynamic_suffix"]
     assert synthesis_call["has_static_context"] is True
+
+
+def test_target_query_argument_is_normalized_and_incompatible_with_filter():
+    log_path = Path("tests/data/full-text-plan.log")
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-tq", "ab12ef"])
+
+    assert args.target_query == "AB12EF"
+
+    with pytest.raises(SystemExit) as exc:
+        pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-tq", "ABCDEF", "-f", "ABCDEF"])
+
+    assert exc.value.code == 2
+
+
+def test_target_query_mode_aggregates_matching_occurrences_and_prints_to_stdout(monkeypatch, capsys):
+    log_path = Path("tests/data/full-text-plan.log")
+    completion_prompts = []
+    generated_standard_reports = []
+    generated_target_reports = []
+    target_sql = "select * from demo where id = 1"
+    other_sql = "select * from demo where status = 'ok'"
+    target_code = pg_autoexplain_analyzer.SQLUtils.get_short_query_code(target_sql)
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.litellm,
+        "get_model_info",
+        lambda model: {"max_input_tokens": 128000, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "token_counter", lambda **kwargs: 10)
+
+    class DummyUsage:
+        def __init__(self) -> None:
+            self.prompt_tokens = 5
+            self.completion_tokens = 2
+
+    class DummyMessage:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyChoice:
+        def __init__(self, content: str) -> None:
+            self.message = DummyMessage(content)
+
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.usage = DummyUsage()
+            self.choices = [DummyChoice(content)]
+
+    def fake_completion(**kwargs):
+        completion_prompts.append(kwargs["messages"][-1]["content"])
+        return DummyResponse("aggregated target analysis")
+
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion", fake_completion)
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion_cost", lambda completion_response: 0.0)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ContextLoader,
+        "get_query_optimizations",
+        lambda *args, **kwargs: [{"date": "2025-11-26", "text": "Added covering index"}],
+    )
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                {
+                    **_build_log_entry("2025-11-26 14:42:44 CET", "-- Task First"),
+                    "query_text": target_sql,
+                    "execution_plan": "Plan A\nSeq Scan on demo",
+                },
+                {
+                    **_build_log_entry("2025-11-26 14:43:44 CET", "-- Task Other"),
+                    "query_text": other_sql,
+                    "execution_plan": "Plan OTHER",
+                },
+                {
+                    **_build_log_entry("2025-11-27 14:42:44 CET", "-- Task Second"),
+                    "query_text": target_sql,
+                    "execution_plan": "Plan B\nIndex Scan using demo_idx",
+                },
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ReportGenerator,
+        "generate_report",
+        lambda *args, **kwargs: generated_standard_reports.append(args),
+    )
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ReportGenerator,
+        "generate_target_query_report",
+        lambda *args, **kwargs: generated_target_reports.append(args),
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-m", "gpt-4o", "-tq", target_code])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+    analyzer.context_loader.server_optimizations = [{"date": "2025-11-25", "text": "Raised work_mem"}]
+    analyzer.context_loader.event_optimizations = [{"date": "2025-11-24", "text": "Vacuum freeze completed"}]
+    analyzer.context_loader.ddl_context = "CREATE INDEX demo_idx ON demo(id);"
+    analyzer.context_loader.server_configuration_context = "shared_buffers = 8GB"
+    analyzer.context_loader.project_context = "nightly ETL workload"
+
+    analyzer.run()
+
+    output = capsys.readouterr().out
+    assert "Target Query Analysis" in output
+    assert f"Short query code: {target_code}" in output
+    assert "Occurrences: 2" in output
+    assert target_sql in output
+    assert "HTML report:" in output
+    assert "aggregated target analysis" not in output
+    assert generated_standard_reports == []
+    assert len(generated_target_reports) == 1
+    assert f"_{target_code}.html" in generated_target_reports[0][1]
+    assert len(completion_prompts) == 1
+    assert "Plan A" in completion_prompts[0]
+    assert "Plan B" in completion_prompts[0]
+    assert target_sql in completion_prompts[0]
+    assert "Raised work_mem" in completion_prompts[0]
+    assert "Added covering index" in completion_prompts[0]
+
+
+def test_target_query_mode_exits_when_no_query_matches(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                {
+                    **_build_log_entry("2025-11-26 14:42:44 CET", "-- Task Other"),
+                    "query_text": "select * from demo where status = 'ok'",
+                }
+            ]
+        ),
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-tq", "ABCDEF"])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+
+    with pytest.raises(SystemExit) as exc:
+        analyzer.run()
+
+    assert exc.value.code == 1

@@ -19,6 +19,8 @@ class ContextLoader:
         self.system_prompt = None
         self.format_prompt = None
         self.general_hints_synthesis_prompt = None
+        self.target_query_system_prompt = None
+        self.target_query_format_prompt = None
 
         self._load_ai_instruction_prompts()  # Load AI instruction prompts
 
@@ -47,6 +49,8 @@ class ContextLoader:
         system_file_path = self.script_base_path / "prompts/SYSTEM.txt"
         format_file_path = self.script_base_path / "prompts/FORMAT.txt"
         general_hints_synthesis_file_path = self.script_base_path / "prompts/GENERAL_HINTS_SYNTHESIS.txt"
+        target_query_system_file_path = self.script_base_path / "prompts/TARGET_QUERY_SYSTEM.txt"
+        target_query_format_file_path = self.script_base_path / "prompts/TARGET_QUERY_FORMAT.txt"
 
         self.system_prompt = self._load_file_content(system_file_path, "System prompt", required=True)
         self.format_prompt = self._load_file_content(format_file_path, "Format prompt", required=True)
@@ -55,8 +59,24 @@ class ContextLoader:
             "General hints synthesis prompt",
             required=True,
         )
+        self.target_query_system_prompt = self._load_file_content(
+            target_query_system_file_path,
+            "Target query system prompt",
+            required=True,
+        )
+        self.target_query_format_prompt = self._load_file_content(
+            target_query_format_file_path,
+            "Target query format prompt",
+            required=True,
+        )
 
-        if not (self.system_prompt and self.format_prompt and self.general_hints_synthesis_prompt):
+        if not (
+            self.system_prompt
+            and self.format_prompt
+            and self.general_hints_synthesis_prompt
+            and self.target_query_system_prompt
+            and self.target_query_format_prompt
+        ):
             logger.error("Failed to load all required AI instruction prompts. Exiting.")
             sys.exit(1)
         logger.info("Loaded AI instruction prompts.")
@@ -180,7 +200,9 @@ class ContextLoader:
         prompt_segments = self.build_general_hints_synthesis_prompt_segments(ai_hints, lang=lang)
         return str(prompt_segments["cacheable_prefix"]) + str(prompt_segments["dynamic_suffix"])
 
-    def build_general_hints_synthesis_prompt_segments(self, ai_hints: list[str], lang: str = "en") -> dict[str, str | bool]:
+    def build_general_hints_synthesis_prompt_segments(
+        self, ai_hints: list[str], lang: str = "en"
+    ) -> dict[str, str | bool]:
         """Build a stable cacheable prefix and a dynamic suffix for the final hints synthesis."""
         if not self.general_hints_synthesis_prompt:
             logger.error("General hints synthesis prompt is not loaded.")
@@ -190,7 +212,9 @@ class ContextLoader:
             f"Hint #{index}:\n{hint.strip()}" for index, hint in enumerate(ai_hints, start=1) if hint.strip()
         )
 
-        cacheable_prefix = f">>> GENERAL HINTS SYNTHESIS\n{self.general_hints_synthesis_prompt}\n<<< GENERAL HINTS SYNTHESIS\n\n"
+        cacheable_prefix = (
+            f">>> GENERAL HINTS SYNTHESIS\n{self.general_hints_synthesis_prompt}\n<<< GENERAL HINTS SYNTHESIS\n\n"
+        )
         if self.server_configuration_context:
             cacheable_prefix += (
                 f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
@@ -199,8 +223,7 @@ class ContextLoader:
             cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
 
         dynamic_suffix = (
-            f">>> HINTS LIST\n{formatted_hints}\n<<< HINTS LIST\n\n"
-            f"Please provide the analysis in {lang}."
+            f">>> HINTS LIST\n{formatted_hints}\n<<< HINTS LIST\n\n" f"Please provide the analysis in {lang}."
         )
 
         return {
@@ -314,3 +337,113 @@ class ContextLoader:
             "dynamic_suffix": dynamic_suffix,
             "has_static_context": has_static_context,
         }
+
+    def build_target_query_prompt_segments(
+        self,
+        query_code: str,
+        query_text: str,
+        occurrences: list[dict],
+        custom_prompt: str = None,
+        lang: str = "en",
+    ) -> dict[str, str | bool]:
+        """Build prompt segments for the aggregated target query analysis mode."""
+        if not self.target_query_system_prompt or not self.target_query_format_prompt:
+            logger.error("Target query prompts are not loaded.")
+            sys.exit(1)
+
+        cacheable_prefix = ""
+        cacheable_prefix += f">>> TARGET QUERY SYSTEM\n{self.target_query_system_prompt}\n<<< TARGET QUERY SYSTEM\n\n"
+        cacheable_prefix += f">>> TARGET QUERY FORMAT\n{self.target_query_format_prompt}\n<<< TARGET QUERY FORMAT\n\n"
+
+        if self.ddl_context:
+            cacheable_prefix += f">>> DDL\n{self.ddl_context}\n<<< DDL\n\n"
+        if self.server_configuration_context:
+            cacheable_prefix += (
+                f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
+            )
+        if self.project_context:
+            cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
+
+        if self.server_optimizations:
+            cacheable_prefix += ">>> SERVER OPTIMIZATIONS\n"
+            for opt in self.server_optimizations:
+                cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
+            cacheable_prefix += "<<< SERVER OPTIMIZATIONS\n\n"
+
+        if self.event_optimizations:
+            cacheable_prefix += ">>> EVENTS\n"
+            for opt in self.event_optimizations:
+                cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
+            cacheable_prefix += "<<< EVENTS\n\n"
+
+        current_query_opts = self.get_query_optimizations(query_code)
+        if current_query_opts:
+            cacheable_prefix += ">>> QUERY OPTIMIZATIONS\n"
+            for opt in current_query_opts:
+                cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
+            cacheable_prefix += "<<< QUERY OPTIMIZATIONS\n\n"
+
+        if custom_prompt:
+            cacheable_prefix += f">>> CUSTOM INSTRUCTIONS\n{custom_prompt}\n<<< CUSTOM INSTRUCTIONS\n\n"
+
+        dynamic_suffix = (
+            f">>> TARGET QUERY METADATA\n"
+            f"Full query code: {query_code}\n"
+            f"Short query code: {query_code[:6]}\n"
+            f"Occurrences: {len(occurrences)}\n"
+            f"<<< TARGET QUERY METADATA\n\n"
+            f">>> SQL\n{query_text}\n<<< SQL\n\n"
+            f">>> QUERY EXECUTION HISTORY\n{self._format_target_query_occurrences(occurrences)}"
+            f"\n<<< QUERY EXECUTION HISTORY\n\n"
+            f"Please provide the analysis in {lang}."
+        )
+
+        return {
+            "cacheable_prefix": cacheable_prefix,
+            "dynamic_suffix": dynamic_suffix,
+            "has_static_context": any(
+                [
+                    bool(self.target_query_system_prompt),
+                    bool(self.target_query_format_prompt),
+                    bool(self.ddl_context),
+                    bool(self.server_configuration_context),
+                    bool(self.project_context),
+                    bool(self.server_optimizations),
+                    bool(self.event_optimizations),
+                    bool(current_query_opts),
+                    bool(custom_prompt),
+                ]
+            ),
+        }
+
+    @staticmethod
+    def _format_target_query_occurrences(occurrences: list[dict]) -> str:
+        formatted_occurrences: list[str] = []
+
+        for index, occurrence in enumerate(occurrences, start=1):
+            buffers = occurrence.get("buffers") or {}
+            wal = occurrence.get("wal") or {}
+            formatted_occurrences.append(
+                "\n".join(
+                    [
+                        f"Occurrence #{index}",
+                        f"Timestamp: {occurrence.get('timestamp', '')}",
+                        f"Duration ms: {occurrence.get('duration')}",
+                        f"Total cost: {occurrence.get('cost')}",
+                        f"Rows: {occurrence.get('rows')}",
+                        f"Shared hit blocks: {buffers.get('shared_hit')}",
+                        f"Shared read blocks: {buffers.get('shared_read')}",
+                        f"Shared dirtied blocks: {buffers.get('shared_dirtied')}",
+                        f"Shared written blocks: {buffers.get('shared_written')}",
+                        f"Temp read blocks: {buffers.get('temp_read')}",
+                        f"Temp written blocks: {buffers.get('temp_written')}",
+                        f"WAL records: {wal.get('records')}",
+                        f"WAL FPI: {wal.get('fpi')}",
+                        f"WAL bytes: {wal.get('bytes')}",
+                        "Execution plan:",
+                        str(occurrence.get("execution_plan", "")),
+                    ]
+                )
+            )
+
+        return "\n\n".join(formatted_occurrences)

@@ -1,0 +1,24 @@
+<script>
+{% include 'static/js/report-utils.js' %}
+{% include 'static/js/charts/scale-helper.js' %}
+{% include 'static/js/charts/data-validator.js' %}
+{% include 'static/js/charts/annotation-service.js' %}
+{% include 'static/js/charts/chart-factory.js' %}
+{% include 'static/js/charts/report-chart-manager.js' %}
+{% include 'static/js/components/query-details.js' %}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    window.reportChartManager = new AIQO.Core.ReportChartManager(reportData);
+
+    if (AIQO.Components && AIQO.Components.QueryDetails) AIQO.Components.QueryDetails.init();
+
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
+        bootstrap.Tooltip.getOrCreateInstance(element, {
+            container: 'body',
+            trigger: 'hover focus',
+        });
+    });
+});
+</script>

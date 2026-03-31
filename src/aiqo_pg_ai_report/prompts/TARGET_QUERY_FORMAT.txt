@@ -1,0 +1,31 @@
+Expected format:
+- Generate HTML code only
+- Do not generate main structure HTML tags such as <html>, <head>, or <body>
+- Do not generate markdown tables
+- Keep the output structured with short titled sections
+- Use only HTML fragments that can be safely embedded inside an existing report section
+
+Use exactly these sections:
+1. Executive Summary
+   Maximum 6 lines. Summarize the main observed trend for the target query over time.
+2. Timeline Analysis
+   Explain the relevant execution phases and correlate them with dated query optimizations, server optimizations, and events.
+3. Plan Evolution
+   Highlight the main execution plan changes and their probable impact on duration, IO, rows, and WAL.
+4. Impact Assessment
+   Separate findings into:
+   - Evidence-backed impact
+   - Plausible but unproven impact
+   - No visible impact
+5. Remaining Optimization Paths
+   Provide only actionable optimizations that are not already applied, each with rationale and drawback.
+6. Data Quality Notes
+   Mention missing evidence, ambiguity, or limits in the dataset when relevant.
+
+Suggested HTML structure:
+<p><h3>Executive Summary</h3>...</p>
+<p><h3>Timeline Analysis</h3>...</p>
+<p><h3>Plan Evolution</h3>...</p>
+<p><h3>Impact Assessment</h3>...</p>
+<p><h3>Remaining Optimization Paths</h3>...</p>
+<p><h3>Data Quality Notes</h3>...</p>
