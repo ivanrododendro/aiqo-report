@@ -281,6 +281,47 @@
     });
   }
 
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getPev2PlanPayload(report) {
+    if (!report) return null;
+
+    const parsedReportPlan = parsePlanStructure(report);
+    if (parsedReportPlan) {
+      return parsedReportPlan;
+    }
+
+    return parsePlanStructure(report.plan);
+  }
+
+  function renderRawPlanFallback(container, planData) {
+    let rawPlanText = 'Execution plan unavailable';
+
+    if (typeof planData === 'string' && planData.trim().length > 0) {
+      rawPlanText = planData;
+    } else if (planData && typeof planData === 'object') {
+      try {
+        rawPlanText = JSON.stringify(planData, null, 2);
+      } catch (error) {
+        rawPlanText = 'Execution plan available but could not be serialized.';
+      }
+    }
+
+    container.innerHTML = `
+      <div class="alert alert-warning mb-3">
+        PEV2 could not render this execution plan. Showing the raw plan instead.
+      </div>
+      <pre class="border rounded bg-light p-3 mb-0 small" style="white-space: pre-wrap; overflow: auto;">${escapeHtml(rawPlanText)}</pre>
+    `;
+  }
+
   function mountPev2(appId, report, options = {}) {
     const { forceRemount = false } = options;
     const container = document.getElementById(appId);
@@ -311,18 +352,22 @@
         return;
       }
 
+      const pev2Payload = getPev2PlanPayload(report);
+      if (!pev2Payload) {
+        renderRawPlanFallback(container, planData);
+        return;
+      }
+
       let planString;
-      if (typeof planData === 'string') {
-        planString = planData;
-      } else if (typeof planData === 'object') {
-        try {
-          planString = JSON.stringify(planData, null, 2);
-        } catch (e) {
-          console.error('Error stringifying plan data:', e);
-          container.innerHTML = '<div class="alert alert-danger">Error converting execution plan</div>';
-          return;
-        }
-      } else {
+      try {
+        planString = JSON.stringify(pev2Payload, null, 2);
+      } catch (e) {
+        console.error('Error stringifying plan data:', e);
+        container.innerHTML = '<div class="alert alert-danger">Error converting execution plan</div>';
+        return;
+      }
+
+      if (typeof planString !== 'string' || planString.trim().length === 0) {
         container.innerHTML = '<div class="alert alert-danger">Invalid execution plan format</div>';
         return;
       }

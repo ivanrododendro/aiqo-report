@@ -10,9 +10,72 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    function activateTargetQueryRow(row) {
+        if (!row) return false;
+
+        const dayPane = row.closest('[id^="tab-day-"]');
+        const targetSelector = row.getAttribute('data-query-target');
+        if (!dayPane || !targetSelector) return false;
+
+        const targetPane = dayPane.querySelector(targetSelector);
+        if (!targetPane) return false;
+
+        dayPane.querySelectorAll('.query-gantt-row.active').forEach((activeRow) => {
+            activeRow.classList.remove('active');
+            activeRow.setAttribute('aria-selected', 'false');
+        });
+
+        dayPane.querySelectorAll('.query-tab-content .tab-pane.show.active').forEach((activePane) => {
+            activePane.classList.remove('show', 'active');
+        });
+
+        row.classList.add('active');
+        row.setAttribute('aria-selected', 'true');
+        targetPane.classList.add('show', 'active');
+        row.dispatchEvent(new Event('shown.bs.tab', { bubbles: true }));
+        return true;
+    }
+
+    function updateSelectedExecutionLabel(row) {
+        const label = document.getElementById('selectedExecutionLabel');
+        if (!label || !row) return;
+        label.textContent = row.getAttribute('data-query-timestamp') || 'N/A';
+    }
+
+    window.reportNavigator = {
+        navigateToQuery: function(queryCode, day) {
+            const safeDay = window.ReportUtils && typeof ReportUtils.dateToSafeId === 'function'
+                ? ReportUtils.dateToSafeId(day)
+                : day;
+            const targetRow = Array.from(document.querySelectorAll(`[id^="query-tab-${safeDay}-"]`)).find((row) => {
+                return row.getAttribute('data-query-code') === queryCode;
+            });
+            if (!targetRow) return false;
+            const activated = activateTargetQueryRow(targetRow);
+            if (activated) updateSelectedExecutionLabel(targetRow);
+            return activated;
+        },
+        navigateToQueryInstance: function(day, index) {
+            const safeDay = window.ReportUtils && typeof ReportUtils.dateToSafeId === 'function'
+                ? ReportUtils.dateToSafeId(day)
+                : day;
+            const targetRow = document.getElementById(`query-tab-${safeDay}-${index}`);
+            if (!targetRow) return false;
+            const activated = activateTargetQueryRow(targetRow);
+            if (activated) updateSelectedExecutionLabel(targetRow);
+            return activated;
+        },
+    };
+
     window.reportChartManager = new AIQO.Core.ReportChartManager(reportData);
 
     if (AIQO.Components && AIQO.Components.QueryDetails) AIQO.Components.QueryDetails.init();
+
+    document.querySelectorAll('[id^="query-tab-"]').forEach((row) => {
+        row.addEventListener('shown.bs.tab', function() {
+            updateSelectedExecutionLabel(row);
+        });
+    });
 
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
         bootstrap.Tooltip.getOrCreateInstance(element, {

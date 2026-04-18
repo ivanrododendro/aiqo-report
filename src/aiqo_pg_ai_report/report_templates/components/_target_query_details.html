@@ -58,6 +58,25 @@
             {% endif %}
 
             <div class="accordion-item">
+                <h2 class="accordion-header" id="heading-pev2-{{ app_id }}">
+                    <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapse-pev2-{{ app_id }}" aria-expanded="false"
+                            aria-controls="collapse-pev2-{{ app_id }}" data-query-accordion-key="pev2">
+                        Execution plan
+                    </button>
+                </h2>
+                <div id="collapse-pev2-{{ app_id }}" class="accordion-collapse collapse"
+                     aria-labelledby="heading-pev2-{{ app_id }}" data-query-accordion-key="pev2">
+                    <div class="accordion-body">
+                        <div id="{{ app_id }}">
+                            <pev2 :plan-source="plan" :plan-query="query"
+                                  style="display: block; aspect-ratio: 16 / 9; width: 100%;"></pev2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
                 <h2 class="accordion-header" id="heading-chart-{{ app_id }}">
                     <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse-chart-{{ app_id }}" aria-expanded="false"

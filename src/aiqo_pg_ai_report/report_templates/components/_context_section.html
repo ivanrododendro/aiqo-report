@@ -1,6 +1,6 @@
 {% from '_macros.html' import context_section %}
 
-{% if not metadata.skip_ai_analysis %}
+{% if contexts.ddl or contexts.server_config or contexts.project %}
 <h2>Context</h2>
 
 <div class="accordion" id="accordionContextDetails">

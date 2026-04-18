@@ -33,7 +33,7 @@
     <div class="col-12 col-lg-4">
         <div class="card card-body h-100">
             <h6 class="text-muted mb-2">Selected execution</h6>
-            <div class="small mb-0">{{ target_query.selected_report.query_timestamp | default("N/A") }}</div>
+            <div class="small mb-0" id="selectedExecutionLabel">{{ target_query.selected_report.query_timestamp | default("N/A") }}</div>
         </div>
     </div>
 </div>
@@ -46,30 +46,57 @@
                 <p class="text-muted mb-0 ms-3">Execution count: {{ target_query.occurrences }}</p>
             </div>
             <div class="d-none" aria-hidden="true">
-                <button class="query-gantt-row active"
-                        id="query-tab-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}"
+                {% for day, reports_list in reports.by_day.items()|sort %}
+                    {% for report in reports_list %}
+                <button class="query-gantt-row {% if day == target_query.selected_day and loop.index0 == target_query.selected_index %}active{% endif %}"
+                        id="query-tab-{{ day | safe_id }}-{{ loop.index0 }}"
                         type="button"
                         data-bs-placement="right"
                         role="tab"
-                        data-query-target="#query-content-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}"
-                        data-query-code="{{ target_query.selected_report.code }}"
-                        data-query-title="{{ target_query.selected_report.title }}"
-                        data-start-utc="{{ target_query.selected_report.query_start_utc if target_query.selected_report.query_start_utc is not none else '' }}"
-                        data-end-utc="{{ target_query.selected_report.query_end_utc if target_query.selected_report.query_end_utc is not none else '' }}"
-                        aria-controls="query-content-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}"
-                        aria-selected="true">
-                    {{ target_query.selected_report.short_code }}
+                        data-query-target="#query-content-{{ day | safe_id }}-{{ loop.index0 }}"
+                        data-query-code="{{ report.code }}"
+                        data-query-title="{{ report.title }}"
+                        data-query-timestamp="{{ report.query_timestamp | default('N/A') }}"
+                        data-start-utc="{{ report.query_start_utc if report.query_start_utc is not none else '' }}"
+                        data-end-utc="{{ report.query_end_utc if report.query_end_utc is not none else '' }}"
+                        aria-controls="query-content-{{ day | safe_id }}-{{ loop.index0 }}"
+                        aria-selected="{% if day == target_query.selected_day and loop.index0 == target_query.selected_index %}true{% else %}false{% endif %}">
+                    {{ report.short_code }}
                 </button>
+                    {% endfor %}
+                {% endfor %}
             </div>
 
-            <div class="tab-content query-tab-content mt-3" id="queryTabContent-{{ target_query.selected_day | safe_id }}">
-                <div class="tab-pane fade show active"
-                     id="query-content-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}"
+            <div class="tab-content query-tab-content mt-3" id="queryTabContent-target-query">
+                {% for day, reports_list in reports.by_day.items()|sort %}
+                    {% for report in reports_list %}
+                <div class="tab-pane fade {% if day == target_query.selected_day and loop.index0 == target_query.selected_index %}show active{% endif %}"
+                     id="query-content-{{ day | safe_id }}-{{ loop.index0 }}"
                      role="tabpanel"
-                     aria-labelledby="query-tab-{{ target_query.selected_day | safe_id }}-{{ target_query.selected_index }}">
-                    {{ target_query_details_content(target_query.selected_report, target_query.selected_day, target_query.selected_index, optimizations) }}
+                     aria-labelledby="query-tab-{{ day | safe_id }}-{{ loop.index0 }}">
+                    {{ target_query_details_content(report, day, loop.index0, optimizations) }}
+                </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<section id="targetQueryContextSection" class="mt-4">
+    {% include 'components/_context_section.html' %}
+</section>
+
+<div class="modal fade" id="planCompareModal" tabindex="-1" aria-labelledby="planCompareModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl plan-compare-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header plan-compare-modal-header">
+                <div>
+                    <h5 class="modal-title" id="planCompareModalTitle">Plan comparison</h5>
+                    <div class="small text-muted" id="planCompareModalSubtitle"></div>
                 </div>
             </div>
+            <div class="modal-body" id="planCompareModalBody"></div>
         </div>
     </div>
 </div>
