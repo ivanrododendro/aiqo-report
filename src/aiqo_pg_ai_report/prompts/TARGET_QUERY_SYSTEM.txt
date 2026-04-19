@@ -14,3 +14,6 @@ WORK INSTRUCTIONS
 6. When proposing new optimizations, explain why they are still relevant after considering the historical changes already applied.
 7. Focus on the impact on this target query only, not on the whole workload.
 8. If an optimization happened after the last observed execution, state that it cannot explain any observed improvement or regression in the data.
+9. Prefer concise, decision-oriented analysis over exhaustive explanation.
+10. Mention technical details only when they change the conclusion or support a concrete action.
+11. State uncertainty briefly; do not expand it into long caveats.

@@ -4,23 +4,27 @@ Expected format:
 - Do not generate markdown tables
 - Keep the output structured with short titled sections
 - Use only HTML fragments that can be safely embedded inside an existing report section
+- Keep the whole response between 250 and 350 words when possible
+- Use at most 2-3 short sentences or bullets per section
+- Do not repeat the full SQL, full execution plans, or raw metric lists already present in the report
+- Focus on trends, before/after correlations, and the few actions that matter
 
 Use exactly these sections:
 1. Executive Summary
-   Maximum 6 lines. Summarize the main observed trend for the target query over time.
+   Maximum 3 lines. Summarize the main observed trend for the target query over time.
 2. Timeline Analysis
-   Explain the relevant execution phases and correlate them with dated query optimizations, server optimizations, and events.
+   Briefly correlate only the relevant execution phases with dated query optimizations, server optimizations, and events.
 3. Plan Evolution
-   Highlight the main execution plan changes and their probable impact on duration, IO, rows, and WAL.
+   Highlight only the main execution plan changes and their probable impact on duration, IO, rows, and WAL.
 4. Impact Assessment
    Separate findings into:
    - Evidence-backed impact
    - Plausible but unproven impact
    - No visible impact
 5. Remaining Optimization Paths
-   Provide only actionable optimizations that are not already applied, each with rationale and drawback.
+   Provide only the top actionable optimizations that are not already applied, each with a short rationale and drawback.
 6. Data Quality Notes
-   Mention missing evidence, ambiguity, or limits in the dataset when relevant.
+   Mention missing evidence, ambiguity, or limits in the dataset only when relevant.
 
 Suggested HTML structure:
 <p><h3>Executive Summary</h3>...</p>
