@@ -236,13 +236,21 @@ class PGAutoExplainAnalyzer:
 
         return target_query_code, self._sort_entries_by_timestamp(matching_entries)
 
+    def _apply_target_query_occurrence_limit(self, target_entries: list[dict]) -> list[dict]:
+        if self.limit_ai_calls == DEFAULT_MAX_AI_CALLS_UNLIMITED:
+            return target_entries
+
+        limited_entries = target_entries[: self.limit_ai_calls]
+        logger.info(
+            "Target query occurrence limit applied: using %s of %s matching occurrences",
+            len(limited_entries),
+            len(target_entries),
+        )
+        return limited_entries
+
     def _perform_target_query_ai_analysis(self, query_code: str, target_entries: list[dict]) -> str:
         if self.skip_ai_analysis:
             logger.info("Skipping target query AI analysis because AI analysis is disabled")
-            return DEFAULT_TARGET_QUERY_AI_SKIP_MESSAGE
-
-        if self.limit_ai_calls != -1 and self.ai_caller.call_count >= self.limit_ai_calls:
-            logger.warning("AI call limit reached. Skipping target query AI analysis")
             return DEFAULT_TARGET_QUERY_AI_SKIP_MESSAGE
 
         prompt_segments = self.context_loader.build_target_query_prompt_segments(
@@ -335,6 +343,13 @@ class PGAutoExplainAnalyzer:
 
         if not target_entries or query_code is None:
             logger.error("No query matched target query filter %s", self.target_query)
+            self.ai_caller.show_stats()
+            self._log_processing_statistics(log_files, start_time, total_queries_override=0)
+            sys.exit(1)
+
+        target_entries = self._apply_target_query_occurrence_limit(target_entries)
+        if not target_entries:
+            logger.error("Target query occurrence limit excluded all matches for filter %s", self.target_query)
             self.ai_caller.show_stats()
             self._log_processing_statistics(log_files, start_time, total_queries_override=0)
             sys.exit(1)
@@ -523,7 +538,13 @@ class PGAutoExplainAnalyzer:
             logger.info("Skipping AI Analysis")
         else:
             logger.info(f"Using model: {self.model}")
-            logger.info(f"Maximum AI calls: {self.limit_ai_calls if self.limit_ai_calls != -1 else 'Unlimited'}")
+            if self.target_query:
+                logger.info(
+                    "Maximum target query occurrences: %s",
+                    self.limit_ai_calls if self.limit_ai_calls != -1 else "Unlimited",
+                )
+            else:
+                logger.info(f"Maximum AI calls: {self.limit_ai_calls if self.limit_ai_calls != -1 else 'Unlimited'}")
             logger.info(f"AI API call timeout: {self.ai_call_timeout} seconds")
             logger.info(f"Language for AI output: {self.language}")
             logger.info(f"AI Analysis only for Seq Scan queries : {self.only_seq_scan_ai_analysis}")
@@ -651,6 +672,8 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
         help=(
             "Maximum number of per-query AI calls to make. "
+            "In target query mode, limits the number of matching query occurrences included in the aggregated "
+            "analysis. "
             f"Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})"
         ),
     )

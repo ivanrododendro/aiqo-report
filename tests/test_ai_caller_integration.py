@@ -699,6 +699,96 @@ def test_target_query_mode_aggregates_matching_occurrences_and_prints_to_stdout(
     assert "Vacuum freeze completed outside target range" not in completion_prompts[0]
 
 
+def test_target_query_mode_limit_ai_calls_limits_considered_occurrences(monkeypatch, capsys):
+    log_path = Path("tests/data/full-text-plan.log")
+    completion_prompts = []
+    generated_target_reports = []
+    target_sql = "select * from demo where id = 1"
+    target_code = pg_autoexplain_analyzer.SQLUtils.get_short_query_code(target_sql)
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.litellm,
+        "get_model_info",
+        lambda model: {"max_input_tokens": 128000, "litellm_provider": "openai"},
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "token_counter", lambda **kwargs: 10)
+
+    class DummyUsage:
+        def __init__(self) -> None:
+            self.prompt_tokens = 5
+            self.completion_tokens = 2
+
+    class DummyMessage:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class DummyChoice:
+        def __init__(self, content: str) -> None:
+            self.message = DummyMessage(content)
+
+    class DummyResponse:
+        def __init__(self, content: str) -> None:
+            self.usage = DummyUsage()
+            self.choices = [DummyChoice(content)]
+
+    def fake_completion(**kwargs):
+        completion_prompts.append(kwargs["messages"][-1]["content"])
+        return DummyResponse("limited target analysis")
+
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion", fake_completion)
+    monkeypatch.setattr(pg_autoexplain_analyzer.litellm, "completion_cost", lambda completion_response: 0.0)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "get_query_optimizations", lambda *args, **kwargs: [])
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                {
+                    **_build_log_entry("2025-11-26 14:42:44 CET", "-- Task First"),
+                    "query_text": target_sql,
+                    "execution_plan": "Plan A",
+                },
+                {
+                    **_build_log_entry("2025-11-27 14:42:44 CET", "-- Task Second"),
+                    "query_text": target_sql,
+                    "execution_plan": "Plan B",
+                },
+                {
+                    **_build_log_entry("2025-11-28 14:42:44 CET", "-- Task Third"),
+                    "query_text": target_sql,
+                    "execution_plan": "Plan C",
+                },
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ReportGenerator,
+        "generate_target_query_report",
+        lambda *args, **kwargs: generated_target_reports.append(args),
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-m", "gpt-4o", "-tq", target_code, "-l", "2"])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+    analyzer.context_loader.server_optimizations = []
+    analyzer.context_loader.event_optimizations = []
+    analyzer.context_loader.ddl_context = None
+    analyzer.context_loader.server_configuration_context = None
+    analyzer.context_loader.project_context = None
+
+    analyzer.run()
+
+    output = capsys.readouterr().out
+    assert "Occurrences: 2" in output
+    assert len(completion_prompts) == 1
+    assert "Occurrences: 2" in completion_prompts[0]
+    assert "Plan A" in completion_prompts[0]
+    assert "Plan B" in completion_prompts[0]
+    assert "Plan C" not in completion_prompts[0]
+    assert len(generated_target_reports) == 1
+    assert len(generated_target_reports[0][6]) == 2
+
+
 def test_target_query_mode_exits_when_no_query_matches(monkeypatch):
     log_path = Path("tests/data/full-text-plan.log")
 

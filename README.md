@@ -150,6 +150,7 @@ You can customize the analysis using various command-line arguments:
 
 *   **`--limit-ai-calls <NUMBER>`** (`-l`):
     *   Limits the maximum number of AI calls made during the analysis. Use `-1` for unlimited calls.
+    *   In target query mode (`--target-query`), limits the number of matching query occurrences included in the aggregated analysis instead of limiting AI calls.
     *   Default: `-1` (unlimited)
 
 *   **`--analyze-all-queries`** (`-aaa`):
