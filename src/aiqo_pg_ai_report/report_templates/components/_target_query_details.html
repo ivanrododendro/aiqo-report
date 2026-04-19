@@ -93,11 +93,11 @@
                                 <label class="form-check-label" for="toggle-ann-query-{{ app_id }}">Optimizations</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="toggle-ann-server-{{ app_id }}" data-query-annotation-key="includeServer">
+                                <input class="form-check-input" type="checkbox" id="toggle-ann-server-{{ app_id }}" data-query-annotation-key="includeServer" checked>
                                 <label class="form-check-label" for="toggle-ann-server-{{ app_id }}">Server Optimizations</label>
                             </div>
                             <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="toggle-ann-generic-{{ app_id }}" data-query-annotation-key="includeGeneric">
+                                <input class="form-check-input" type="checkbox" id="toggle-ann-generic-{{ app_id }}" data-query-annotation-key="includeGeneric" checked>
                                 <label class="form-check-label" for="toggle-ann-generic-{{ app_id }}">Events</label>
                             </div>
                         </div>
@@ -122,7 +122,7 @@
 ) %}
 
                         {% if server_legend_all %}
-                        <div class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-server-list-{{ app_id }}">
+                        <div class="card card-body mt-3 fade-toggle is-shown" id="under-chart-server-list-{{ app_id }}">
                             <h6 class="fw-bold mb-2">Server Optimizations</h6>
                             <div class="mb-0">
                                 {% for entry in server_legend_all %}
@@ -136,7 +136,7 @@
                         {% endif %}
 
                         {% if event_legend_all %}
-                        <div class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-event-list-{{ app_id }}">
+                        <div class="card card-body mt-3 fade-toggle is-shown" id="under-chart-event-list-{{ app_id }}">
                             <h6 class="fw-bold mb-2">Events</h6>
                             <div class="mb-0">
                                 {% for entry in event_legend_all %}

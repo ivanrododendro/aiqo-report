@@ -15,8 +15,8 @@
   const queryAnnotationToggleState = {
     initialized: false,
     includeQuery: true,
-    includeServer: false,
-    includeGeneric: false,
+    includeServer: true,
+    includeGeneric: true,
   };
   let planCompareModalState = null;
   let chartContextMenuState = null;

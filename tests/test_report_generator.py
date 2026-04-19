@@ -191,3 +191,88 @@ def test_target_query_template_optimizations_follow_standard_visibility_rule():
     assert 'id="heading-queryopt-app-2026-04-18-1"' not in rendered_without_optimizations
     assert 'id="heading-queryopt-app-2026-04-18-1"' in rendered_with_optimizations
     assert "Added covering index" in rendered_with_optimizations
+
+
+def test_target_query_template_shows_server_optimizations_and_events_by_default():
+    template_base_path = Path(__file__).resolve().parents[1] / "src" / "aiqo_pg_ai_report"
+    generator = ReportGenerator(template_base_path, debug=True)
+
+    rendered = generator.target_query_template.render(
+        metadata={
+            "model": None,
+            "skip_ai_analysis": True,
+            "timestamp": "2026-04-18 10:00:00",
+            "version": "test",
+        },
+        target_query={
+            "short_code": "ABC123",
+            "occurrences": 1,
+            "selected_day": "2026-04-18",
+            "selected_index": 0,
+            "selected_report": {
+                "code": "ABC123DEF456",
+                "short_code": "ABC123",
+                "title": "Target query title",
+                "query_timestamp": "2026-04-18 09:30:00",
+                "query_start_utc": None,
+                "query_end_utc": None,
+                "ai_hints": "",
+                "plan": "No execution plan available",
+            },
+        },
+        reports={
+            "by_day": {
+                "2026-04-18": [
+                    {
+                        "code": "ABC123DEF456",
+                        "short_code": "ABC123",
+                        "title": "Target query title",
+                        "query_timestamp": "2026-04-18 09:30:00",
+                        "query_start_utc": None,
+                        "query_end_utc": None,
+                        "ai_hints": "",
+                        "plan": "No execution plan available",
+                    }
+                ]
+            }
+        },
+        contexts={
+            "ddl": None,
+            "server_config": None,
+            "project": None,
+        },
+        optimizations={
+            "query": {},
+            "annotations": {
+                "legend_entries": {
+                    "generic": [
+                        {
+                            "id": "S1",
+                            "type": "Server",
+                            "date": "2026-04-18",
+                            "text": "Raised work_mem",
+                        },
+                        {
+                            "id": "E1",
+                            "type": "Event",
+                            "date": "2026-04-18",
+                            "text": "Vacuum freeze completed",
+                        },
+                    ]
+                }
+            },
+        },
+    )
+
+    assert (
+        'id="toggle-ann-server-app-2026-04-18-0" data-query-annotation-key="includeServer" checked'
+        in rendered
+    )
+    assert (
+        'id="toggle-ann-generic-app-2026-04-18-0" data-query-annotation-key="includeGeneric" checked'
+        in rendered
+    )
+    assert 'class="card card-body mt-3 fade-toggle is-shown" id="under-chart-server-list-app-2026-04-18-0"' in rendered
+    assert 'class="card card-body mt-3 fade-toggle is-shown" id="under-chart-event-list-app-2026-04-18-0"' in rendered
+    assert 'class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-server-list-app-2026-04-18-0"' not in rendered
+    assert 'class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-event-list-app-2026-04-18-0"' not in rendered
