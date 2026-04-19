@@ -664,8 +664,14 @@ def test_target_query_mode_aggregates_matching_occurrences_and_prints_to_stdout(
 
     args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-m", "gpt-4o", "-tq", target_code])
     analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
-    analyzer.context_loader.server_optimizations = [{"date": "2025-11-25", "text": "Raised work_mem"}]
-    analyzer.context_loader.event_optimizations = [{"date": "2025-11-24", "text": "Vacuum freeze completed"}]
+    analyzer.context_loader.server_optimizations = [
+        {"date": "2025-11-25", "text": "Ignored work_mem outside target range"},
+        {"date": "2025-11-27", "text": "Raised work_mem"},
+    ]
+    analyzer.context_loader.event_optimizations = [
+        {"date": "2025-11-24", "text": "Vacuum freeze completed outside target range"},
+        {"date": "2025-11-26", "text": "Vacuum analyze completed"},
+    ]
     analyzer.context_loader.ddl_context = "CREATE INDEX demo_idx ON demo(id);"
     analyzer.context_loader.server_configuration_context = "shared_buffers = 8GB"
     analyzer.context_loader.project_context = "nightly ETL workload"
@@ -687,7 +693,10 @@ def test_target_query_mode_aggregates_matching_occurrences_and_prints_to_stdout(
     assert "Plan B" in completion_prompts[0]
     assert target_sql in completion_prompts[0]
     assert "Raised work_mem" in completion_prompts[0]
+    assert "Vacuum analyze completed" in completion_prompts[0]
     assert "Added covering index" in completion_prompts[0]
+    assert "Ignored work_mem outside target range" not in completion_prompts[0]
+    assert "Vacuum freeze completed outside target range" not in completion_prompts[0]
 
 
 def test_target_query_mode_exits_when_no_query_matches(monkeypatch):

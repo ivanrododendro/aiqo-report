@@ -62,3 +62,47 @@ def test_build_general_hints_synthesis_prompt_segments_include_cacheable_context
     assert "<p>hint two</p>" in prompt_segments["dynamic_suffix"]
     assert prompt_segments["dynamic_suffix"].endswith("Please provide the analysis in it.")
     assert prompt_segments["has_static_context"] is True
+
+
+def test_target_query_prompt_segments_limit_optimizations_to_query_date_range(monkeypatch):
+    loader = ContextLoader(script_base_path=Path(__file__).resolve().parents[1] / "src/aiqo_pg_ai_report")
+    loader.server_optimizations = [
+        {"date": "2026-01-04", "text": "server before range"},
+        {"date": "2026-01-05", "text": "server inside range"},
+        {"date": "2026-01-08", "text": "server after range"},
+    ]
+    loader.event_optimizations = [
+        {"date": "2026-01-05", "text": "event inside range"},
+        {"date": "2026-01-09", "text": "event after range"},
+    ]
+    monkeypatch.setattr(
+        loader,
+        "get_query_optimizations",
+        lambda query_code: [
+            {"date": "2026-01-04", "text": "query before range"},
+            {"date": "2026-01-07", "text": "query inside range"},
+        ],
+    )
+    loader.set_query_date_range_from_entries(
+        [
+            {"timestamp": "2026-01-05 10:00:00"},
+            {"timestamp": "2026-01-07 12:00:00"},
+        ]
+    )
+
+    prompt_segments = loader.build_target_query_prompt_segments(
+        query_code="ABCDEF123456",
+        query_text="select * from demo",
+        occurrences=[{"timestamp": "2026-01-05 10:00:00", "execution_plan": "Seq Scan on demo"}],
+        lang="it",
+    )
+
+    cacheable_prefix = prompt_segments["cacheable_prefix"]
+    assert "server inside range" in cacheable_prefix
+    assert "event inside range" in cacheable_prefix
+    assert "query inside range" in cacheable_prefix
+    assert "server before range" not in cacheable_prefix
+    assert "server after range" not in cacheable_prefix
+    assert "event after range" not in cacheable_prefix
+    assert "query before range" not in cacheable_prefix
+    assert prompt_segments["has_static_context"] is True

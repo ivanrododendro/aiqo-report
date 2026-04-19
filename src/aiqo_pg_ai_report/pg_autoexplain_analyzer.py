@@ -339,6 +339,7 @@ class PGAutoExplainAnalyzer:
             self._log_processing_statistics(log_files, start_time, total_queries_override=0)
             sys.exit(1)
 
+        self.context_loader.set_query_date_range_from_entries(target_entries)
         self.context_loader.get_query_optimizations(query_code)
         ai_result = self._perform_target_query_ai_analysis(query_code, target_entries)
         target_report_payload = self._build_target_query_report_payload(query_code, target_entries, ai_result)

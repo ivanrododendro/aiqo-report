@@ -16,6 +16,7 @@ class ContextLoader:
         self.server_optimizations = []
         self.event_optimizations = []
         self.query_optimizations_cache = {}
+        self.query_date_range = None
         self.system_prompt = None
         self.format_prompt = None
         self.general_hints_synthesis_prompt = None
@@ -80,6 +81,56 @@ class ContextLoader:
             logger.error("Failed to load all required AI instruction prompts. Exiting.")
             sys.exit(1)
         logger.info("Loaded AI instruction prompts.")
+
+    @staticmethod
+    def _normalize_date(date_str: str) -> str:
+        return date_str.strip().replace(".", "-")
+
+    @classmethod
+    def _parse_date(cls, date_str: str):
+        from datetime import datetime
+
+        return datetime.strptime(cls._normalize_date(date_str), "%Y-%m-%d")
+
+    def set_query_date_range_from_entries(self, entries: list[dict]) -> None:
+        """Set the inclusive date range covered by parsed query entries."""
+        parsed_dates = []
+        for entry in entries:
+            timestamp = str(entry.get("timestamp") or "").strip()
+            if not timestamp:
+                continue
+            try:
+                parsed_dates.append(self._parse_date(timestamp[:10]))
+            except ValueError:
+                logger.warning("Unable to parse query timestamp for optimization range: %s", timestamp)
+
+        if not parsed_dates:
+            self.query_date_range = None
+            logger.info("No valid query date range found; AI prompts will include all loaded optimizations.")
+            return
+
+        start_date = min(parsed_dates).strftime("%Y-%m-%d")
+        end_date = max(parsed_dates).strftime("%Y-%m-%d")
+        self.query_date_range = (start_date, end_date)
+        logger.info("AI optimization context limited to query date range: %s -> %s", start_date, end_date)
+
+    def _filter_optimizations_for_query_date_range(self, optimizations: list[dict]) -> list[dict]:
+        """Return only optimizations whose date falls inside the parsed query date range."""
+        if not self.query_date_range:
+            return list(optimizations or [])
+
+        start_date, end_date = self.query_date_range
+        filtered_optimizations = []
+        for opt in optimizations or []:
+            try:
+                opt_date = self._parse_date(str(opt.get("date", ""))).strftime("%Y-%m-%d")
+            except ValueError:
+                logger.warning("Skipping optimization with unparsable date for AI prompt: %s", opt.get("date"))
+                continue
+            if start_date <= opt_date <= end_date:
+                filtered_optimizations.append(opt)
+
+        return filtered_optimizations
 
     def _parse_optimization_file(self, file_path: Path):
         """Helper to read and parse an optimization file."""
@@ -364,19 +415,24 @@ class ContextLoader:
         if self.project_context:
             cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
 
-        if self.server_optimizations:
+        current_server_opts = self._filter_optimizations_for_query_date_range(self.server_optimizations)
+        current_event_opts = self._filter_optimizations_for_query_date_range(self.event_optimizations)
+
+        if current_server_opts:
             cacheable_prefix += ">>> SERVER OPTIMIZATIONS\n"
-            for opt in self.server_optimizations:
+            for opt in current_server_opts:
                 cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
             cacheable_prefix += "<<< SERVER OPTIMIZATIONS\n\n"
 
-        if self.event_optimizations:
+        if current_event_opts:
             cacheable_prefix += ">>> EVENTS\n"
-            for opt in self.event_optimizations:
+            for opt in current_event_opts:
                 cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
             cacheable_prefix += "<<< EVENTS\n\n"
 
-        current_query_opts = self.get_query_optimizations(query_code)
+        current_query_opts = self._filter_optimizations_for_query_date_range(
+            self.get_query_optimizations(query_code) or []
+        )
         if current_query_opts:
             cacheable_prefix += ">>> QUERY OPTIMIZATIONS\n"
             for opt in current_query_opts:
@@ -408,8 +464,8 @@ class ContextLoader:
                     bool(self.ddl_context),
                     bool(self.server_configuration_context),
                     bool(self.project_context),
-                    bool(self.server_optimizations),
-                    bool(self.event_optimizations),
+                    bool(current_server_opts),
+                    bool(current_event_opts),
                     bool(current_query_opts),
                     bool(custom_prompt),
                 ]
