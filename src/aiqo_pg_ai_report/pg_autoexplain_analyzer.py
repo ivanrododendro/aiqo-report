@@ -321,11 +321,11 @@ class PGAutoExplainAnalyzer:
         from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
 
         target_data_processor = ReportDataProcessor()
-        last_index = len(target_entries) - 1
 
-        for index, entry in enumerate(target_entries):
-            report_ai_hints = ai_result if index == last_index else ""
-            report = target_data_processor.create_report_entry(entry, query_code, report_ai_hints)
+        for entry in target_entries:
+            # Target query analysis is aggregated across every occurrence, so keep it visible
+            # regardless of which single execution is selected in the report UI.
+            report = target_data_processor.create_report_entry(entry, query_code, ai_result)
             target_data_processor.update_statistics(report)
 
         return {

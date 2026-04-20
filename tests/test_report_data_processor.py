@@ -1,6 +1,27 @@
 from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
 
 
+def test_extract_auto_explain_log_min_duration_formats_supported_units():
+    processor = ReportDataProcessor()
+
+    assert processor.extract_auto_explain_log_min_duration("auto_explain.log_min_duration = '1500ms'") == "1.5 seconds"
+    assert processor.extract_auto_explain_log_min_duration("auto_explain.log_min_duration = 2min") == "2 minutes"
+    assert processor.extract_auto_explain_log_min_duration("auto_explain.log_min_duration | 500") == "500 ms"
+    assert processor.extract_auto_explain_log_min_duration("SET auto_explain.log_min_duration TO '1s';") == "1 second"
+    assert processor.extract_auto_explain_log_min_duration("auto_explain.log_min_duration = -1") == "disabled (-1)"
+    assert (
+        processor.extract_auto_explain_log_min_duration("auto_explain.log_min_duration = 0") == "all statements (0 ms)"
+    )
+
+
+def test_extract_auto_explain_log_min_duration_ignores_missing_or_commented_setting():
+    processor = ReportDataProcessor()
+
+    assert processor.extract_auto_explain_log_min_duration(None) is None
+    assert processor.extract_auto_explain_log_min_duration("-- auto_explain.log_min_duration = 1s") is None
+    assert processor.extract_auto_explain_log_min_duration("shared_buffers = 2GB") is None
+
+
 def test_enhance_reports_by_day_adds_query_time_bounds_and_sorts_by_start():
     processor = ReportDataProcessor()
 

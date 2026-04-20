@@ -6,6 +6,10 @@
         <h1 class="text-start mb-2">PostgreSQL Auto Explain Report</h1>
         {% endif %}
         <h3 class="text-start text-muted mb-1">Report date: {{ metadata.timestamp | default("N/A") }}</h3>
+        {% if metadata.auto_explain_log_min_duration %}
+        <p class="text-start text-muted mb-1">auto_explain.log_min_duration: {{ metadata.auto_explain_log_min_duration }}</p>
+        <p class="text-start text-muted mb-1">Only queries exceeding this threshold are displayed in the report.</p>
+        {% endif %}
         <p class="text-start text-muted mb-0">Version: v{{ metadata.version | default("unknown") }}</p>
     </div>
     <div class="flex-shrink-0">

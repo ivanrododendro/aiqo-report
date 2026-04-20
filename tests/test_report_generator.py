@@ -3,6 +3,29 @@ from pathlib import Path
 from aiqo_pg_ai_report.report_generator import ReportGenerator
 
 
+def _minimal_report(code="ABC123DEF456", timestamp="2026-04-18 09:30:00"):
+    return {
+        "code": code,
+        "short_code": code[:6],
+        "title": "Target query title",
+        "query_text": "select * from demo",
+        "query_name": "demo query",
+        "job_name": "demo job",
+        "query_timestamp": timestamp,
+        "day": timestamp[:10],
+        "query_start_utc": None,
+        "query_end_utc": None,
+        "seq_scan_indicator": False,
+        "duration": 1500,
+        "cost": 10,
+        "rows": 1,
+        "buffers": None,
+        "wal": None,
+        "ai_hints": "",
+        "plan": "No execution plan available",
+    }
+
+
 def test_head_template_embeds_svg_favicon():
     template_base_path = Path(__file__).resolve().parents[1] / "src" / "aiqo_pg_ai_report"
     generator = ReportGenerator(template_base_path, debug=True)
@@ -12,6 +35,41 @@ def test_head_template_embeds_svg_favicon():
     assert 'rel="icon"' in rendered
     assert 'rel="shortcut icon"' in rendered
     assert "data:image/svg+xml;base64," in rendered
+
+
+def test_standard_report_header_shows_auto_explain_log_min_duration_from_server_config(tmp_path):
+    template_base_path = Path(__file__).resolve().parents[1] / "src" / "aiqo_pg_ai_report"
+    generator = ReportGenerator(template_base_path, debug=True)
+    report = _minimal_report()
+    output_path = tmp_path / "report.html"
+
+    generator.generate_report(
+        output_path=output_path,
+        title="PostgreSQL Auto Explain Report",
+        model=None,
+        app_version="test",
+        query_stats=[{"code": report["code"], "name": "demo query", "count": 1, "cumulated_time": 1500}],
+        reports_by_day={report["day"]: [report]},
+        daily_query_stats={
+            report["day"]: {
+                "total_queries": 1,
+                "cumulated_time": 1500,
+                "queries_by_code": {report["code"]: 1500},
+            }
+        },
+        query_optimizations={},
+        server_optimizations=[],
+        event_optimizations=[],
+        ddl_context=None,
+        server_config_context="auto_explain.log_min_duration = '1500ms'",
+        project_context=None,
+        skip_ai_analysis=True,
+        general_hints_synthesis=None,
+    )
+
+    rendered = output_path.read_text(encoding="utf-8")
+    assert "auto_explain.log_min_duration: 1.5 seconds" in rendered
+    assert "Only queries exceeding this threshold are displayed in the report." in rendered
 
 
 def test_target_query_template_hides_selected_execution_card_and_keeps_selected_report_details():
@@ -24,6 +82,7 @@ def test_target_query_template_hides_selected_execution_card_and_keeps_selected_
             "skip_ai_analysis": True,
             "timestamp": "2026-04-18 10:00:00",
             "version": "test",
+            "auto_explain_log_min_duration": "2 minutes",
         },
         target_query={
             "short_code": "ABC123",
@@ -93,6 +152,8 @@ def test_target_query_template_hides_selected_execution_card_and_keeps_selected_
     assert "Selected execution" in rendered
     assert 'id="selectedExecutionLabel"' in rendered
     assert "2026-04-18 09:30:00" in rendered
+    assert "auto_explain.log_min_duration: 2 minutes" in rendered
+    assert "Only queries exceeding this threshold are displayed in the report." in rendered
     assert ">Target Query<" in rendered
     assert ">Occurrences<" in rendered
     assert "col-12 col-lg-4" in rendered

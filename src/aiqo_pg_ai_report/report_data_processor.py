@@ -11,6 +11,22 @@ BYTES_PER_BUFFER_BLOCK = 8192
 BUFFER_KEYS_FOR_TOTAL_IO = ("shared_read", "shared_dirtied", "shared_written", "temp_read", "temp_written")
 DUPLICATE_QUERY_AI_SKIP_MESSAGE = "AI analysis skipped, same query was already analyzed earlier."
 PLAN_COMPARISON_STABLE_THRESHOLD = 0.15
+POSTGRES_TIME_UNIT_TO_MS = {
+    "us": 0.001,
+    "ms": 1.0,
+    "s": 1000.0,
+    "min": 60_000.0,
+    "h": 3_600_000.0,
+    "d": 86_400_000.0,
+}
+POSTGRES_TIME_UNIT_LABELS = {
+    "us": ("microsecond", "microseconds"),
+    "ms": ("ms", "ms"),
+    "s": ("second", "seconds"),
+    "min": ("minute", "minutes"),
+    "h": ("hour", "hours"),
+    "d": ("day", "days"),
+}
 
 
 class ReportDataProcessor:
@@ -165,6 +181,7 @@ class ReportDataProcessor:
                 "skip_ai_analysis": skip_ai_analysis,
                 "version": app_version,
                 "query_name_limit": self.query_name_limit,
+                "auto_explain_log_min_duration": self.extract_auto_explain_log_min_duration(server_config_context),
             },
             "statistics": {
                 "global_query_stats": query_stats,
@@ -197,6 +214,80 @@ class ReportDataProcessor:
         }
 
         return context
+
+    @classmethod
+    def extract_auto_explain_log_min_duration(cls, server_config_context: str | None) -> str | None:
+        """Extract and format auto_explain.log_min_duration from CONFIG.txt content."""
+        if not server_config_context:
+            return None
+
+        setting_pattern = re.compile(
+            (
+                r"\bauto_explain\.log_min_duration\b\s*(?:=|\bTO\b|\|)\s*['\"]?"
+                r"([+-]?\d+(?:\.\d+)?)\s*([a-zA-Z]+)?"
+            ),
+            re.IGNORECASE,
+        )
+
+        for raw_line in server_config_context.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or line.startswith("--"):
+                continue
+
+            match = setting_pattern.search(line)
+            if not match:
+                continue
+
+            raw_value = match.group(1)
+            unit = (match.group(2) or "ms").lower()
+            return cls._format_auto_explain_log_min_duration(raw_value, unit)
+
+        return None
+
+    @classmethod
+    def _format_auto_explain_log_min_duration(cls, raw_value: str, unit: str) -> str:
+        try:
+            value = float(raw_value)
+        except ValueError:
+            return f"{raw_value} {unit}".strip()
+
+        if value == -1:
+            return "disabled (-1)"
+        if value == 0:
+            return "all statements (0 ms)"
+
+        if unit not in POSTGRES_TIME_UNIT_TO_MS:
+            return f"{cls._format_duration_number(value)} {unit}".strip()
+
+        milliseconds = value * POSTGRES_TIME_UNIT_TO_MS[unit]
+        return cls._format_duration_from_ms(milliseconds)
+
+    @classmethod
+    def _format_duration_from_ms(cls, milliseconds: float) -> str:
+        abs_milliseconds = abs(milliseconds)
+        display_units = (
+            ("d", 86_400_000.0),
+            ("h", 3_600_000.0),
+            ("min", 60_000.0),
+            ("s", 1000.0),
+            ("ms", 1.0),
+            ("us", 0.001),
+        )
+
+        for unit, unit_ms in display_units:
+            if abs_milliseconds >= unit_ms or unit == "us":
+                value = milliseconds / unit_ms
+                singular, plural = POSTGRES_TIME_UNIT_LABELS[unit]
+                label = singular if abs(value) == 1 else plural
+                return f"{cls._format_duration_number(value)} {label}"
+
+        return f"{cls._format_duration_number(milliseconds)} ms"
+
+    @staticmethod
+    def _format_duration_number(value: float) -> str:
+        if isfinite(value) and value.is_integer():
+            return str(int(value))
+        return f"{value:.3f}".rstrip("0").rstrip(".")
 
     def _collect_all_dates(self, daily_query_stats, query_optimizations, server_optimizations, event_optimizations):
         """Collect unique dates from query reports only and normalize optimization dates."""

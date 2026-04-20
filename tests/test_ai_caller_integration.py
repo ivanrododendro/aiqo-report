@@ -699,6 +699,37 @@ def test_target_query_mode_aggregates_matching_occurrences_and_prints_to_stdout(
     assert "Vacuum freeze completed outside target range" not in completion_prompts[0]
 
 
+def test_target_query_payload_keeps_aggregated_ai_hints_on_every_occurrence():
+    target_sql = "select * from demo where id = 1"
+    target_code = pg_autoexplain_analyzer.SQLUtils.get_query_code(target_sql)
+    target_entries = [
+        {
+            **_build_log_entry("2025-11-26 14:42:44 CET", "-- Task First"),
+            "query_text": target_sql,
+            "execution_plan": "Plan A",
+        },
+        {
+            **_build_log_entry("2025-11-27 14:42:44 CET", "-- Task Second"),
+            "query_text": target_sql,
+            "execution_plan": "Plan B",
+        },
+    ]
+
+    payload = pg_autoexplain_analyzer.PGAutoExplainAnalyzer._build_target_query_report_payload(
+        target_code,
+        target_entries,
+        "aggregated target analysis",
+    )
+
+    reports = [
+        report
+        for reports_for_day in payload["reports_by_day"].values()
+        for report in reports_for_day
+    ]
+    assert len(reports) == 2
+    assert {report["ai_hints"] for report in reports} == {"aggregated target analysis"}
+
+
 def test_target_query_mode_limit_ai_calls_limits_considered_occurrences(monkeypatch, capsys):
     log_path = Path("tests/data/full-text-plan.log")
     completion_prompts = []
