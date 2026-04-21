@@ -3,6 +3,7 @@
 import argparse
 import locale
 import logging
+import os
 import sys  # Import sys for exit
 import time
 from pathlib import Path
@@ -93,6 +94,8 @@ class PGAutoExplainAnalyzer:
             prompts={},  # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
             debug=args.debug,
             disable_provider_cache=args.disable_provider_cache,
+            litellm_api_base=args.litellm_api_base,
+            litellm_api_key=args.litellm_api_key,
         )
         try:
             self.log_parser = self._create_log_parser(args.format)
@@ -551,6 +554,8 @@ class PGAutoExplainAnalyzer:
             logger.info(f"Analyze all query occurrences independently: {self.analyze_all_queries}")
             logger.info(f"General hints synthesis disabled: {self.disable_general_hints_synthesis}")
             logger.info(f"Provider-side prompt cache disabled: {self.args.disable_provider_cache}")
+            if self.args.litellm_api_base:
+                logger.info("LiteLLM proxy API base configured: %s", self.args.litellm_api_base)
             if self.custom_prompt:
                 logger.info(f"Custom prompt provided: {self.custom_prompt}")
             # Updated log messages for DDL and server config context
@@ -689,6 +694,16 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Disable provider-side prompt caching for all supported LLM providers (default: false)",
     )
     parser.add_argument(
+        "--litellm-api-base",
+        default=None,
+        help="LiteLLM proxy API base URL. Falls back to LITELLM_API_BASE when omitted.",
+    )
+    parser.add_argument(
+        "--litellm-api-key",
+        default=None,
+        help="LiteLLM proxy API key. Falls back to LITELLM_API_KEY when omitted.",
+    )
+    parser.add_argument(
         "--disable-general-hints-synthesis",
         action="store_true",
         help="Disable the additional AI call that synthesizes recurring generic hints across analyzed queries.",
@@ -758,6 +773,9 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
     if args.supported_models:
         _show_supported_models_and_exit()
+
+    args.litellm_api_base = args.litellm_api_base or os.getenv("LITELLM_API_BASE")
+    args.litellm_api_key = args.litellm_api_key or os.getenv("LITELLM_API_KEY")
 
     if args.target_query is not None:
         try:

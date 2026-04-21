@@ -11,6 +11,7 @@ from aiqo_pg_ai_report.provider_strategies import (
     AnthropicProviderStrategy,
     GeminiProviderStrategy,
     GenericProviderStrategy,
+    LiteLLMProxyProviderStrategy,
     OpenAIProviderStrategy,
     build_provider_strategy,
 )
@@ -99,10 +100,13 @@ def test_get_model_token_limit_fallback(monkeypatch):
 def test_build_provider_strategy_returns_expected_strategy_for_each_provider():
     assert isinstance(build_provider_strategy(None), GenericProviderStrategy)
     assert isinstance(build_provider_strategy("openai"), OpenAIProviderStrategy)
+    assert isinstance(build_provider_strategy("litellm_proxy"), LiteLLMProxyProviderStrategy)
     assert isinstance(build_provider_strategy("anthropic"), AnthropicProviderStrategy)
     assert isinstance(build_provider_strategy("gemini"), GeminiProviderStrategy)
     assert isinstance(build_provider_strategy("google"), GeminiProviderStrategy)
-    assert isinstance(build_provider_strategy("vertex_ai-language-models", model="gemini-2.5-flash"), GeminiProviderStrategy)
+    assert isinstance(
+        build_provider_strategy("vertex_ai-language-models", model="gemini-2.5-flash"), GeminiProviderStrategy
+    )
 
 
 def test_call_ai_provider_success(monkeypatch):
@@ -333,6 +337,79 @@ def test_build_response_params_gemini_sets_top_k_and_omits_prompt_cache_key(monk
     assert "prompt_cache_key" not in response_params
 
 
+def test_get_effective_model_keeps_litellm_proxy_prefix(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
+    )
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_llm_provider",
+        lambda model: (model.removeprefix("litellm_proxy/"), "litellm_proxy", None, None),
+    )
+
+    caller = AiCaller(model="litellm_proxy/gpt-4o", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    assert caller._get_effective_model() == "litellm_proxy/gpt-4o"
+
+
+def test_build_response_params_litellm_proxy_uses_proxy_config_and_omits_provider_params(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai", "supports_prompt_caching": True},
+    )
+
+    caller = AiCaller(
+        model="litellm_proxy/report-model",
+        ai_call_timeout=7,
+        lang="en",
+        prompts={},
+        debug=False,
+        litellm_api_base="http://localhost:4000",
+        litellm_api_key="sk-proxy",
+    )
+
+    response_params = caller._build_response_params(
+        effective_model="litellm_proxy/report-model",
+        provider="litellm_proxy",
+        model_info={"litellm_provider": "openai", "supports_prompt_caching": True},
+        messages=[{"role": "user", "content": "prompt"}],
+        cacheable_prefix="static prompt",
+        has_static_context=True,
+        cacheable_prefix_token_count=2048,
+    )
+
+    assert response_params["model"] == "litellm_proxy/report-model"
+    assert response_params["request_timeout"] == 7
+    assert response_params["api_base"] == "http://localhost:4000"
+    assert response_params["api_key"] == "sk-proxy"
+    assert "top_k" not in response_params
+    assert "prompt_cache_key" not in response_params
+
+
+def test_build_messages_litellm_proxy_adds_system_prompt_for_alias(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "openai"},
+    )
+
+    caller = AiCaller(model="litellm_proxy/report-model", ai_call_timeout=5, lang="en", prompts={}, debug=False)
+
+    messages = caller._build_messages(
+        prompt="prompt text",
+        provider="litellm_proxy",
+        model_info={"litellm_provider": "openai"},
+        cacheable_prefix="static prompt",
+        dynamic_suffix="\n\ndynamic",
+        has_static_context=True,
+        cacheable_prefix_token_count=2048,
+    )
+
+    assert messages == [
+        {"role": "system", "content": "You are a PostgreSQL optimization expert."},
+        {"role": "user", "content": "prompt text"},
+    ]
+
+
 def test_call_ai_provider_openai_does_not_set_prompt_cache_key_when_disabled(monkeypatch):
     captured_completion: dict = {}
 
@@ -448,6 +525,47 @@ def test_call_ai_provider_token_counter_failure(monkeypatch):
 
     assert "AI analysis skipped" in result
     assert caller.call_count == 1
+
+
+def test_call_ai_provider_litellm_proxy_uses_defaults_and_local_token_estimate(monkeypatch):
+    captured_completion: dict = {}
+
+    def raising_model_info(model):
+        raise RuntimeError("unknown alias")
+
+    def fake_get_llm_provider(model):
+        return model.removeprefix("litellm_proxy/"), "litellm_proxy", None, None
+
+    def raising_token_counter(**kwargs):
+        raise RuntimeError("unknown alias")
+
+    def fake_completion(**kwargs):
+        captured_completion.update(kwargs)
+        return DummyResponse(prompt_tokens=0, completion_tokens=0, content="proxy ok")
+
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.get_model_info", raising_model_info)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.get_llm_provider", fake_get_llm_provider)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.token_counter", raising_token_counter)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion", fake_completion)
+    monkeypatch.setattr("aiqo_pg_ai_report.ai_caller.litellm.completion_cost", lambda **kwargs: 0.0)
+
+    caller = AiCaller(
+        model="litellm_proxy/report-alias",
+        ai_call_timeout=5,
+        lang="en",
+        prompts={},
+        debug=False,
+        litellm_api_base="http://localhost:4000",
+    )
+
+    result = caller.call_ai_provider("prompt text")
+
+    assert result == "proxy ok"
+    assert caller.token_limit == DEFAULT_TOKEN_LIMIT
+    assert captured_completion["model"] == "litellm_proxy/report-alias"
+    assert captured_completion["api_base"] == "http://localhost:4000"
+    assert "api_key" not in captured_completion
+    assert "top_k" not in captured_completion
 
 
 def test_call_ai_provider_timeout(monkeypatch):

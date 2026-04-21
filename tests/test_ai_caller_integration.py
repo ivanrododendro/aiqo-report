@@ -143,6 +143,54 @@ def test_disable_provider_cache_flag_is_parsed_and_forwarded(monkeypatch):
     assert analyzer.ai_caller.disable_provider_cache is True
 
 
+def test_litellm_proxy_cli_options_are_parsed_and_forwarded(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ContextLoader,
+        "load_all_contexts",
+        lambda *args, **kwargs: None,
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments(
+        [
+            str(log_path),
+            "-m",
+            "litellm_proxy/report-model",
+            "--litellm-api-base",
+            "http://localhost:4000",
+            "--litellm-api-key",
+            "sk-proxy",
+        ]
+    )
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+
+    assert args.litellm_api_base == "http://localhost:4000"
+    assert args.litellm_api_key == "sk-proxy"
+    assert analyzer.ai_caller.litellm_api_base == "http://localhost:4000"
+    assert analyzer.ai_caller.litellm_api_key == "sk-proxy"
+
+
+def test_litellm_proxy_cli_options_fall_back_to_environment(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+
+    monkeypatch.setenv("LITELLM_API_BASE", "http://env-proxy:4000")
+    monkeypatch.setenv("LITELLM_API_KEY", "sk-env")
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ContextLoader,
+        "load_all_contexts",
+        lambda *args, **kwargs: None,
+    )
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-m", "litellm_proxy/report-model"])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+
+    assert args.litellm_api_base == "http://env-proxy:4000"
+    assert args.litellm_api_key == "sk-env"
+    assert analyzer.ai_caller.litellm_api_base == "http://env-proxy:4000"
+    assert analyzer.ai_caller.litellm_api_key == "sk-env"
+
+
 def test_ai_analysis_runs_once_per_query_by_default_and_reuses_hints(monkeypatch):
     log_path = Path("tests/data/full-text-plan.log")
     completion_calls = []
@@ -721,11 +769,7 @@ def test_target_query_payload_keeps_aggregated_ai_hints_on_every_occurrence():
         "aggregated target analysis",
     )
 
-    reports = [
-        report
-        for reports_for_day in payload["reports_by_day"].values()
-        for report in reports_for_day
-    ]
+    reports = [report for reports_for_day in payload["reports_by_day"].values() for report in reports_for_day]
     assert len(reports) == 2
     assert {report["ai_hints"] for report in reports} == {"aggregated target analysis"}
 

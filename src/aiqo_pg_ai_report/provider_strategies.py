@@ -20,6 +20,8 @@ class ProviderStrategyContext:
     cacheable_prefix_token_count: int
     disable_provider_cache: bool
     ai_call_timeout: int
+    litellm_api_base: str | None = None
+    litellm_api_key: str | None = None
 
     @property
     def is_chat_model(self) -> bool:
@@ -99,6 +101,29 @@ class OpenAIProviderStrategy(GenericProviderStrategy):
             and context.cacheable_prefix_token_count >= self.MIN_CACHEABLE_TOKENS
             and self._supports_prompt_caching(context.model_info)
         )
+
+
+class LiteLLMProxyProviderStrategy(GenericProviderStrategy):
+    def build_messages(self, context: ProviderStrategyContext):
+        return [
+            {"role": "system", "content": POSTGRESQL_OPTIMIZATION_SYSTEM_PROMPT},
+            {"role": "user", "content": context.prompt},
+        ]
+
+    def build_response_params(self, context: ProviderStrategyContext, effective_model: str, messages):
+        response_params = {
+            "model": effective_model,
+            "messages": messages,
+            "request_timeout": context.ai_call_timeout,
+            "temperature": 1.0,
+            "seed": 42,
+            "drop_params": True,
+        }
+        if context.litellm_api_base:
+            response_params["api_base"] = context.litellm_api_base
+        if context.litellm_api_key:
+            response_params["api_key"] = context.litellm_api_key
+        return response_params
 
 
 class AnthropicProviderStrategy(GenericProviderStrategy):
@@ -212,6 +237,8 @@ def build_provider_strategy(provider: str | None, model: str | None = None):
 
     if normalized_provider == "openai":
         return OpenAIProviderStrategy()
+    if normalized_provider == "litellm_proxy":
+        return LiteLLMProxyProviderStrategy()
     if normalized_provider == "anthropic":
         return AnthropicProviderStrategy()
     if normalized_provider == "gemini":

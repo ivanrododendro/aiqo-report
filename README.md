@@ -37,6 +37,17 @@ set GEMINI_API_KEY="your_gemini_api_key_here"
 
 You can also use a generic `LITELLM_API_KEY` if you are using a provider that `litellm` supports via this generic key. Refer to the [LiteLLM documentation](https://litellm.ai/docs/providers) for specific provider configurations.
 
+To route analysis through a LiteLLM Proxy Server, use the `litellm_proxy/<model-or-alias>` model prefix and configure the proxy endpoint:
+
+```bash
+set LITELLM_API_BASE="http://localhost:4000"
+set LITELLM_API_KEY="your_litellm_proxy_key_here"
+
+./pg_aiqo_report /path/to/your/postgresql.log --model "litellm_proxy/pg-report-model"
+```
+
+The proxy must expose a model or alias matching the value after `litellm_proxy/`. You can also pass the proxy settings explicitly with `--litellm-api-base` and `--litellm-api-key`.
+
 ## Basic Usage
 
 To analyze a PostgreSQL log file with default settings:
@@ -141,7 +152,7 @@ You can customize the analysis using various command-line arguments:
     *   Example: `/var/log/postgresql/postgresql-2023-01-01.log`
 
 *   **`--model <MODEL>`** (`-m`):
-    *   Specify the AI model to use for analysis (e.g., `gpt-4o`, `gemini-1.5-pro`, `o1-mini`).
+    *   Specify the AI model to use for analysis (e.g., `gpt-4o`, `gemini-1.5-pro`, `o1-mini`, `litellm_proxy/pg-report-model`).
     *   Default: `gemini-3.1-flash-lite-preview`
 
 *   **`--format <FORMAT>`** (`-fmt`):
@@ -168,6 +179,15 @@ You can customize the analysis using various command-line arguments:
     *   When enabled, OpenAI requests are sent without `prompt_cache_key`, and Gemini/Claude requests are sent without provider cache markers.
     *   This is a flag, no value needed.
     *   Default: `False`
+
+*   **`--litellm-api-base <URL>`**:
+    *   Sets the LiteLLM Proxy Server API base URL for models using the `litellm_proxy/` prefix.
+    *   Falls back to the `LITELLM_API_BASE` environment variable.
+
+*   **`--litellm-api-key <KEY>`**:
+    *   Sets the LiteLLM Proxy Server API key for models using the `litellm_proxy/` prefix.
+    *   Falls back to the `LITELLM_API_KEY` environment variable.
+    *   Optional for proxy deployments that do not require authentication.
 
 *   **`--language <LANG>`**:
     *   Set the output language for the generated report and AI analysis.

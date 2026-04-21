@@ -1,4 +1,5 @@
 import logging
+import math
 
 import litellm
 from aiqo_pg_ai_report.provider_strategies import ProviderStrategyContext, build_provider_strategy
@@ -10,12 +11,24 @@ DEFAULT_AI_CALL_TIMEOUT = 90
 
 
 class AiCaller:
-    def __init__(self, model, ai_call_timeout, lang, prompts, debug, disable_provider_cache=False):
+    def __init__(
+        self,
+        model,
+        ai_call_timeout,
+        lang,
+        prompts,
+        debug,
+        disable_provider_cache=False,
+        litellm_api_base: str | None = None,
+        litellm_api_key: str | None = None,
+    ):
         self.model = model
         self.ai_call_timeout = ai_call_timeout
         self.lang = lang
         self.prompts = prompts
         self.disable_provider_cache = disable_provider_cache
+        self.litellm_api_base = litellm_api_base
+        self.litellm_api_key = litellm_api_key
         self.total_input_tokens = 0
         self.total_output_tokens = 0
         self.total_cached_input_tokens = 0
@@ -29,15 +42,22 @@ class AiCaller:
             logger.info("LiteLLM debug mode enabled.")
 
     def _get_model_token_limit(self):
-        model_info = litellm.get_model_info(self.model)
+        model_info = self._get_model_info(self.model)
         if model_info and "max_input_tokens" in model_info and model_info["max_input_tokens"] is not None:
             logger.info(f"Using input token limit for model {self.model}: {model_info['max_input_tokens']}")
             return model_info["max_input_tokens"]
-        else:
-            logger.warning(
-                f"Could not determine input token limit for model {self.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}"
-            )
-            return DEFAULT_TOKEN_LIMIT
+        logger.warning(
+            f"Could not determine input token limit for model {self.model} from litellm. Falling back to default: {DEFAULT_TOKEN_LIMIT}"
+        )
+        return DEFAULT_TOKEN_LIMIT
+
+    @staticmethod
+    def _get_model_info(model: str):
+        try:
+            return litellm.get_model_info(model)
+        except Exception as e:
+            logger.warning(f"Could not retrieve model info for model {model}: {e}")
+            return None
 
     @staticmethod
     def _get_usage_value(usage, key, default=0):
@@ -93,10 +113,22 @@ class AiCaller:
         return cache_read_tokens, cache_creation_tokens
 
     @staticmethod
-    def _get_provider_name(model_info) -> str | None:
+    def _get_provider_name(model: str, model_info) -> str | None:
+        get_llm_provider = getattr(litellm, "get_llm_provider", None)
+        if callable(get_llm_provider):
+            try:
+                provider = get_llm_provider(model)[1]
+                if provider:
+                    return provider
+            except Exception:
+                pass
         if not model_info:
             return None
         return model_info.get("litellm_provider")
+
+    @staticmethod
+    def _is_litellm_proxy_provider(provider: str | None) -> bool:
+        return provider == "litellm_proxy"
 
     def _build_provider_context(
         self,
@@ -119,11 +151,13 @@ class AiCaller:
             cacheable_prefix_token_count=cacheable_prefix_token_count,
             disable_provider_cache=self.disable_provider_cache,
             ai_call_timeout=self.ai_call_timeout,
+            litellm_api_base=self.litellm_api_base,
+            litellm_api_key=self.litellm_api_key,
         )
 
     def _get_effective_model(self) -> str:
-        model_info = litellm.get_model_info(self.model)
-        provider = self._get_provider_name(model_info)
+        model_info = self._get_model_info(self.model)
+        provider = self._get_provider_name(self.model, model_info)
         provider_context = self._build_provider_context(
             provider=provider,
             model_info=model_info,
@@ -192,6 +226,51 @@ class AiCaller:
             )
             return 0
 
+    @staticmethod
+    def _content_to_text(content) -> str:
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text = item.get("text")
+                    if text is not None:
+                        parts.append(str(text))
+                else:
+                    parts.append(str(item))
+            return "".join(parts)
+        return str(content)
+
+    @classmethod
+    def _estimate_tokens_locally(cls, messages) -> int:
+        text_parts: list[str] = []
+        for message in messages:
+            if isinstance(message, dict):
+                text_parts.append(cls._content_to_text(message.get("content", "")))
+            else:
+                text_parts.append(str(message))
+        total_chars = len("\n".join(text_parts))
+        return max(1, math.ceil(total_chars / 4))
+
+    def _estimate_message_tokens(self, effective_model: str, provider: str | None, messages) -> int | None:
+        try:
+            return litellm.token_counter(model=effective_model, messages=messages)
+        except Exception as e:
+            if self._is_litellm_proxy_provider(provider):
+                estimated_tokens = self._estimate_tokens_locally(messages)
+                logger.warning(
+                    f"Could not estimate token count for LiteLLM proxy model {effective_model} using litellm.token_counter: {e}. "
+                    f"Using local estimate: {estimated_tokens}"
+                )
+                return estimated_tokens
+            logger.warning(
+                f"Could not estimate token count for model {effective_model} using litellm.token_counter: {e}. Skipping AI analysis."
+            )
+            return None
+
     def _perform_ai_call(
         self,
         prompt,
@@ -199,8 +278,8 @@ class AiCaller:
         dynamic_suffix: str = "",
         has_static_context: bool = False,
     ):
-        initial_model_info = litellm.get_model_info(self.model)
-        initial_provider = self._get_provider_name(initial_model_info)
+        initial_model_info = self._get_model_info(self.model)
+        initial_provider = self._get_provider_name(self.model, initial_model_info)
         provider_context = self._build_provider_context(
             provider=initial_provider,
             model_info=initial_model_info,
@@ -213,8 +292,8 @@ class AiCaller:
         effective_model = strategy.get_effective_model(provider_context)
         if effective_model != self.model and initial_provider == "gemini":
             logger.info(f"Using Google AI Studio provider for model: {effective_model}")
-        model_info = litellm.get_model_info(effective_model)
-        provider = self._get_provider_name(model_info)
+        model_info = self._get_model_info(effective_model)
+        provider = self._get_provider_name(effective_model, model_info)
         cacheable_prefix_token_count = self._estimate_cacheable_prefix_tokens(effective_model, cacheable_prefix)
         messages = self._build_messages(
             prompt=prompt,
@@ -226,13 +305,8 @@ class AiCaller:
             cacheable_prefix_token_count=cacheable_prefix_token_count,
         )
 
-        try:
-            # Estimate tokens using litellm.token_counter with the constructed messages
-            estimated_tokens = litellm.token_counter(model=effective_model, messages=messages)
-        except Exception as e:
-            logger.warning(
-                f"Could not estimate token count for model {effective_model} using litellm.token_counter: {e}. Skipping AI analysis."
-            )
+        estimated_tokens = self._estimate_message_tokens(effective_model, provider, messages)
+        if estimated_tokens is None:
             return f"Could not estimate token count for model {effective_model}. AI analysis skipped."
 
         if estimated_tokens > self.token_limit:
