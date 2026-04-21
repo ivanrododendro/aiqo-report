@@ -15,9 +15,9 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.11,<=3.13"
-sqlparse = "^0.4.4"
+sqlparse = "^0.5.5"
 Jinja2 = "^3.1.2"
-litellm = "==1.83.9"
+litellm = "==1.83.10"
 ratelimit = "^2.2.1"
 minify-html = "^0.15.0"
 rcssmin = "^1.1.2"
@@ -25,8 +25,8 @@ rjsmin = "^1.2.1"
 setuptools-scm = "^8.1.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-black = "^23.7.0"
+pytest = "^9.0.3"
+black = "^26.3.1"
 flake8 = "^7.0.0"
 mypy = "^1.4.1"
 nuitka = "^2.3.14"
