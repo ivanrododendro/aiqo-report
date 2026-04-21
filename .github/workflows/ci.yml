@@ -64,16 +64,21 @@ jobs:
           mkdir -p docs
           if [ -n "${GEMINI_API_KEY}" ]; then
             poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log -r docs/sample.log_report.html --language english
+            poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log --target-query 421865 -r docs/target_query_report.html --language english
           else
             poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log --skip_ai_analysis -r docs/sample.log_report.html
+            poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log --skip_ai_analysis --target-query 421865 -r docs/target_query_report.html --language english
           fi
           zip -j docs/sample_report.zip docs/sample.log_report.html
+          zip -j docs/target_query_report_421865.zip docs/target_query_report_421865.html
 
       - name: Upload sample report asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
-          files: docs/sample_report.zip
+          files: |
+            docs/sample_report.zip
+            docs/target_query_report_421865.zip
 
   release-binaries:
     name: Release ${{ matrix.label }}
