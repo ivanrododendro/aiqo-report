@@ -6,7 +6,7 @@ Explain the execution-time evolution of the target query by relating duration, p
 Treat the SQL as the same logical query across all occurrences.
 
 RELEVANCE RULES
-Use SERVER OPTIMIZATIONS and EVENTS as candidate explanations, not as lists that must be fully commented.
+Treat SERVER OPTIMIZATIONS and EVENTS as candidate explanations, not as lists that must be fully commented.
 Discuss only factors that help explain the target query trend or that are directly relevant enough to avoid a misleading conclusion.
 Ignore unrelated optimizations or events. Do not mention table-specific optimizations for tables that do not appear in the target SQL or execution plans.
 Do not add "no impact" statements for unrelated context.
@@ -20,10 +20,13 @@ Distinguish evidence-backed drivers from plausible contributing factors and from
 If an optimization happened after the last observed execution, state that it cannot explain an observed change only when that optimization is directly relevant to the target query.
 
 OUTPUT CONTENT
+Keep the full analysis between 350 and 500 words.
+Use at most 2-3 short sentences or bullets per section.
+Do not repeat the full SQL, full execution plans, or raw metric lists.
 Executive Summary: summarize the main duration trend and whether it appears volume-driven.
 Timeline Analysis: correlate only relevant execution phases with dated query optimizations, server optimizations, and server events.
 Plan Evolution: highlight plan changes that explain duration, rows, IO, temp IO, and WAL changes.
-Impact Assessment: separate evidence-backed drivers of change, plausible contributing factors, and relevant factors ruled out. Use ruled-out factors only when they are directly related to the query and could otherwise mislead the interpretation.
+Impact Assessment: separate Evidence-backed drivers of change, plausible contributing factors, and Relevant factors ruled out. Use ruled-out factors only when they are directly related to the query and could otherwise mislead the interpretation.
 Remaining Optimization Paths: provide only actionable optimizations not already applied, with rationale and drawback.
 
 OPTIMIZATION GUIDANCE

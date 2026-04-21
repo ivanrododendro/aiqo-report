@@ -119,11 +119,11 @@ def test_target_query_prompt_segments_include_concise_output_constraints():
     )
 
     cacheable_prefix = prompt_segments["cacheable_prefix"]
-    assert "between 250 and 350 words" in cacheable_prefix
+    assert "between 350 and 500 words" in cacheable_prefix
     assert "at most 2-3 short sentences or bullets per section" in cacheable_prefix
     assert "Do not repeat the full SQL, full execution plans, or raw metric lists" in cacheable_prefix
     assert "Prefer concise, decision-oriented analysis" in cacheable_prefix
-    assert "duration, processed volume, IO/WAL metrics" in cacheable_prefix
+    assert "duration, processed volume, execution plan changes, IO/WAL metrics" in cacheable_prefix
     assert "Treat SERVER OPTIMIZATIONS and EVENTS as candidate explanations" in cacheable_prefix
     assert "Do not mention table-specific optimizations for tables that do not appear" in cacheable_prefix
     assert "Do not add \"no impact\" statements for unrelated context" in cacheable_prefix
