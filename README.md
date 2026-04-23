@@ -205,7 +205,7 @@ You can customize the analysis using various command-line arguments:
     *   Default: `False`
 
 *   **`--filter <STRING>`** (`-f`):
-    *   Filter log entries. Only log entries containing the specified string in the query name, job name, SQL text, or query code will be processed for AI analysis. All queries will still be included in the report. Can be specified multiple times. Case-sensitive.
+    *   Filter log entries. Only log entries containing the specified string in the query name, job name, SQL text, or query code will be included in the report and processed for AI analysis. Can be specified multiple times. Case-insensitive.
     *   Example: `--filter "public.users"` or `--filter "2a3b4c"` (to filter by a query code)
     *   Default: `None` (no filter)
 

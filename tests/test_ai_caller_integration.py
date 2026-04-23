@@ -63,15 +63,25 @@ def test_ai_call_invoked_with_filter_and_limit(monkeypatch):
     # Avoid filesystem output and heavy context loading during the test.
     monkeypatch.setattr(pg_autoexplain_analyzer.ReportGenerator, "generate_report", lambda *args, **kwargs: None)
     monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
-    monkeypatch.setattr(
-        pg_autoexplain_analyzer.ContextLoader,
-        "build_full_prompt_with_optimizations",
-        lambda self, **kwargs: "prompt",
-    )
     monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "get_query_optimizations", lambda *args, **kwargs: None)
-
-    # Force the query code to match the filter.
-    monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: filter_code)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                {
+                    **_build_log_entry("2025-11-26 14:42:44 CET", "-- Task Match"),
+                    "query_text": "select * from demo where id = 1",
+                },
+                {
+                    **_build_log_entry("2025-11-26 14:43:44 CET", "-- Task Other"),
+                    "query_text": "select * from other_demo where status = 'ok'",
+                },
+            ]
+        ),
+    )
+    query_codes = iter([filter_code, "654321"])
+    monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: next(query_codes))
 
     args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-l", "1", "-f", filter_code, "-m", "gpt-4o"])
     analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
@@ -88,6 +98,99 @@ def test_ai_call_invoked_with_filter_and_limit(monkeypatch):
 
     assert len(completion_calls) == 1
     assert completion_calls[0]["model"] == "gpt-4o"
+    assert len(analyzer.data_processor.all_reports) == 1
+    assert analyzer.data_processor.all_reports[0]["query_name"] == "-- Task Match"
+
+
+def test_filter_limits_report_entries_when_ai_analysis_is_skipped(monkeypatch):
+    log_path = Path("tests/data/full-text-plan.log")
+    filter_code = "ABCDEF"
+    completion_calls = []
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.litellm,
+        "completion",
+        lambda **kwargs: completion_calls.append(kwargs),
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.ReportGenerator, "generate_report", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "get_query_optimizations", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                {
+                    **_build_log_entry("2025-11-26 14:42:44 CET", "-- Task Match"),
+                    "query_text": "select * from demo where id = 1",
+                },
+                {
+                    **_build_log_entry("2025-11-26 14:43:44 CET", "-- Task Other"),
+                    "query_text": "select * from other_demo where status = 'ok'",
+                },
+            ]
+        ),
+    )
+    query_codes = iter([filter_code, "654321"])
+    monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: next(query_codes))
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "--skip_ai_analysis", "-f", filter_code])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+    analyzer.context_loader.query_optimizations_cache = {}
+    analyzer.context_loader.server_optimizations = []
+    analyzer.context_loader.event_optimizations = []
+    analyzer.context_loader.ddl_context = None
+    analyzer.context_loader.server_configuration_context = None
+    analyzer.context_loader.project_context = None
+
+    analyzer.run()
+
+    assert completion_calls == []
+    assert len(analyzer.data_processor.all_reports) == 1
+    assert analyzer.data_processor.all_reports[0]["code"] == filter_code
+    assert analyzer.data_processor.all_reports[0]["query_name"] == "-- Task Match"
+
+
+def test_filter_without_matches_skips_report_generation(monkeypatch, caplog):
+    log_path = Path("tests/data/full-text-plan.log")
+    generated_reports = []
+
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.ReportGenerator,
+        "generate_report",
+        lambda *args, **kwargs: generated_reports.append(args),
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "load_all_contexts", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pg_autoexplain_analyzer.ContextLoader, "get_query_optimizations", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pg_autoexplain_analyzer.TextLogParser,
+        "parse_log_file",
+        lambda self, log_file_path: iter(
+            [
+                {
+                    **_build_log_entry("2025-11-26 14:42:44 CET", "-- Task Other"),
+                    "query_text": "select * from other_demo where status = 'ok'",
+                }
+            ]
+        ),
+    )
+    monkeypatch.setattr(pg_autoexplain_analyzer.SQLUtils, "get_query_code", lambda *_: "654321")
+
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "--skip_ai_analysis", "-f", "ABCDEF"])
+    analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
+    analyzer.context_loader.query_optimizations_cache = {}
+    analyzer.context_loader.server_optimizations = []
+    analyzer.context_loader.event_optimizations = []
+    analyzer.context_loader.ddl_context = None
+    analyzer.context_loader.server_configuration_context = None
+    analyzer.context_loader.project_context = None
+
+    with caplog.at_level("INFO"):
+        analyzer.run()
+
+    assert generated_reports == []
+    assert analyzer.data_processor.all_reports == []
+    assert "No queries were analyzed for the selected log input. Report generation will be skipped." in caplog.text
 
 
 def test_report_generation_is_skipped_when_no_queries_are_parsed(monkeypatch, caplog):

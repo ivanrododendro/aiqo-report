@@ -131,24 +131,6 @@ class PGAutoExplainAnalyzer:
             logger.warning("AI call limit reached. Skipping AI analysis for query")
             return False, ""
 
-        # Vérifie les critères de filtre
-        if self.filter_strings:
-            match_found = False
-            for filter_str in self.filter_strings:
-                if (
-                    filter_str.lower() in log_entry["job_name"].lower()
-                    or filter_str.lower() in log_entry["query_name"].lower()
-                    or filter_str.lower() in log_entry["query_text"].lower()
-                    or filter_str.lower() in query_code.lower()
-                ):
-                    match_found = True
-                    break
-            if not match_found:
-                logger.warning(
-                    f"Skipping AI analysis for query (code: {query_code[:6]}) as it does not match filter criteria."
-                )
-                return False, ""
-
         # Vérifie l'analyse AI uniquement pour les Seq Scan
         seq_scan_indicator = log_entry["execution_plan"].find("Seq Scan") != -1
         if self.only_seq_scan_ai_analysis and not seq_scan_indicator:
@@ -179,6 +161,22 @@ class PGAutoExplainAnalyzer:
             return "AI analysis failed or timed out."
         return ai_hints_result
 
+    def _matches_filter(self, log_entry, query_code):
+        if not self.filter_strings:
+            return True
+
+        searchable_values = (
+            log_entry["job_name"],
+            log_entry["query_name"],
+            log_entry["query_text"],
+            query_code,
+        )
+        return any(
+            filter_str.lower() in str(value).lower()
+            for filter_str in self.filter_strings
+            for value in searchable_values
+        )
+
     def _process_parsed_log_entry(self, log_entry):
         query_text = log_entry["query_text"]
         query_code = SQLUtils.get_query_code(query_text)
@@ -193,6 +191,10 @@ class PGAutoExplainAnalyzer:
         title = (log_entry.get("job_name", "") + " " + log_entry.get("query_name", "")).strip()
         title_info = f", title: {_truncate(title)}" if title else ""
         logger.info(f"Query code : {query_code[:6]}{line_info}{timestamp_info}{title_info}")
+
+        if not self._matches_filter(log_entry, query_code):
+            logger.info("Skipping query (code: %s) because it does not match filter criteria.", query_code[:6])
+            return
 
         # Charge toujours les optimisations spécifiques à la requête dans le cache, indépendamment de l'analyse AI.
         # Cela garantit qu'elles sont disponibles pour l'affichage du rapport.
@@ -586,7 +588,7 @@ class PGAutoExplainAnalyzer:
 
         if self.filter_strings:
             logger.info(
-                f"AI analysis will be filtered by: {', '.join(self.filter_strings)}. All queries will still be included in the report."
+                f"Report entries and AI analysis will be filtered by: {', '.join(self.filter_strings)}."
             )
 
         if self.target_query:
@@ -731,7 +733,7 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "-f",
         "--filter",
         action="append",
-        help="Perform AI analysis only for queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times. All queries will still be included in the report.",
+        help="Process only queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times.",
     )
     parser.add_argument(
         "-c", "--custom-prompt", type=str, default=None, help="Add a custom prompt to the default AI prompt (optional)"
