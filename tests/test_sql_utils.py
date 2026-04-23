@@ -3,6 +3,15 @@ import sqlparse.engine.grouping
 from aiqo_pg_ai_report.sql_utils import SQLUtils
 
 
+def test_get_query_code_disables_sqlparse_grouping_token_limit_by_default(monkeypatch):
+    monkeypatch.delenv(SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV, raising=False)
+    monkeypatch.setattr(sqlparse.engine.grouping, "MAX_GROUPING_TOKENS", 10000)
+    query = "select " + " ".join("1" for _ in range(10001))
+
+    assert len(SQLUtils.get_query_code(query)) == 64
+    assert sqlparse.engine.grouping.MAX_GROUPING_TOKENS is None
+
+
 def test_get_query_code_allows_large_queries_when_sqlparse_grouping_token_limit_is_disabled(monkeypatch):
     monkeypatch.setenv(SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV, "none")
     monkeypatch.setattr(sqlparse.engine.grouping, "MAX_GROUPING_TOKENS", 10000)

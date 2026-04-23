@@ -10,6 +10,7 @@ import sqlparse.engine.grouping
 class SQLUtils:
     SHORT_QUERY_CODE_LENGTH = 6
     SQLPARSE_MAX_GROUPING_TOKENS_ENV = "AIQO_SQLPARSE_MAX_GROUPING_TOKENS"
+    DEFAULT_SQLPARSE_MAX_GROUPING_TOKENS = "none"
     _STRING_LITERAL_RE = re.compile(r"(?:E)?'(?:''|[^'])*'")
     _DOLLAR_QUOTED_RE = re.compile(r"\$[^$]*\$.*?\$[^$]*\$", re.DOTALL)
     _NUMERIC_LITERAL_RE = re.compile(r"(?<![\w$])[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?(?![\w$])")
@@ -18,9 +19,10 @@ class SQLUtils:
 
     @staticmethod
     def _configure_sqlparse_grouping_limits() -> None:
-        max_grouping_tokens = os.getenv(SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV)
-        if max_grouping_tokens is None:
-            return
+        max_grouping_tokens = os.getenv(
+            SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV,
+            SQLUtils.DEFAULT_SQLPARSE_MAX_GROUPING_TOKENS,
+        )
 
         normalized_value = max_grouping_tokens.strip().lower()
         if normalized_value == "none":
