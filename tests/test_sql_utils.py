@@ -1,4 +1,35 @@
+import sqlparse.engine.grouping
+
 from aiqo_pg_ai_report.sql_utils import SQLUtils
+
+
+def test_get_query_code_allows_large_queries_when_sqlparse_grouping_token_limit_is_disabled(monkeypatch):
+    monkeypatch.setenv(SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV, "none")
+    monkeypatch.setattr(sqlparse.engine.grouping, "MAX_GROUPING_TOKENS", 10000)
+    query = "select " + " ".join("1" for _ in range(10001))
+
+    assert len(SQLUtils.get_query_code(query)) == 64
+    assert sqlparse.engine.grouping.MAX_GROUPING_TOKENS is None
+
+
+def test_get_query_code_configures_sqlparse_grouping_token_limit_from_integer_env(monkeypatch):
+    monkeypatch.setenv(SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV, "50000")
+    monkeypatch.setattr(sqlparse.engine.grouping, "MAX_GROUPING_TOKENS", 10000)
+
+    SQLUtils.get_query_code("select 1")
+
+    assert sqlparse.engine.grouping.MAX_GROUPING_TOKENS == 50000
+
+
+def test_get_query_code_rejects_invalid_sqlparse_grouping_token_limit_env(monkeypatch):
+    monkeypatch.setenv(SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV, "invalid")
+
+    try:
+        SQLUtils.get_query_code("select 1")
+    except ValueError as exc:
+        assert "Invalid AIQO_SQLPARSE_MAX_GROUPING_TOKENS value" in str(exc)
+    else:  # pragma: no cover - defensive assertion style
+        raise AssertionError("Expected ValueError for invalid sqlparse grouping token limit")
 
 
 def test_get_query_code_ignores_whitespace_comments_and_trailing_semicolon():

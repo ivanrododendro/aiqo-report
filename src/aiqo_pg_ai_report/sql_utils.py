@@ -1,12 +1,15 @@
 import hashlib
+import os
 import re
 import unicodedata
 
 import sqlparse
+import sqlparse.engine.grouping
 
 
 class SQLUtils:
     SHORT_QUERY_CODE_LENGTH = 6
+    SQLPARSE_MAX_GROUPING_TOKENS_ENV = "AIQO_SQLPARSE_MAX_GROUPING_TOKENS"
     _STRING_LITERAL_RE = re.compile(r"(?:E)?'(?:''|[^'])*'")
     _DOLLAR_QUOTED_RE = re.compile(r"\$[^$]*\$.*?\$[^$]*\$", re.DOTALL)
     _NUMERIC_LITERAL_RE = re.compile(r"(?<![\w$])[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?(?![\w$])")
@@ -14,9 +17,38 @@ class SQLUtils:
     _SHORT_QUERY_CODE_RE = re.compile(r"^[0-9A-F]{6}$")
 
     @staticmethod
+    def _configure_sqlparse_grouping_limits() -> None:
+        max_grouping_tokens = os.getenv(SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV)
+        if max_grouping_tokens is None:
+            return
+
+        normalized_value = max_grouping_tokens.strip().lower()
+        if normalized_value == "none":
+            sqlparse.engine.grouping.MAX_GROUPING_TOKENS = None
+            return
+
+        try:
+            parsed_value = int(normalized_value)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid {SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV} value '{max_grouping_tokens}'. "
+                "Expected 'none' or a positive integer."
+            ) from exc
+
+        if parsed_value <= 0:
+            raise ValueError(
+                f"Invalid {SQLUtils.SQLPARSE_MAX_GROUPING_TOKENS_ENV} value '{max_grouping_tokens}'. "
+                "Expected 'none' or a positive integer."
+            )
+
+        sqlparse.engine.grouping.MAX_GROUPING_TOKENS = parsed_value
+
+    @staticmethod
     def normalize_sql(sql):
         normalized_sql = unicodedata.normalize("NFKC", sql or "")
         normalized_sql = normalized_sql.replace("\r\n", "\n").replace("\r", "\n")
+
+        SQLUtils._configure_sqlparse_grouping_limits()
 
         # Keep formatting deterministic and compact before hashing.
         normalized_sql = sqlparse.format(
