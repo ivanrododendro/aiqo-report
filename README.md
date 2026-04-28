@@ -82,22 +82,40 @@ After modifying `postgresql.conf`, restart your PostgreSQL server for the change
 
 ## Context Files & Location
 
-The tool can be provided with additional context to enhance the AI's understanding and the relevance of its suggestions. Contexts are loaded in a specific order: if a custom `--context-folder` is specified, the tool will first look for context files within that folder. If a file is not found in the custom folder, or if no custom folder is provided, the tool will fall back to its internal default contexts (where applicable).
+The tool supports two distinct context sources:
 
-The available context types include:
+1. **Built-in AI instruction prompts** loaded from `src/aiqo_pg_ai_report/prompts/`:
+   - `SYSTEM.txt`
+   - `FORMAT.txt`
+   - `GENERAL_HINTS_SYNTHESIS.txt`
+   - `TARGET_QUERY_SYSTEM.txt`
+   - `TARGET_QUERY_FORMAT.txt`
 
-*   **AI Instruction Prompts**: These define the AI's behavior and desired output format.
-    *   **Default Locations**: `SYSTEM.txt`, `FORMAT.txt`, and `target-query-prompts.txt` have default implementations located in `src/aiqo_pg_ai_report/prompts/`.
-    *   `SYSTEM.txt`: Defines the AI's persona and general instructions.
-    *   `FORMAT.txt`: Specifies the desired output format for the AI's analysis.
+   These files are required by the application and are always loaded from the package prompts directory.
 
-*   **Additional Contexts (User-Provided)**: For the following contexts, the tool *does not provide default files*. They must be supplied by the user within a custom `--context-folder` to be active.
-    *   `DDL Context` (`DDL.txt`): Database schema definitions (indexes are tipically enough)
-    *   `Server Configuration Context` (`CONFIG.txt`): Whole PG configuration
-    *   `Project Context` (`PROJECT.txt`): Information about project specifics, infrastructure, and environment constraints.
-    *   `Server Optimizations` (`SERVER.txt`): Already applied server-level optimizations.
-    *   `Event Optimizations` (`EVENTS.txt`): External event that could have affected DB workload and performance.
-    *   `Query Optimizations` (`QUERIES/<query_code_prefix>.txt`): Specific query-level already applied optimizations, where `<query_code_prefix>` refers to the first 6 characters of the query code (normalized query hash). These files provide context for optimizations that have already been applied to a particular query.
+2. **Application contexts and optimization history** loaded from a context folder:
+   - `DDL.txt`
+   - `CONFIG.txt`
+   - `PROJECT.txt`
+   - `SERVER.txt`
+   - `EVENTS.txt`
+   - `QUERIES/<query_code_prefix>.txt`
+
+   Where `<query_code_prefix>` is the first 6 characters of the normalized query hash.
+
+### Default context folder behavior
+
+If `--context-folder` is **not** provided, the default application context folder is:
+
+- **Single log file mode**: `CONTEXT/` under the directory containing the log file.
+- **Directory mode** (when a directory is analyzed): `CONTEXT/` inside that analyzed directory.
+
+Examples:
+
+- Log file: `/var/log/postgresql/postgresql.log` -> default context folder: `/var/log/postgresql/CONTEXT/`
+- Log directory: `/var/log/postgresql/` -> default context folder: `/var/log/postgresql/CONTEXT/`
+
+If `--context-folder` is provided, that path is used as-is and overrides the default behavior.
 
 To use custom contexts, create a folder (e.g., `my_custom_contexts/`) and place your context files within it according to the following structure:
 
@@ -226,9 +244,9 @@ You can customize the analysis using various command-line arguments:
     *   Default: Automatically generated based on log filename
 
 *   **`--context-folder <PATH>`** (`-cf`):
-    *   Path to a directory containing context files (DDL, server config, optimizations, custom prompts).
+    *   Path to a directory containing application context files and optimization history (`DDL.txt`, `CONFIG.txt`, `PROJECT.txt`, `SERVER.txt`, `EVENTS.txt`, and `QUERIES/*.txt`).
     *   Example: `--context-folder /home/user/my_db_contexts`
-    *   Default: A CONTEXT folder in the same directory containing the file being analyzed
+    *   Default: `CONTEXT/` under the analyzed path (for a log file: the log file's parent directory; for directory mode: the analyzed directory itself)
 
 *   **`--debug`** (`-d`):
     *   Enable debug logging.
