@@ -6,7 +6,7 @@ It is well suited to scenarios where complexity, data volume and fragmentation m
 
 Download the [sample HTML report](https://github.com/ivanrododendro/aiqo-report/releases/download/1.4.2/sample_report.zip) or the [target query report for query 421865](https://github.com/ivanrododendro/aiqo-report/releases/download/1.4.2/target_query_report_421865.zip) for a randomized dataset created using explain.dalibo.com sample plans. AI hint is at day may 4, real reports are more meaningful due to detailed context you can provide to AI analisys.
 
-![](docs/infographic.webp)
+![](docs/infographic.png)
 
 ## Features
 
