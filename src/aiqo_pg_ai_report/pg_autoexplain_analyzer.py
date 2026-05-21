@@ -82,6 +82,9 @@ class PGAutoExplainAnalyzer:
         self.context_folder = args.context_folder  # Nouveau paramètre renommé
         self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
 
+        from aiqo_pg_ai_report.anonymizer import SchemaAnonymizer
+        self.anonymizer = None if getattr(args, "no_anonymize", False) else SchemaAnonymizer()
+
         # Initialize ContextLoader which handles loading prompts and all context/optimization files
         self.context_loader = ContextLoader(
             script_base_path=Path(__file__).parent, context_folder_cli_arg=self.context_folder
@@ -143,11 +146,17 @@ class PGAutoExplainAnalyzer:
         """
         Effectue l'appel à l'API AI et retourne les indices ou un message d'échec.
         """
+        plan = log_entry["execution_plan"]
+        if self.anonymizer:
+            self.anonymizer.extract_from_sql(log_entry["query_text"])
+            self.anonymizer.extract_from_plan(plan)
+            plan = self.anonymizer.anonymize(plan)
         prompt_segments = self.context_loader.build_prompt_segments_with_optimizations(
-            plan=log_entry["execution_plan"],
+            plan=plan,
             query_code=query_code,
             custom_prompt=self.custom_prompt,
             lang=self.language,
+            anonymizer=self.anonymizer,
         )
         cacheable_prefix = str(prompt_segments["cacheable_prefix"])
         dynamic_suffix = str(prompt_segments["dynamic_suffix"])
@@ -159,6 +168,8 @@ class PGAutoExplainAnalyzer:
         )
         if ai_hints_result is None:
             return "AI analysis failed or timed out."
+        if self.anonymizer:
+            ai_hints_result = self.anonymizer.deanonymize(ai_hints_result)
         return ai_hints_result
 
     def _matches_filter(self, log_entry, query_code):
@@ -258,12 +269,18 @@ class PGAutoExplainAnalyzer:
             logger.info("Skipping target query AI analysis because AI analysis is disabled")
             return DEFAULT_TARGET_QUERY_AI_SKIP_MESSAGE
 
+        if self.anonymizer:
+            self.anonymizer.extract_from_sql(target_entries[0]["query_text"])
+            for entry in target_entries:
+                self.anonymizer.extract_from_plan(entry.get("execution_plan", ""))
+
         prompt_segments = self.context_loader.build_target_query_prompt_segments(
             query_code=query_code,
             query_text=target_entries[0]["query_text"],
             occurrences=target_entries,
             custom_prompt=self.custom_prompt,
             lang=self.language,
+            anonymizer=self.anonymizer,
         )
         cacheable_prefix = str(prompt_segments["cacheable_prefix"])
         dynamic_suffix = str(prompt_segments["dynamic_suffix"])
@@ -275,6 +292,8 @@ class PGAutoExplainAnalyzer:
         )
         if ai_hints_result is None:
             return "AI analysis failed or timed out."
+        if self.anonymizer:
+            ai_hints_result = self.anonymizer.deanonymize(ai_hints_result)
         return ai_hints_result
 
     @staticmethod
@@ -429,9 +448,12 @@ class PGAutoExplainAnalyzer:
             return None
 
         logger.info("Generating general hints synthesis from %s AI analyses", len(ai_hints_list))
+        if self.anonymizer:
+            ai_hints_list = [self.anonymizer.anonymize(h) for h in ai_hints_list]
         prompt_segments = self.context_loader.build_general_hints_synthesis_prompt_segments(
             ai_hints_list,
             lang=self.language,
+            anonymizer=self.anonymizer,
         )
         cacheable_prefix = str(prompt_segments["cacheable_prefix"])
         dynamic_suffix = str(prompt_segments["dynamic_suffix"])
@@ -444,6 +466,8 @@ class PGAutoExplainAnalyzer:
         if synthesis is None:
             logger.warning("General hints synthesis failed or timed out")
             return None
+        if self.anonymizer:
+            synthesis = self.anonymizer.deanonymize(synthesis)
         return synthesis
 
     @staticmethod
@@ -538,6 +562,10 @@ class PGAutoExplainAnalyzer:
 
         # Load all contexts and optimizations using the ContextLoader
         self.context_loader.load_all_contexts(self.args.log_filename, self.directory_mode_active)
+
+        if self.anonymizer and self.context_loader.ddl_context:
+            self.anonymizer.extract_from_sql(self.context_loader.ddl_context)
+        logger.info("DB object anonymization: %s", "enabled" if self.anonymizer else "disabled")
 
         if self.skip_ai_analysis:
             logger.info("Skipping AI Analysis")
@@ -767,6 +795,11 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Log format to parse: text (default), json, yaml (unsupported).",
     )
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging (default: false)")
+    parser.add_argument(
+        "--no-anonymize",
+        action="store_true",
+        help="Disable DB object name anonymization before sending data to AI (default: anonymization enabled)",
+    )
 
     args, unknown_args = parser.parse_known_args(argv)
 

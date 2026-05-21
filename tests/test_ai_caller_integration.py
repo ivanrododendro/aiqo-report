@@ -813,7 +813,7 @@ def test_target_query_mode_aggregates_matching_occurrences_and_prints_to_stdout(
         lambda *args, **kwargs: generated_target_reports.append(args),
     )
 
-    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-m", "gpt-4o", "-tq", target_code])
+    args = pg_autoexplain_analyzer.parse_cli_arguments([str(log_path), "-m", "gpt-4o", "-tq", target_code, "--no-anonymize"])
     analyzer = pg_autoexplain_analyzer.PGAutoExplainAnalyzer(args)
     analyzer.context_loader.server_optimizations = [
         {"date": "2025-11-25", "text": "Ignored work_mem outside target range"},

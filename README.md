@@ -18,6 +18,7 @@ Download the [sample HTML report](https://github.com/ivanrododendro/aiqo-report/
 *   **Native Builds Available**: Standalone native executables are available for Linux, macOS (Apple Silicon), and Windows.
 *   **Multilingual Output**: Supports generating reports in different languages.
 *   **Reproducible Outputs**: When using OpenAI models, analyses can be reproduced by providing the same input and context, ensuring consistent results across runs.
+*   **Privacy-First Anonymization**: Before any data is sent to an AI provider, all PostgreSQL object names (tables, schemas, indexes, columns, custom functions) are replaced with deterministic aliases (e.g. `tbl_3a1f9c`). The AI response is de-anonymized before it appears in the report, so the HTML output always shows the real names. Anonymization is enabled by default and can be disabled with `--no-anonymize`.
 
 ## API Keys and LiteLLM Configuration
 
@@ -247,6 +248,12 @@ You can customize the analysis using various command-line arguments:
     *   Path to a directory containing application context files and optimization history (`DDL.txt`, `CONFIG.txt`, `PROJECT.txt`, `SERVER.txt`, `EVENTS.txt`, and `QUERIES/*.txt`).
     *   Example: `--context-folder /home/user/my_db_contexts`
     *   Default: `CONTEXT/` under the analyzed path (for a log file: the log file's parent directory; for directory mode: the analyzed directory itself)
+
+*   **`--no-anonymize`**:
+    *   Disable the anonymization layer. DB object names (tables, schemas, indexes, columns, custom functions) will be sent to the AI provider as-is.
+    *   By default, all names are replaced with deterministic aliases before each AI call and restored in the response, so the HTML report always shows real names.
+    *   This is a flag, no value needed.
+    *   Default: `False` (anonymization is ON)
 
 *   **`--debug`** (`-d`):
     *   Enable debug logging.

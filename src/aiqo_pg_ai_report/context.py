@@ -252,7 +252,7 @@ class ContextLoader:
         return str(prompt_segments["cacheable_prefix"]) + str(prompt_segments["dynamic_suffix"])
 
     def build_general_hints_synthesis_prompt_segments(
-        self, ai_hints: list[str], lang: str = "en"
+        self, ai_hints: list[str], lang: str = "en", anonymizer=None
     ) -> dict[str, str | bool]:
         """Build a stable cacheable prefix and a dynamic suffix for the final hints synthesis."""
         if not self.general_hints_synthesis_prompt:
@@ -266,12 +266,14 @@ class ContextLoader:
         cacheable_prefix = (
             f">>> GENERAL HINTS SYNTHESIS\n{self.general_hints_synthesis_prompt}\n<<< GENERAL HINTS SYNTHESIS\n\n"
         )
-        if self.server_configuration_context:
+        server_config = anonymizer.anonymize(self.server_configuration_context) if (anonymizer and self.server_configuration_context) else self.server_configuration_context
+        project = anonymizer.anonymize(self.project_context) if (anonymizer and self.project_context) else self.project_context
+        if server_config:
             cacheable_prefix += (
-                f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
+                f">>> SERVER CONFIGURATION\n{server_config}\n<<< SERVER CONFIGURATION\n\n"
             )
-        if self.project_context:
-            cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
+        if project:
+            cacheable_prefix += f">>> PROJECT\n{project}\n<<< PROJECT\n\n"
 
         dynamic_suffix = (
             f">>> HINTS LIST\n{formatted_hints}\n<<< HINTS LIST\n\n" f"Please provide the analysis in {lang}."
@@ -313,7 +315,7 @@ class ContextLoader:
         return full_prompt
 
     def build_prompt_segments_with_optimizations(
-        self, plan: str, query_code: str, custom_prompt: str = None, lang: str = "en"
+        self, plan: str, query_code: str, custom_prompt: str = None, lang: str = "en", anonymizer=None
     ) -> dict[str, str | bool]:
         """Build a stable cacheable prefix and a dynamic suffix for provider-side prompt caching."""
         cacheable_prefix = ""
@@ -326,15 +328,18 @@ class ContextLoader:
 
         # Add the main plan analysis prompt content
 
-        # Add DDL, server config, and project context with tags
-        if self.ddl_context:
-            cacheable_prefix += f">>> DDL\n{self.ddl_context}\n<<< DDL\n\n"
-        if self.server_configuration_context:
+        # Add DDL, server config, and project context with tags (anonymized if requested)
+        ddl = anonymizer.anonymize(self.ddl_context) if (anonymizer and self.ddl_context) else self.ddl_context
+        server_config = anonymizer.anonymize(self.server_configuration_context) if (anonymizer and self.server_configuration_context) else self.server_configuration_context
+        project = anonymizer.anonymize(self.project_context) if (anonymizer and self.project_context) else self.project_context
+        if ddl:
+            cacheable_prefix += f">>> DDL\n{ddl}\n<<< DDL\n\n"
+        if server_config:
             cacheable_prefix += (
-                f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
+                f">>> SERVER CONFIGURATION\n{server_config}\n<<< SERVER CONFIGURATION\n\n"
             )
-        if self.project_context:
-            cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
+        if project:
+            cacheable_prefix += f">>> PROJECT\n{project}\n<<< PROJECT\n\n"
 
         # Keep server-wide context in the cacheable prefix and move query-specific context
         # into the dynamic suffix so provider-side caching can be reused across queries.
@@ -356,6 +361,11 @@ class ContextLoader:
             for opt in current_query_opts:
                 query_applied_optimizations_context += f"  - {opt['date']}: {opt['text']}\n"
             query_applied_optimizations_context += "\n"
+
+        if anonymizer and server_applied_optimizations_context:
+            server_applied_optimizations_context = anonymizer.anonymize(server_applied_optimizations_context)
+        if anonymizer and query_applied_optimizations_context:
+            query_applied_optimizations_context = anonymizer.anonymize(query_applied_optimizations_context)
 
         # Combine stable optimizations and custom prompt inside the cacheable prefix.
         full_custom_prompt = custom_prompt if custom_prompt else ""
@@ -396,6 +406,7 @@ class ContextLoader:
         occurrences: list[dict],
         custom_prompt: str = None,
         lang: str = "en",
+        anonymizer=None,
     ) -> dict[str, str | bool]:
         """Build prompt segments for the aggregated target query analysis mode."""
         if not self.target_query_system_prompt or not self.target_query_format_prompt:
@@ -406,14 +417,17 @@ class ContextLoader:
         cacheable_prefix += f">>> TARGET QUERY SYSTEM\n{self.target_query_system_prompt}\n<<< TARGET QUERY SYSTEM\n\n"
         cacheable_prefix += f">>> TARGET QUERY FORMAT\n{self.target_query_format_prompt}\n<<< TARGET QUERY FORMAT\n\n"
 
-        if self.ddl_context:
-            cacheable_prefix += f">>> DDL\n{self.ddl_context}\n<<< DDL\n\n"
-        if self.server_configuration_context:
+        ddl = anonymizer.anonymize(self.ddl_context) if (anonymizer and self.ddl_context) else self.ddl_context
+        server_config = anonymizer.anonymize(self.server_configuration_context) if (anonymizer and self.server_configuration_context) else self.server_configuration_context
+        project = anonymizer.anonymize(self.project_context) if (anonymizer and self.project_context) else self.project_context
+        if ddl:
+            cacheable_prefix += f">>> DDL\n{ddl}\n<<< DDL\n\n"
+        if server_config:
             cacheable_prefix += (
-                f">>> SERVER CONFIGURATION\n{self.server_configuration_context}\n<<< SERVER CONFIGURATION\n\n"
+                f">>> SERVER CONFIGURATION\n{server_config}\n<<< SERVER CONFIGURATION\n\n"
             )
-        if self.project_context:
-            cacheable_prefix += f">>> PROJECT\n{self.project_context}\n<<< PROJECT\n\n"
+        if project:
+            cacheable_prefix += f">>> PROJECT\n{project}\n<<< PROJECT\n\n"
 
         current_server_opts = self._filter_optimizations_for_query_date_range(self.server_optimizations)
         current_event_opts = self._filter_optimizations_for_query_date_range(self.event_optimizations)
@@ -421,13 +435,15 @@ class ContextLoader:
         if current_server_opts:
             cacheable_prefix += ">>> SERVER OPTIMIZATIONS\n"
             for opt in current_server_opts:
-                cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
+                opt_text = anonymizer.anonymize(opt['text']) if anonymizer else opt['text']
+                cacheable_prefix += f"- {opt['date']}: {opt_text}\n"
             cacheable_prefix += "<<< SERVER OPTIMIZATIONS\n\n"
 
         if current_event_opts:
             cacheable_prefix += ">>> EVENTS\n"
             for opt in current_event_opts:
-                cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
+                opt_text = anonymizer.anonymize(opt['text']) if anonymizer else opt['text']
+                cacheable_prefix += f"- {opt['date']}: {opt_text}\n"
             cacheable_prefix += "<<< EVENTS\n\n"
 
         current_query_opts = self._filter_optimizations_for_query_date_range(
@@ -436,20 +452,26 @@ class ContextLoader:
         if current_query_opts:
             cacheable_prefix += ">>> QUERY OPTIMIZATIONS\n"
             for opt in current_query_opts:
-                cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
+                opt_text = anonymizer.anonymize(opt['text']) if anonymizer else opt['text']
+                cacheable_prefix += f"- {opt['date']}: {opt_text}\n"
             cacheable_prefix += "<<< QUERY OPTIMIZATIONS\n\n"
 
         if custom_prompt:
             cacheable_prefix += f">>> CUSTOM INSTRUCTIONS\n{custom_prompt}\n<<< CUSTOM INSTRUCTIONS\n\n"
 
+        anon_query_text = anonymizer.anonymize(query_text) if anonymizer else query_text
+        anon_occurrences = (
+            [{**occ, "execution_plan": anonymizer.anonymize(occ.get("execution_plan", ""))} for occ in occurrences]
+            if anonymizer else occurrences
+        )
         dynamic_suffix = (
             f">>> TARGET QUERY METADATA\n"
             f"Full query code: {query_code}\n"
             f"Short query code: {query_code[:6]}\n"
             f"Occurrences: {len(occurrences)}\n"
             f"<<< TARGET QUERY METADATA\n\n"
-            f">>> SQL\n{query_text}\n<<< SQL\n\n"
-            f">>> QUERY EXECUTION HISTORY\n{self._format_target_query_occurrences(occurrences)}"
+            f">>> SQL\n{anon_query_text}\n<<< SQL\n\n"
+            f">>> QUERY EXECUTION HISTORY\n{self._format_target_query_occurrences(anon_occurrences)}"
             f"\n<<< QUERY EXECUTION HISTORY\n\n"
             f"Please provide the analysis in {lang}."
         )
