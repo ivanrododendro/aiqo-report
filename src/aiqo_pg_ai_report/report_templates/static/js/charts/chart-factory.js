@@ -483,6 +483,10 @@
               if (lbl === selectedDay) return { weight: 'bold' };
               return {};
             },
+            color: (ctx) => {
+              const lbl = ctx && ctx.tick && ctx.tick.label;
+              return lbl === selectedDay ? '#1d4ed8' : '#94a3b8';
+            },
           },
         },
         y: AIQO.Core.ScaleHelper.createTimeScale(),

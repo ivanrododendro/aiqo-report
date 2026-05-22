@@ -1,28 +1,32 @@
-{% from '_macros.html' import context_section %}
-
 {% if contexts.ddl or contexts.server_config or contexts.project %}
+
 <h2>Context</h2>
 
-<div class="accordion" id="accordionContextDetails">
-    {{ context_section(
-        'ddlContextCollapse',
-        'DDL Context',
-        contexts.ddl,
-        'accordionContextDetails'
-    ) }}
-
-    {{ context_section(
-        'serverConfigContextCollapse',
-        'Server Configuration Context',
-        contexts.server_config,
-        'accordionContextDetails'
-    ) }}
-
-    {{ context_section(
-        'projectContextCollapse',
-        "Project Context",
-        contexts.project,
-        'accordionContextDetails'
-    ) }}
+{% if contexts.ddl %}
+<div id="context-panel-ddl" class="aiqo-section-panel aiqo-overview-scroll">
+    <h2 class="aiqo-section-panel-title">DDL Context</h2>
+    <div class="card card-body">
+        <pre><code>{{ contexts.ddl | safe }}</code></pre>
+    </div>
 </div>
+{% endif %}
+
+{% if contexts.server_config %}
+<div id="context-panel-server-config" class="aiqo-section-panel aiqo-overview-scroll">
+    <h2 class="aiqo-section-panel-title">Server Configuration Context</h2>
+    <div class="card card-body">
+        <pre><code>{{ contexts.server_config | safe }}</code></pre>
+    </div>
+</div>
+{% endif %}
+
+{% if contexts.project %}
+<div id="context-panel-project" class="aiqo-section-panel aiqo-overview-scroll">
+    <h2 class="aiqo-section-panel-title">Project Context</h2>
+    <div class="card card-body">
+        <pre><code>{{ contexts.project | safe }}</code></pre>
+    </div>
+</div>
+{% endif %}
+
 {% endif %}

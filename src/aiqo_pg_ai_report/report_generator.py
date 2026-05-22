@@ -141,6 +141,7 @@ class ReportGenerator:
         project_context,
         skip_ai_analysis,
         general_hints_synthesis,
+        execution_options=None,
     ):
         logger.info(f"Generating HTML report in {output_path}")
 
@@ -160,6 +161,7 @@ class ReportGenerator:
             project_context=project_context,
             skip_ai_analysis=skip_ai_analysis,
             general_hints_synthesis=general_hints_synthesis,
+            execution_options=execution_options,
         )
 
         # Serialize context for JavaScript
@@ -198,6 +200,7 @@ class ReportGenerator:
         skip_ai_analysis,
         general_hints_synthesis,
         target_query_code,
+        execution_options=None,
     ):
         logger.info(f"Generating target query HTML report in {output_path}")
 
@@ -216,6 +219,7 @@ class ReportGenerator:
             project_context=project_context,
             skip_ai_analysis=skip_ai_analysis,
             general_hints_synthesis=general_hints_synthesis,
+            execution_options=execution_options,
         )
 
         sorted_days = sorted(context["reports"]["by_day"].keys())

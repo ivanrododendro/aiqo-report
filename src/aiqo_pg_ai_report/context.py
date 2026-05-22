@@ -17,6 +17,11 @@ class ContextLoader:
         self.event_optimizations = []
         self.query_optimizations_cache = {}
         self.query_date_range = None
+        self._anon_ddl_context: str | None = None
+        self._anon_server_configuration_context: str | None = None
+        self._anon_project_context: str | None = None
+        self._anon_server_optimizations: list[dict] | None = None
+        self._anon_event_optimizations: list[dict] | None = None
         self.system_prompt = None
         self.format_prompt = None
         self.general_hints_synthesis_prompt = None
@@ -246,6 +251,26 @@ class ContextLoader:
 
         return self.query_optimizations_cache.get(query_code, [])
 
+    def pre_anonymize_static_data(self, anonymizer) -> None:
+        """Anonymize static context fields once so the cacheable prefix stays stable across all AI calls."""
+        if not anonymizer:
+            return
+        if self.ddl_context:
+            self._anon_ddl_context = anonymizer.anonymize(self.ddl_context)
+        if self.server_configuration_context:
+            self._anon_server_configuration_context = anonymizer.anonymize(self.server_configuration_context)
+        if self.project_context:
+            self._anon_project_context = anonymizer.anonymize(self.project_context)
+        if self.server_optimizations:
+            self._anon_server_optimizations = [
+                {**opt, "text": anonymizer.anonymize(opt["text"])} for opt in self.server_optimizations
+            ]
+        if self.event_optimizations:
+            self._anon_event_optimizations = [
+                {**opt, "text": anonymizer.anonymize(opt["text"])} for opt in self.event_optimizations
+            ]
+        logger.info("Static context data pre-anonymized for provider cache stability.")
+
     def build_general_hints_synthesis_prompt(self, ai_hints: list[str], lang: str = "en") -> str:
         """Build the dedicated prompt used to synthesize recurring generic AI hints."""
         prompt_segments = self.build_general_hints_synthesis_prompt_segments(ai_hints, lang=lang)
@@ -266,8 +291,8 @@ class ContextLoader:
         cacheable_prefix = (
             f">>> GENERAL HINTS SYNTHESIS\n{self.general_hints_synthesis_prompt}\n<<< GENERAL HINTS SYNTHESIS\n\n"
         )
-        server_config = anonymizer.anonymize(self.server_configuration_context) if (anonymizer and self.server_configuration_context) else self.server_configuration_context
-        project = anonymizer.anonymize(self.project_context) if (anonymizer and self.project_context) else self.project_context
+        server_config = self._anon_server_configuration_context if self._anon_server_configuration_context is not None else self.server_configuration_context
+        project = self._anon_project_context if self._anon_project_context is not None else self.project_context
         if server_config:
             cacheable_prefix += (
                 f">>> SERVER CONFIGURATION\n{server_config}\n<<< SERVER CONFIGURATION\n\n"
@@ -328,10 +353,10 @@ class ContextLoader:
 
         # Add the main plan analysis prompt content
 
-        # Add DDL, server config, and project context with tags (anonymized if requested)
-        ddl = anonymizer.anonymize(self.ddl_context) if (anonymizer and self.ddl_context) else self.ddl_context
-        server_config = anonymizer.anonymize(self.server_configuration_context) if (anonymizer and self.server_configuration_context) else self.server_configuration_context
-        project = anonymizer.anonymize(self.project_context) if (anonymizer and self.project_context) else self.project_context
+        # Use pre-anonymized versions of static data for a stable cacheable prefix.
+        ddl = self._anon_ddl_context if self._anon_ddl_context is not None else self.ddl_context
+        server_config = self._anon_server_configuration_context if self._anon_server_configuration_context is not None else self.server_configuration_context
+        project = self._anon_project_context if self._anon_project_context is not None else self.project_context
         if ddl:
             cacheable_prefix += f">>> DDL\n{ddl}\n<<< DDL\n\n"
         if server_config:
@@ -346,11 +371,12 @@ class ContextLoader:
         server_applied_optimizations_context = ""
         query_applied_optimizations_context = ""
         current_query_opts = self.get_query_optimizations(query_code)
-        if self.server_optimizations:
+        server_opts = self._anon_server_optimizations if self._anon_server_optimizations is not None else self.server_optimizations
+        if server_opts:
             server_applied_optimizations_context += (
                 "The following server-wide optimizations have already been applied:\n"
             )
-            for opt in self.server_optimizations:
+            for opt in server_opts:
                 server_applied_optimizations_context += f"  - {opt['date']}: {opt['text']}\n"
             server_applied_optimizations_context += "\n"
 
@@ -362,8 +388,6 @@ class ContextLoader:
                 query_applied_optimizations_context += f"  - {opt['date']}: {opt['text']}\n"
             query_applied_optimizations_context += "\n"
 
-        if anonymizer and server_applied_optimizations_context:
-            server_applied_optimizations_context = anonymizer.anonymize(server_applied_optimizations_context)
         if anonymizer and query_applied_optimizations_context:
             query_applied_optimizations_context = anonymizer.anonymize(query_applied_optimizations_context)
 
@@ -417,9 +441,9 @@ class ContextLoader:
         cacheable_prefix += f">>> TARGET QUERY SYSTEM\n{self.target_query_system_prompt}\n<<< TARGET QUERY SYSTEM\n\n"
         cacheable_prefix += f">>> TARGET QUERY FORMAT\n{self.target_query_format_prompt}\n<<< TARGET QUERY FORMAT\n\n"
 
-        ddl = anonymizer.anonymize(self.ddl_context) if (anonymizer and self.ddl_context) else self.ddl_context
-        server_config = anonymizer.anonymize(self.server_configuration_context) if (anonymizer and self.server_configuration_context) else self.server_configuration_context
-        project = anonymizer.anonymize(self.project_context) if (anonymizer and self.project_context) else self.project_context
+        ddl = self._anon_ddl_context if self._anon_ddl_context is not None else self.ddl_context
+        server_config = self._anon_server_configuration_context if self._anon_server_configuration_context is not None else self.server_configuration_context
+        project = self._anon_project_context if self._anon_project_context is not None else self.project_context
         if ddl:
             cacheable_prefix += f">>> DDL\n{ddl}\n<<< DDL\n\n"
         if server_config:
@@ -429,21 +453,21 @@ class ContextLoader:
         if project:
             cacheable_prefix += f">>> PROJECT\n{project}\n<<< PROJECT\n\n"
 
-        current_server_opts = self._filter_optimizations_for_query_date_range(self.server_optimizations)
-        current_event_opts = self._filter_optimizations_for_query_date_range(self.event_optimizations)
+        server_opts_source = self._anon_server_optimizations if self._anon_server_optimizations is not None else self.server_optimizations
+        event_opts_source = self._anon_event_optimizations if self._anon_event_optimizations is not None else self.event_optimizations
+        current_server_opts = self._filter_optimizations_for_query_date_range(server_opts_source)
+        current_event_opts = self._filter_optimizations_for_query_date_range(event_opts_source)
 
         if current_server_opts:
             cacheable_prefix += ">>> SERVER OPTIMIZATIONS\n"
             for opt in current_server_opts:
-                opt_text = anonymizer.anonymize(opt['text']) if anonymizer else opt['text']
-                cacheable_prefix += f"- {opt['date']}: {opt_text}\n"
+                cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
             cacheable_prefix += "<<< SERVER OPTIMIZATIONS\n\n"
 
         if current_event_opts:
             cacheable_prefix += ">>> EVENTS\n"
             for opt in current_event_opts:
-                opt_text = anonymizer.anonymize(opt['text']) if anonymizer else opt['text']
-                cacheable_prefix += f"- {opt['date']}: {opt_text}\n"
+                cacheable_prefix += f"- {opt['date']}: {opt['text']}\n"
             cacheable_prefix += "<<< EVENTS\n\n"
 
         current_query_opts = self._filter_optimizations_for_query_date_range(

@@ -1,399 +1,148 @@
 /**
- * Tabs component logic (year/month/day containers and query tab UX)
+ * Tabs component — split pane management, query pane activation,
+ * duplicate analysis links.  (Bootstrap tab navigation removed; handled by sidebar.js)
  */
 ;(function () {
   window.AIQO = window.AIQO || {};
   AIQO.Components = AIQO.Components || {};
 
   AIQO.Components.Tabs = {
-    init() {
-      this._renderQueryGantts();
-      this._bindQueryGanttSelection();
-      this._bindDuplicateAnalysisLinks();
 
-      // Initialize Split.js two-pane layout for all day containers
-      document.querySelectorAll('[id^="split-container-"]').forEach((container) => {
-        const leftPane = container.querySelector('.split:nth-child(1)');
+    // Track which split instances have been initialized (keyed by container id)
+    _splitInited: {},
+
+    init() {
+      this._bindDuplicateAnalysisLinks();
+    },
+
+    // ── Split pane ──────────────────────────────────────────────────────────
+
+    /**
+     * Called by sidebar.navigateToDay to lazily init the split pane for a panel.
+     */
+    _initSplitForPanel(panel) {
+      if (!panel) return;
+      const containers = panel.querySelectorAll('[id^="split-container-"]');
+      containers.forEach((container) => {
+        if (this._splitInited[container.id]) return;
+        this._splitInited[container.id] = true;
+
+        const leftPane  = container.querySelector('.split:nth-child(1)');
         const rightPane = container.querySelector('.split:nth-child(2)');
         if (!leftPane || !rightPane || typeof Split !== 'function') return;
+
         try {
           const splitInstance = Split([leftPane, rightPane], {
-            sizes: [30, 70],
-            minSize: [0, 300],
+            sizes:     [18, 82],
+            minSize:   [100, 300],
             gutterSize: 6,
-            cursor: 'col-resize',
-            gutter: (index, direction) => {
+            cursor:    'col-resize',
+            gutter(index, direction) {
               const gutter = document.createElement('div');
               gutter.className = 'gutter gutter-' + direction;
-              gutter.style.background = '#ddd';
-              gutter.style.cursor = 'col-resize';
-              gutter.style.width = '6px';
-              gutter.setAttribute('data-bs-toggle', 'tooltip');
-              gutter.setAttribute('data-bs-placement', 'right');
-              gutter.addEventListener('dblclick', (event) => {
-                event.preventDefault();
-                this._toggleLeftSplitPane(container);
-              });
+              gutter.addEventListener('dblclick', () =>
+                AIQO.Components.Tabs._toggleLeftSplitPane(container)
+              );
               return gutter;
             },
           });
           container._aiqoSplitState = {
-            instance: splitInstance,
-            lastExpandedSizes: [30, 70],
-            isCollapsed: false,
+            instance:          splitInstance,
+            lastExpandedSizes: [35, 65],
+            isCollapsed:       false,
           };
-          this._syncSplitGutterTooltip(container);
         } catch (e) {
-          console.warn('Split init failed for container', container.id, e);
+          console.warn('Split init failed for', container.id, e);
         }
       });
-
-      // Year tab change: show corresponding month container and activate last month
-      document.querySelectorAll('[id^="tab-year-"]').forEach((yearTab) => {
-        yearTab.addEventListener('shown.bs.tab', function (e) {
-          const m = e.target.id.match(/tab-year-(\d+)-tab/);
-          if (!m) return;
-          const year = m[1];
-
-          // Hide all month containers, then show the selected year
-          document
-            .querySelectorAll('.month-tabs-container')
-            .forEach((el) => el.classList.add('d-none'));
-          const monthContainer = document.getElementById(
-            `month-tabs-container-${year}`
-          );
-          if (monthContainer) {
-            monthContainer.classList.remove('d-none');
-            // Activate last (most recent) month tab
-            const monthTabs = monthContainer.querySelectorAll('.nav-link');
-            if (monthTabs.length > 0) {
-              const lastMonthTab = monthTabs[monthTabs.length - 1];
-              bootstrap.Tab.getOrCreateInstance(lastMonthTab).show();
-            }
-          }
-        });
-      });
-
-      // Month tab change: show corresponding day container/content and activate last day
-      document.querySelectorAll('[id^="tab-month-"]').forEach((monthTab) => {
-        monthTab.addEventListener('shown.bs.tab', function (e) {
-          const m = e.target.id.match(/tab-month-(.+)-tab/);
-          if (!m) return;
-          const yearMonth = m[1];
-
-          // Hide all day containers, then show the selected month
-          document
-            .querySelectorAll('.day-tabs-container')
-            .forEach((el) => el.classList.add('d-none'));
-          const dayContainer = document.getElementById(
-            `day-tabs-container-${yearMonth}`
-          );
-          if (dayContainer) {
-            dayContainer.classList.remove('d-none');
-            // Activate last (most recent) day tab
-            const dayTabs = dayContainer.querySelectorAll('.nav-link');
-            if (dayTabs.length > 0) {
-              const lastDayTab = dayTabs[dayTabs.length - 1];
-              bootstrap.Tab.getOrCreateInstance(lastDayTab).show();
-            }
-          }
-
-          // Hide all day tab contents, then show selected month content
-          document
-            .querySelectorAll('.day-tab-content')
-            .forEach((el) => el.classList.add('d-none'));
-          const dayTabContent = document.getElementById(
-            `dayTabContent-${yearMonth}`
-          );
-          if (dayTabContent) {
-            dayTabContent.classList.remove('d-none');
-          }
-        });
-      });
-
-      // Double-click on a gantt row -> copy short code to clipboard
-      document.querySelectorAll('.query-gantt-row').forEach((btn) => {
-        btn.addEventListener('dblclick', function () {
-          const fullCode = this.dataset.queryCode;
-          if (!fullCode) return;
-          const shortCode = fullCode.substring(0, 6);
-          navigator.clipboard
-            .writeText(shortCode)
-            .then(() => {
-              const toast = document.createElement('div');
-              toast.className =
-                'alert alert-success position-fixed top-0 end-0 m-3 py-2 px-3 shadow';
-              toast.textContent = `Codice corto "${shortCode}" copiato negli appunti!`;
-              document.body.appendChild(toast);
-              setTimeout(() => toast.remove(), 2000);
-            })
-            .catch((err) => console.error('Clipboard error:', err));
-        });
-      });
-
-      window.addEventListener('resize', () => this._renderQueryGantts());
     },
 
     _toggleLeftSplitPane(container) {
-      if (!container || !container._aiqoSplitState) return;
-
-      const splitState = container._aiqoSplitState;
-      const { instance } = splitState;
-      if (!instance) return;
-
-      if (splitState.isCollapsed) {
-        const restoredSizes =
-          Array.isArray(splitState.lastExpandedSizes) && splitState.lastExpandedSizes.length === 2
-            ? splitState.lastExpandedSizes
-            : [30, 70];
-        instance.setSizes(restoredSizes);
-        splitState.isCollapsed = false;
+      const state = container && container._aiqoSplitState;
+      if (!state) return;
+      if (state.isCollapsed) {
+        state.instance.setSizes(state.lastExpandedSizes || [18, 82]);
+        state.isCollapsed = false;
         container.classList.remove('split-left-collapsed');
       } else {
-        const currentSizes = instance.getSizes();
-        if (Array.isArray(currentSizes) && currentSizes.length === 2) {
-          splitState.lastExpandedSizes = currentSizes;
-        }
-        if (typeof instance.collapse === 'function') {
-          instance.collapse(0);
-        } else {
-          instance.setSizes([0, 100]);
-        }
-        splitState.isCollapsed = true;
+        state.lastExpandedSizes = state.instance.getSizes();
+        state.instance.setSizes([0, 100]);
+        state.isCollapsed = true;
         container.classList.add('split-left-collapsed');
       }
-
-      this._syncSplitGutterTooltip(container);
-      this._refreshSplitPaneLayout(container);
     },
 
-    _syncSplitGutterTooltip(container) {
-      if (!container || !container._aiqoSplitState) return;
+    // ── Query pane activation ───────────────────────────────────────────────
 
-      const gutter = container.querySelector('.gutter');
-      if (!gutter) return;
+    /**
+     * Activate a query detail pane by index within a day panel.
+     * Used by DayTimeline click handler and navigateToQueryInstance.
+     */
+    _activateQueryByIndex(dayPanel, index) {
+      if (!dayPanel) return;
+      const safeDay = ReportUtils.dateToSafeId(dayPanel.dataset.day || '');
 
-      const tooltipText = container._aiqoSplitState.isCollapsed
-        ? 'Double-click to restore the left panel'
-        : 'Double-click to fully minimize the left panel';
+      // Deactivate all panes in this day
+      dayPanel.querySelectorAll('.query-tab-content .tab-pane.show.active').forEach((p) => {
+        p.classList.remove('show', 'active');
+      });
 
-      gutter.setAttribute('title', tooltipText);
-      gutter.setAttribute('aria-label', tooltipText);
-      gutter.setAttribute('data-bs-title', tooltipText);
-
-      const tooltip = bootstrap.Tooltip.getInstance(gutter);
-      if (tooltip) {
-        tooltip.setContent({ '.tooltip-inner': tooltipText });
-      } else {
-        bootstrap.Tooltip.getOrCreateInstance(gutter, {
-          container: 'body',
-          trigger: 'hover focus',
-        });
+      const target = document.getElementById('query-content-' + safeDay + '-' + index);
+      if (target) {
+        target.classList.add('show', 'active');
+        this._scrollDetailToFirstOpen(target);
+        // Init PEV2 and charts for this pane (idempotent via ticket system)
+        if (AIQO.Components.QueryDetails) {
+          AIQO.Components.QueryDetails.initForQuery(safeDay, index);
+        }
+        // Sync timeline selection
+        if (AIQO.Components.DayTimeline) {
+          AIQO.Components.DayTimeline.highlightBar(safeDay, index);
+        }
       }
     },
 
-    _refreshSplitPaneLayout(container) {
-      window.requestAnimationFrame(() => {
-        this._renderQueryGantts();
-
-        const detailPane = container.querySelector('.split:nth-child(2)');
-        const activePane = detailPane
-          ? detailPane.querySelector('.query-tab-content .tab-pane.show.active')
-          : null;
-
-        if (activePane) {
-          this._scrollDetailPanelToFirstOpenAccordion(activePane);
-        }
-
-        window.dispatchEvent(new Event('resize'));
-      });
+    _scrollDetailToFirstOpen() {
+      // No-op: query details now use tabs; scrolling managed per-pane.
     },
 
-    _bindQueryGanttSelection() {
-      document.querySelectorAll('.query-gantt-row').forEach((row) => {
-        row.addEventListener('click', (event) => {
-          event.preventDefault();
-          this._activateQueryRow(row);
-        });
-      });
-    },
+    // ── Duplicate analysis links ────────────────────────────────────────────
 
     _bindDuplicateAnalysisLinks() {
       document.querySelectorAll('[data-role="duplicate-ai-analysis-link"]').forEach((link) => {
         link.addEventListener('click', (event) => {
           event.preventDefault();
-
-          const targetDay = link.getAttribute('data-target-day');
-          const targetIndex = link.getAttribute('data-target-index');
-          if (!targetDay || targetIndex === null) return;
-          this._navigateToDuplicateAnalysisTarget(targetDay, targetIndex);
+          const targetDay   = link.getAttribute('data-target-day');
+          const targetIndex = parseInt(link.getAttribute('data-target-index'), 10);
+          if (!targetDay || isNaN(targetIndex)) return;
+          this._navigateToDuplicate(targetDay, targetIndex);
         });
       });
     },
 
-    _navigateToDuplicateAnalysisTarget(targetDay, targetIndex) {
-      const safeTargetDay =
-        window.ReportUtils && typeof ReportUtils.dateToSafeId === 'function'
-          ? ReportUtils.dateToSafeId(targetDay)
-          : targetDay;
+    _navigateToDuplicate(targetDay, targetIndex) {
+      const safeTargetDay = ReportUtils.dateToSafeId(targetDay);
 
-      const activateTargetRow = () => {
-        const targetRow = document.getElementById(
-          `query-tab-${safeTargetDay}-${targetIndex}`
-        );
-        if (!targetRow) return;
-
-        this._activateQueryRow(targetRow);
-        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const activate = () => {
+        const panel = document.getElementById('day-panel-' + safeTargetDay);
+        if (panel) {
+          this._activateQueryByIndex(panel, targetIndex);
+          const targetPane = document.getElementById(
+            'query-content-' + safeTargetDay + '-' + targetIndex
+          );
+          if (targetPane) targetPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       };
 
-      const currentDayPane = document.querySelector('.day-tab-content:not(.d-none) .tab-pane.show.active');
-      const currentDay = currentDayPane ? currentDayPane.id.replace('tab-day-', '') : null;
-
-      if (currentDay === safeTargetDay) {
-        activateTargetRow();
-        return;
+      const currentDay = window.AIQO && AIQO.Sidebar && AIQO.Sidebar._currentDay;
+      if (currentDay && ReportUtils.dateToSafeId(currentDay) === safeTargetDay) {
+        activate();
+      } else if (window.AIQO && AIQO.Sidebar && AIQO.Sidebar.navigateToDay) {
+        AIQO.Sidebar.navigateToDay(targetDay);
+        setTimeout(activate, 350);
+      } else {
+        activate();
       }
-
-      if (
-        window.reportNavigator &&
-        window.reportNavigator.tabNavigator &&
-        typeof window.reportNavigator.tabNavigator.navigateToDay === 'function'
-      ) {
-        window.reportNavigator.tabNavigator.navigateToDay(targetDay);
-        window.setTimeout(activateTargetRow, 450);
-        return;
-      }
-
-      activateTargetRow();
-    },
-
-    _activateQueryRow(row) {
-      if (!row) return;
-
-      const dayPane = row.closest('[id^="tab-day-"]');
-      const targetSelector = row.getAttribute('data-query-target');
-      if (!dayPane || !targetSelector) return;
-
-      const targetPane = dayPane.querySelector(targetSelector);
-      if (!targetPane) return;
-
-      dayPane.querySelectorAll('.query-gantt-row.active').forEach((activeRow) => {
-        activeRow.classList.remove('active');
-        activeRow.setAttribute('aria-selected', 'false');
-      });
-
-      dayPane.querySelectorAll('.query-tab-content .tab-pane.show.active').forEach((activePane) => {
-        activePane.classList.remove('show', 'active');
-      });
-
-      row.classList.add('active');
-      row.setAttribute('aria-selected', 'true');
-      targetPane.classList.add('show', 'active');
-
-      this._scrollDetailPanelToFirstOpenAccordion(targetPane);
-
-      row.dispatchEvent(new Event('shown.bs.tab', { bubbles: true }));
-    },
-
-    _scrollDetailPanelToFirstOpenAccordion(targetPane) {
-      if (!targetPane) return;
-
-      const detailPane = targetPane.closest('.split');
-      if (!detailPane) return;
-
-      const firstOpenAccordion = targetPane.querySelector('.accordion-collapse.show');
-      if (!firstOpenAccordion) return;
-
-      window.requestAnimationFrame(() => {
-        const detailPaneRect = detailPane.getBoundingClientRect();
-        const accordionRect = firstOpenAccordion.getBoundingClientRect();
-        const targetScrollTop = detailPane.scrollTop + (accordionRect.top - detailPaneRect.top) - 8;
-
-        detailPane.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: 'smooth',
-        });
-      });
-    },
-
-    _renderQueryGantts() {
-      document.querySelectorAll('.query-gantt-panel').forEach((panel) => {
-        const rows = Array.from(panel.querySelectorAll('.query-gantt-row'));
-        if (!rows.length) return;
-
-        const validRows = rows
-          .map((row) => {
-            const startUtc = Number(row.dataset.startUtc);
-            const endUtc = Number(row.dataset.endUtc);
-            return Number.isFinite(startUtc) && Number.isFinite(endUtc) && endUtc >= startUtc
-              ? { row, startUtc, endUtc }
-              : null;
-          })
-          .filter(Boolean);
-
-        const startLabel = panel.querySelector('[data-role="gantt-scale-start"]');
-        const midLabel = panel.querySelector('[data-role="gantt-scale-mid"]');
-        const endLabel = panel.querySelector('[data-role="gantt-scale-end"]');
-
-        if (!validRows.length) {
-          if (startLabel) startLabel.textContent = '--:--:--';
-          if (midLabel) midLabel.textContent = '--:--:--';
-          if (endLabel) endLabel.textContent = '--:--:--';
-          rows.forEach((row) => {
-            const bar = row.querySelector('.query-gantt-bar');
-            if (bar) bar.style.display = 'none';
-          });
-          return;
-        }
-
-        const minStart = Math.min(...validRows.map((item) => item.startUtc));
-        const maxEnd = Math.max(...validRows.map((item) => item.endUtc));
-        const span = Math.max(maxEnd - minStart, 1);
-        const midPoint = minStart + span / 2;
-
-        if (startLabel) startLabel.textContent = this._formatGanttTime(minStart);
-        if (midLabel) midLabel.textContent = this._formatGanttTime(midPoint);
-        if (endLabel) endLabel.textContent = this._formatGanttEndTime(minStart, maxEnd);
-
-        validRows.forEach(({ row, startUtc, endUtc }) => {
-          const bar = row.querySelector('.query-gantt-bar');
-          if (!bar) return;
-
-          const leftPct = ((startUtc - minStart) / span) * 100;
-          const widthPct = Math.max(((endUtc - startUtc) / span) * 100, 0.8);
-          const queryTitle = row.dataset.queryTitle || row.dataset.queryCode || 'N/A';
-
-          bar.style.display = 'block';
-          bar.style.left = `${Math.min(Math.max(leftPct, 0), 100)}%`;
-          bar.style.width = `${Math.min(widthPct, 100)}%`;
-          row.removeAttribute('title');
-          row.setAttribute('data-bs-title', queryTitle);
-
-          const existingTooltip = bootstrap.Tooltip.getInstance(row);
-          if (existingTooltip) {
-            existingTooltip.dispose();
-          }
-          bootstrap.Tooltip.getOrCreateInstance(row, {
-            container: 'body',
-            trigger: 'hover focus',
-          });
-        });
-      });
-    },
-
-    _formatGanttTime(value) {
-      const dt = luxon.DateTime.fromMillis(value, { zone: 'utc' });
-      return dt.isValid ? dt.toFormat('HH:mm') : '--:--';
-    },
-
-    _formatGanttEndTime(startValue, endValue) {
-      const start = luxon.DateTime.fromMillis(startValue, { zone: 'utc' });
-      const end = luxon.DateTime.fromMillis(endValue, { zone: 'utc' });
-      if (!start.isValid || !end.isValid) return '--:--:--';
-
-      const dayOffset = Math.floor(end.startOf('day').diff(start.startOf('day'), 'days').days);
-      return dayOffset > 0 ? `${end.toFormat('HH:mm')} (+${dayOffset})` : end.toFormat('HH:mm');
     },
   };
 })();

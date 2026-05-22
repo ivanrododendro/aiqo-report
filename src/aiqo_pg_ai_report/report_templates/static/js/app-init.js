@@ -1,5 +1,5 @@
 /**
- * App bootstrap: wires core managers and components in order
+ * App bootstrap: wires core managers and components in order.
  */
 ;(function(){
   window.AIQO = window.AIQO || {};
@@ -18,7 +18,7 @@
   };
 
   function initializeBootstrapTooltips() {
-    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(element) {
       bootstrap.Tooltip.getOrCreateInstance(element, {
         container: 'body',
         trigger: 'hover focus',
@@ -42,18 +42,29 @@
   AIQO.Init.run = function(){
     // Core managers
     window.reportChartManager = new AIQO.Core.ReportChartManager(reportData);
-    window.reportNavigator = new AIQO.Core.ReportNavigator(reportData);
+    window.reportNavigator    = new AIQO.Core.ReportNavigator(reportData);
 
-    // Components
-    if (AIQO.Components && AIQO.Components.Tabs) AIQO.Components.Tabs.init();
-    if (AIQO.Components && AIQO.Components.GlobalSynthesis) AIQO.Components.GlobalSynthesis.init();
+    // Tabs (split panes, duplicate links)
+    if (AIQO.Components && AIQO.Components.Tabs) {
+      AIQO.Components.Tabs.init();
+    }
 
-    // Navigation handlers (after components, so DOM hooks exist)
-    if (window.reportNavigator && typeof window.reportNavigator.setupNavigationHandlers === 'function'){
+    // Navigation handlers (global query row clicks, byte formatting)
+    if (window.reportNavigator && typeof window.reportNavigator.setupNavigationHandlers === 'function') {
       window.reportNavigator.setupNavigationHandlers();
     }
 
-    if (AIQO.Components && AIQO.Components.QueryDetails) AIQO.Components.QueryDetails.init();
+    // Query details (accordion charts etc.)
+    if (AIQO.Components && AIQO.Components.QueryDetails) {
+      AIQO.Components.QueryDetails.init();
+    }
+
+    // Sidebar — activates initial day, builds heatmap, binds tree navigation.
+    // GlobalSynthesis is initialised lazily when the overview panel is first opened.
+    if (AIQO.Sidebar && typeof AIQO.Sidebar.init === 'function') {
+      AIQO.Sidebar.init();
+    }
+
     initializeStatTooltips();
     initializeBootstrapTooltips();
   };

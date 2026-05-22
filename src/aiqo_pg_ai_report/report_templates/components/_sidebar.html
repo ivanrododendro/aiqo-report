@@ -1,0 +1,160 @@
+{% set ns_sid = namespace(last_day_overall=None) %}
+{% for d in date_hierarchy.all_days | reverse %}
+    {% if ns_sid.last_day_overall is none and reports.by_day.get(d) %}
+        {% set ns_sid.last_day_overall = d %}
+    {% endif %}
+{% endfor %}
+
+<aside class="aiqo-sidebar" id="aiqo-sidebar">
+
+    {# ── Header ─────────────────────────────────────────────────────────────── #}
+    <div class="aiqo-sidebar-header">
+        <a href="https://github.com/ivanrododendro/aiqo-report" target="_blank" rel="noopener noreferrer">
+            <img class="aiqo-sidebar-logo"
+                 src="data:image/png;base64,{{ 'static/img/aiqo-report-large.png' | embed_image }}"
+                 alt="AIQO">
+        </a>
+        <div class="aiqo-sidebar-title">{{ metadata.title }}</div>
+    </div>
+
+    {# ── Report metadata (log_min_duration etc.) ───────────────────────────── #}
+    {% if metadata.auto_explain_log_min_duration %}
+    <div class="aiqo-sidebar-meta">
+        auto_explain.log_min_duration: {{ metadata.auto_explain_log_min_duration }}
+        <span class="d-block mt-1">Only queries exceeding this threshold are displayed in the report.</span>
+    </div>
+    {% endif %}
+
+    {# ── Report generation timestamp ──────────────────────────────────────────── #}
+    <div class="aiqo-sidebar-meta">
+        Generated {{ metadata.timestamp }}
+    </div>
+
+    {# ── Execution options ────────────────────────────────────────────────────── #}
+    {% if metadata.execution_options %}
+    <div class="aiqo-sidebar-exec-options">
+        {% for label, value in metadata.execution_options %}
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">{{ label }}</span>
+            <span class="aiqo-exec-value">{{ value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ── Activity heatmap (always visible) ───────────────────────────────────── #}
+    <div class="aiqo-heatmap-section">
+        <div class="aiqo-heatmap-label">Activity</div>
+        <div id="aiqo-heatmap"></div>
+    </div>
+
+    {# ── Section tabs: Summary / Query / Context ─────────────────────────────── #}
+    <div class="aiqo-sidebar-nav" role="tablist">
+        <button class="aiqo-sidebar-nav-btn active" id="btn-section-summary"
+                type="button" role="tab" aria-selected="true">
+            <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+            <span>Summary</span>
+        </button>
+        <button class="aiqo-sidebar-nav-btn" id="btn-section-query"
+                type="button" role="tab" aria-selected="false">
+            <i class="bi bi-calendar3" aria-hidden="true"></i>
+            <span>Query</span>
+        </button>
+        <button class="aiqo-sidebar-nav-btn" id="btn-section-context"
+                type="button" role="tab" aria-selected="false">
+            <i class="bi bi-file-earmark-code" aria-hidden="true"></i>
+            <span>Context</span>
+        </button>
+    </div>
+
+    {# ── Query section: date tree ────────────────────────────────────────────── #}
+    <div id="aiqo-sidebar-section-query" class="aiqo-sidebar-section d-none">
+
+        <nav class="aiqo-date-tree" aria-label="Date navigation">
+            {% for year in date_hierarchy.all_years | reverse %}
+            {% set is_last_year = loop.first %}
+            <div class="aiqo-tree-year {% if is_last_year %}expanded{% endif %}" data-year="{{ year }}">
+                <button class="aiqo-tree-year-btn" type="button" aria-expanded="{{ 'true' if is_last_year else 'false' }}">
+                    <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
+                    <span>{{ year }}</span>
+                </button>
+                <div class="aiqo-tree-months">
+                    {% set year_months = date_hierarchy.years[year].months.items()|sort|list %}
+                    {% for month_num, month_data in year_months | reverse %}
+                    {% set is_last_month = loop.first and is_last_year %}
+                    <div class="aiqo-tree-month {% if is_last_month %}expanded{% endif %}"
+                         data-year-month="{{ month_data.year_month }}">
+                        <button class="aiqo-tree-month-btn" type="button"
+                                aria-expanded="{{ 'true' if is_last_month else 'false' }}">
+                            <i class="bi bi-chevron-right chevron" aria-hidden="true"></i>
+                            <span>{{ month_data.name }}</span>
+                        </button>
+                        <div class="aiqo-tree-days">
+                            {% for day in month_data.days %}
+                            {% if reports.by_day.get(day) %}
+                            <button class="aiqo-tree-day-btn {% if day == ns_sid.last_day_overall %}active{% endif %}"
+                                    type="button"
+                                    data-day="{{ day }}"
+                                    aria-current="{{ 'page' if day == ns_sid.last_day_overall else 'false' }}">
+                                <span>{{ day.split('-')[2] }}</span>
+                                <span class="aiqo-tree-day-count">{{ reports.by_day.get(day)|length }}</span>
+                            </button>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </nav>
+
+    </div>{# /query section #}
+
+    {# ── Summary section: nav items ──────────────────────────────────────────── #}
+    <div id="aiqo-sidebar-section-summary" class="aiqo-sidebar-section">
+        <nav class="aiqo-section-nav" aria-label="Summary navigation">
+            <button class="aiqo-section-nav-btn" type="button" data-panel="summary-panel-expensive-queries">
+                <i class="bi bi-table" aria-hidden="true"></i>
+                <span>Most expensive queries</span>
+            </button>
+            {% if ai.general_hints_synthesis %}
+            <button class="aiqo-section-nav-btn" type="button" data-panel="summary-panel-ai-hints">
+                <i class="bi bi-lightbulb" aria-hidden="true"></i>
+                <span>Recurring AI hints</span>
+            </button>
+            {% endif %}
+            <button class="aiqo-section-nav-btn" type="button" data-panel="summary-panel-trends">
+                <i class="bi bi-graph-up" aria-hidden="true"></i>
+                <span>Daily trends</span>
+            </button>
+        </nav>
+    </div>{# /summary section #}
+
+    {# ── Context section: nav items ──────────────────────────────────────────── #}
+    <div id="aiqo-sidebar-section-context" class="aiqo-sidebar-section d-none">
+        {% if contexts.ddl or contexts.server_config or contexts.project %}
+        <nav class="aiqo-section-nav" aria-label="Context navigation">
+            {% if contexts.ddl %}
+            <button class="aiqo-section-nav-btn" type="button" data-panel="context-panel-ddl">
+                <i class="bi bi-database" aria-hidden="true"></i>
+                <span>DDL Context</span>
+            </button>
+            {% endif %}
+            {% if contexts.server_config %}
+            <button class="aiqo-section-nav-btn" type="button" data-panel="context-panel-server-config">
+                <i class="bi bi-gear" aria-hidden="true"></i>
+                <span>Server Configuration</span>
+            </button>
+            {% endif %}
+            {% if contexts.project %}
+            <button class="aiqo-section-nav-btn" type="button" data-panel="context-panel-project">
+                <i class="bi bi-file-text" aria-hidden="true"></i>
+                <span>Project Context</span>
+            </button>
+            {% endif %}
+        </nav>
+        {% endif %}
+    </div>{# /context section #}
+
+</aside>
