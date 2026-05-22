@@ -3,9 +3,10 @@
 {% set app_id = 'app-' ~ day | safe_id ~ '-' ~ index %}
 
 <div class="card">
-    <div class="card-header">
-        <h6 class="mb-0 text-truncate" 
-            style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;" 
+    <div class="card-header d-flex align-items-center gap-2">
+        <span class="badge bg-secondary font-monospace flex-shrink-0" style="font-size: 0.975em;" title="{{ report.code }}">{{ report.short_code }}</span>
+        <h6 class="mb-0 text-truncate flex-grow-1"
+            style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
             title="{{ report.title }}">
             {{ report.title }}
         </h6>
@@ -41,43 +42,37 @@
                                         <tbody>
                                             {% if report.buffers.shared_hit is not none %}
                                             <tr>
-                                                <td><strong>Shared Hit:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="shared hit (blocks)
-The number of data blocks (usually 8kB) that PostgreSQL found already in its own RAM cache (the shared buffers). This is very fast."></i></td>
+                                                <td><strong>Shared Hit:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="shared-hit"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_hit).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_hit * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_hit / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
                                             </tr>
                                             {% endif %}
                                             {% if report.buffers.shared_read is not none %}
                                             <tr>
-                                                <td><strong>Shared Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="shared read (blocks)
-The number of data blocks that PostgreSQL had to read from the disk (or the OS cache) because they were not in the shared buffers. This is slow and indicates I/O cost."></i></td>
+                                                <td><strong>Shared Read:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="shared-read"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_read).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_read * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_read / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
                                             </tr>
                                             {% endif %}
                                             {% if report.buffers.shared_dirtied is not none %}
                                             <tr>
-                                                <td><strong>Shared Dirtied:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="dirtied (blocks)
-The number of blocks that were modified in RAM by this query (e.g., by an INSERT or UPDATE). These blocks will need to be written to disk later. This represents the total data writing cost."></i></td>
+                                                <td><strong>Shared Dirtied:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="shared-dirtied"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_dirtied).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_dirtied * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_dirtied / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
                                             </tr>
                                             {% endif %}
                                             {% if report.buffers.shared_written is not none %}
                                             <tr>
-                                                <td><strong>Shared Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="written (blocks)
-The number of 'dirtied' blocks that this query had to write to disk during its execution. This usually happens if the query modifies so much data that it fills up the available shared buffers."></i></td>
+                                                <td><strong>Shared Written:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="shared-written"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.buffers.shared_written).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.shared_written * 8192 }}">({{ "{:,.2f}".format(report.buffers.shared_written / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
                                             </tr>
                                             {% endif %}
                                             {% if report.buffers.temp_read is not none %}
                                             <tr>
-                                                <td><strong>Temp Read:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp read (blocks)
-The number of temporary data blocks that PostgreSQL had to read from disk because the query required more working memory than was available."></i></td>
+                                                <td><strong>Temp Read:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="temp-read"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_read).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.temp_read * 8192 }}">({{ "{:,.2f}".format(report.buffers.temp_read / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
                                             </tr>
                                             {% endif %}
                                             {% if report.buffers.temp_written is not none %}
                                             <tr>
-                                                <td><strong>Temp Written:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="temp written (blocks)
-The number of temporary data blocks that were written to temporary files on disk. This is also related to operations like sorting or hash joins that require more memory than available."></i></td>
+                                                <td><strong>Temp Written:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="temp-written"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.buffers.temp_written).replace(",", " ") }} <span data-bytes-to-format="{{ report.buffers.temp_written * 8192 }}">({{ "{:,.2f}".format(report.buffers.temp_written / 128).replace(",", " ").replace(".", ",") }} MB)</span></td>
                                             </tr>
                                             {% endif %}
@@ -97,22 +92,19 @@ The number of temporary data blocks that were written to temporary files on disk
                                         <tbody>
                                             {% if report.wal.records is not none %}
                                             <tr>
-                                                <td><strong>Records:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL records (count)
-The total number of 'change records' generated by this query and written to the Write-Ahead Log (WAL)."></i></td>
+                                                <td><strong>Records:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="wal-records"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.wal.records).replace(",", " ") }}</td>
                                             </tr>
                                             {% endif %}
                                             {% if report.wal.fpi is not none %}
                                             <tr>
-                                                <td><strong>FPI:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL fpi (count)
-The number of 'Full Page Images' (FPI) written to the WAL. This is a special, larger type of WAL record that is generated the first time a block is modified after a checkpoint."></i></td>
+                                                <td><strong>FPI:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="wal-fpi"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.wal.fpi).replace(",", " ") }}</td>
                                             </tr>
                                             {% endif %}
                                             {% if report.wal.bytes is not none %}
                                             <tr>
-                                                <td><strong>Bytes:</strong> <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="top" title="WAL bytes (bytes)
-The total size (in bytes) of all WAL records generated by this query. This is a direct measure of the I/O cost for transaction logging and replication."></i></td>
+                                                <td><strong>Bytes:</strong> <i class="bi bi-info-circle ms-1" data-stat-tip="wal-bytes"></i></td>
                                                 <td class="text-end">{{ "{:,.0f}".format(report.wal.bytes).replace(",", " ") }} <span data-bytes-to-format="{{ report.wal.bytes }}">({{ "{:,.2f}".format(report.wal.bytes / 1024 / 1024).replace(",", " ").replace(".", ",") }} MB)</span></td>
                                             </tr>
                                             {% endif %}
