@@ -137,6 +137,7 @@ class ReportDataProcessor:
         project_context,
         skip_ai_analysis,
         general_hints_synthesis,
+        execution_options=None,
     ):
         """
         Prepares a complete, structured context object for the report template.
@@ -182,6 +183,7 @@ class ReportDataProcessor:
                 "version": app_version,
                 "query_name_limit": self.query_name_limit,
                 "auto_explain_log_min_duration": self.extract_auto_explain_log_min_duration(server_config_context),
+                "execution_options": execution_options or [],
             },
             "statistics": {
                 "global_query_stats": query_stats,

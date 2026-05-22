@@ -114,6 +114,27 @@ class PGAutoExplainAnalyzer:
         self.data_processor = ReportDataProcessor()
         self.analyzed_query_codes: set[str] = set()
 
+    def _build_execution_options(self) -> list[tuple[str, str]]:
+        options: list[tuple[str, str]] = []
+        if self.skip_ai_analysis:
+            options.append(("AI analysis", "skipped"))
+        else:
+            options.append(("Model", self.model))
+            options.append(("Language", self.language))
+            limit = str(self.limit_ai_calls) if self.limit_ai_calls != -1 else "Unlimited"
+            options.append(("Max AI calls", limit))
+            options.append(("AI call timeout", f"{self.ai_call_timeout}s"))
+            if self.only_seq_scan_ai_analysis:
+                options.append(("Seq Scan only", "yes"))
+            if self.analyze_all_queries:
+                options.append(("Analyze all occurrences", "yes"))
+            if self.disable_general_hints_synthesis:
+                options.append(("General hints synthesis", "disabled"))
+        options.append(("Anonymization", "disabled" if not self.anonymizer else "enabled"))
+        if self.filter_strings:
+            options.append(("Filters", ", ".join(self.filter_strings)))
+        return options
+
     def _determine_ai_analysis_status(self, log_entry, query_code):
         """
         Détermine si l'analyse AI doit être effectuée et fournit un message de saut si elle est ignorée.
@@ -401,6 +422,7 @@ class PGAutoExplainAnalyzer:
             self.skip_ai_analysis,
             None,
             query_code,
+            execution_options=self._build_execution_options(),
         )
         logger.info("Output target query report: %s", report_filename)
         stdout_output = self._build_target_query_stdout_output(query_code, target_entries, report_filename)
@@ -565,6 +587,8 @@ class PGAutoExplainAnalyzer:
 
         if self.anonymizer and self.context_loader.ddl_context:
             self.anonymizer.extract_from_sql(self.context_loader.ddl_context)
+        if self.anonymizer:
+            self.context_loader.pre_anonymize_static_data(self.anonymizer)
         logger.info("DB object anonymization: %s", "enabled" if self.anonymizer else "disabled")
 
         if self.skip_ai_analysis:
@@ -661,6 +685,7 @@ class PGAutoExplainAnalyzer:
             self.context_loader.project_context,
             self.skip_ai_analysis,  # Pass the skip_ai_analysis flag
             general_hints_synthesis,
+            execution_options=self._build_execution_options(),
         )
 
         self.ai_caller.show_stats()

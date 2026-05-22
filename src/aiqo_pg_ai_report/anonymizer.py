@@ -1,6 +1,9 @@
 import hashlib
 import json
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 try:
     import sqlglot
@@ -109,6 +112,7 @@ class SchemaAnonymizer:
         """Extract DB object names from SQL via sqlglot AST and register them in the map."""
         if not _SQLGLOT_AVAILABLE or not sql:
             return
+        before = len(self._map)
         try:
             tree = sqlglot.parse_one(sql, dialect="postgres", error_level=sqlglot.ErrorLevel.IGNORE)
         except Exception:
@@ -128,6 +132,8 @@ class SchemaAnonymizer:
             elif isinstance(node, exp.Anonymous):
                 if node.name and node.name.lower() not in _BUILTIN_PG_FUNCTIONS:
                     self._alias(node.name, "function")
+        added = len(self._map) - before
+        logger.info("Anonymizer extract_from_sql: %d new entries (+%d), total %d", added, added, len(self._map))
 
     def extract_from_plan_json(self, plan_json: str) -> None:
         """Extract DB object names from a JSON execution plan."""
@@ -176,11 +182,14 @@ class SchemaAnonymizer:
         """Auto-detect JSON vs text plan and extract DB object names."""
         if not plan:
             return
+        before = len(self._map)
         try:
             json.loads(plan)
             self.extract_from_plan_json(plan)
         except (json.JSONDecodeError, ValueError):
             self.extract_from_plan_text(plan)
+        added = len(self._map) - before
+        logger.info("Anonymizer extract_from_plan: %d new entries (+%d), total %d", added, added, len(self._map))
 
     def anonymize(self, text: str) -> str:
         """
@@ -190,6 +199,7 @@ class SchemaAnonymizer:
         """
         if not self._map or not text:
             return text
+        logger.info("Anonymizer anonymize: applying %d mappings to %d chars", len(self._map), len(text))
         for real_lower in sorted(self._map, key=len, reverse=True):
             alias = self._map[real_lower]
             text = re.sub(
@@ -204,6 +214,7 @@ class SchemaAnonymizer:
         """Replace all aliases in AI-generated text back with the real DB object names."""
         if not self._reverse or not text:
             return text
+        logger.info("Anonymizer deanonymize: restoring %d aliases in %d chars", len(self._reverse), len(text))
         for alias, real in self._reverse.items():
             text = text.replace(alias, real)
         return text

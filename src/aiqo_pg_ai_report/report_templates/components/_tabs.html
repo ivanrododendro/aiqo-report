@@ -1,88 +1,6 @@
-{% from '_macros.html' import tab_nav_item %}
 {% from 'components/_query_details.html' import query_details_content %}
 
-{# Container per i tre livelli di tab sulla stessa riga #}
-<div class="d-flex gap-2 mb-3 align-items-start">
-    {# Tab Anno #}
-    <div class="flex-shrink-0">
-        <ul class="nav nav-tabs flex-nowrap" id="yearTabs" role="tablist">
-            {% for year in date_hierarchy.all_years %}
-            <li class="nav-item" role="presentation">
-                <button class="nav-link {% if loop.last %}active{% endif %}" 
-                        id="tab-year-{{ year }}-tab" 
-                        data-bs-toggle="tab" 
-                        data-bs-target="#tab-year-{{ year }}" 
-                        type="button" 
-                        role="tab" 
-                        aria-controls="tab-year-{{ year }}" 
-                        aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
-                    {{ year }}
-                </button>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-
-    {# Tab Mese - uno per ogni anno #}
-    {% for year in date_hierarchy.all_years %}
-    <div class="flex-shrink-0 month-tabs-container {% if not loop.last %}d-none{% endif %}" id="month-tabs-container-{{ year }}">
-        <ul class="nav nav-tabs month-tabs flex-nowrap" id="monthTabs-{{ year }}" role="tablist">
-            {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
-            <li class="nav-item" role="presentation">
-                <button class="nav-link {% if loop.last %}active{% endif %}" 
-                        id="tab-month-{{ month_data.year_month }}-tab" 
-                        data-bs-toggle="tab" 
-                        data-bs-target="#tab-month-{{ month_data.year_month }}" 
-                        type="button" 
-                        role="tab" 
-                        aria-controls="tab-month-{{ month_data.year_month }}" 
-                        aria-selected="{% if loop.last %}true{% else %}false{% endif %}">
-                    {{ month_data.name }}
-                </button>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endfor %}
-
-    {# Tab Giorno - uno per ogni mese #}
-    {% set last_year = date_hierarchy.all_years[-1] %}
-    {% set last_year_months = date_hierarchy.years[last_year].months.items()|sort %}
-    {% set last_month = last_year_months[-1][1].year_month if last_year_months else '' %}
-    {% for year in date_hierarchy.all_years %}
-        {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
-        <div class="flex-grow-1 day-tabs-container {% if month_data.year_month != last_month %}d-none{% endif %}" 
-             id="day-tabs-container-{{ month_data.year_month }}">
-            {% set ns = namespace(last_day_with_reports=None) %}
-            {% for d in month_data.days %}
-                {% if reports.by_day.get(d) %}
-                    {% set ns.last_day_with_reports = d %}
-                {% endif %}
-            {% endfor %}
-            <ul class="nav nav-tabs day-tabs flex-wrap" id="dayTabs-{{ month_data.year_month }}" role="tablist">
-                {% for day in month_data.days %}
-                {% if reports.by_day.get(day) %}
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link {% if day == ns.last_day_with_reports %}active{% endif %}" 
-                            id="tab-day-{{ day | safe_id }}-tab" 
-                            data-bs-toggle="tab" 
-                            data-bs-target="#tab-day-{{ day | safe_id }}" 
-                            type="button" 
-                            role="tab" 
-                            aria-controls="tab-day-{{ day | safe_id }}" 
-                            aria-selected="{% if day == ns.last_day_with_reports %}true{% else %}false{% endif %}">
-                        {{ day.split('-')[2] }}
-                    </button>
-                </li>
-                {% endif %}
-                {% endfor %}
-            </ul>
-        </div>
-        {% endfor %}
-    {% endfor %}
-</div>
-
-{# JS includes specific to tabs, navigation, split and query details #}
+{# JS includes — all chart + navigation + component scripts #}
 <script>
 {% include 'static/js/report-utils.js' %}
 {% include 'static/js/charts/scale-helper.js' %}
@@ -91,116 +9,74 @@
 {% include 'static/js/charts/chart-factory.js' %}
 {% include 'static/js/charts/report-chart-manager.js' %}
 {% include 'static/js/report-navigation.js' %}
+{% include 'static/js/components/sidebar.js' %}
+{% include 'static/js/components/day-timeline.js' %}
 {% include 'static/js/components/tabs.js' %}
 {% include 'static/js/components/query-details.js' %}
 </script>
-{# Contenuto dei tab giorni #}
-{% set last_year = date_hierarchy.all_years[-1] %}
-{% set last_year_months = date_hierarchy.years[last_year].months.items()|sort %}
-{% set last_month = last_year_months[-1][1].year_month if last_year_months else '' %}
+
+{# ── Day panels (one per day with data) ─────────────────────────────────── #}
+{% set ns_tp = namespace(last_day_overall=None) %}
+{% for d in date_hierarchy.all_days | reverse %}
+    {% if ns_tp.last_day_overall is none and reports.by_day.get(d) %}
+        {% set ns_tp.last_day_overall = d %}
+    {% endif %}
+{% endfor %}
+
 {% for year in date_hierarchy.all_years %}
     {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
-        <div class="tab-content day-tab-content {% if month_data.year_month != last_month %}d-none{% endif %}" id="dayTabContent-{{ month_data.year_month }}">
-                            {% set ns2 = namespace(last_day_with_reports=None) %}
-                            {% for dtmp in month_data.days %}
-                                {% if reports.by_day.get(dtmp) %}
-                                    {% set ns2.last_day_with_reports = dtmp %}
-                                {% endif %}
-                            {% endfor %}
-                            {% for day in month_data.days %}
-                            {% if reports.by_day.get(day) %}
-                            <div class="tab-pane fade {% if day == ns2.last_day_with_reports %}show active{% endif %}" 
-                                 id="tab-day-{{ day | safe_id }}" 
-                                 role="tabpanel" 
-                                 aria-labelledby="tab-day-{{ day | safe_id }}-tab">
-                                
-                                    {% set reports_list = reports.by_day.get(day) %}
-                                    <div class="card card-body mt-3">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h6 class="mb-0">Individual query details for {{ day }}</h6>
-                                            <p class="text-muted mb-0 ms-3">Query count: {{ reports_list|length }}</p>
-                                        </div>
-                                        
-                                        {# Layout a 2 colonne - Responsive #}
-                                        <div id="split-container-{{ day | safe_id }}" class="d-flex flex-row" style="height: 70vh;">
-                                            {# Pannello sinistro: lista query #}
-                                            <div class="split flex-shrink-0" style="width: 30%; overflow-y: auto; border-right: 1px solid #ddd;">
-                                                <div class="query-gantt-panel p-2 pb-1" id="query-gantt-panel-{{ day | safe_id }}">
-                                                    <div class="query-gantt-scale small text-muted mb-2">
-                                                        <span data-role="gantt-scale-start">--:--:--</span>
-                                                        <span data-role="gantt-scale-mid">--:--:--</span>
-                                                        <span data-role="gantt-scale-end">--:--:--</span>
-                                                    </div>
-                                                    <div class="query-gantt-scale-ruler mb-2" aria-hidden="true">
-                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-start"></span>
-                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-quarter"></span>
-                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-mid"></span>
-                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-three-quarter"></span>
-                                                        <span class="query-gantt-scale-tick query-gantt-scale-tick-end"></span>
-                                                    </div>
-                                                    <div class="query-gantt-rows" id="queryGantt-{{ day | safe_id }}">
-                                                        {% for report in reports_list %}
-                                                        <button class="query-gantt-row {% if loop.first %}active{% endif %}"
-                                                                id="query-tab-{{ day | safe_id }}-{{ loop.index0 }}"
-                                                                type="button"
-                                                                data-bs-placement="right"
-                                                                role="tab"
-                                                                data-query-target="#query-content-{{ day | safe_id }}-{{ loop.index0 }}"
-                                                                data-query-code="{{ report.code }}"
-                                                                data-query-title="{{ report.title }}"
-                                                                data-start-utc="{{ report.query_start_utc if report.query_start_utc is not none else '' }}"
-                                                                data-end-utc="{{ report.query_end_utc if report.query_end_utc is not none else '' }}"
-                                                                aria-controls="query-content-{{ day | safe_id }}-{{ loop.index0 }}"
-                                                                aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
-                                                            <span class="query-gantt-label-wrap">
-                                                                <span class="query-gantt-label" title="{{ report.code }}">{{ report.code[:6] }}</span>
-                                                                <span class="query-gantt-icons">
-                                                                    <span class="query-gantt-icon-slot">
-                                                                        {% if report.has_query_optimizations %}
-                                                                        <i class="bi bi-lightning" title="Optimizations available"></i>
-                                                                        {% endif %}
-                                                                    </span>
-                                                                    <span class="query-gantt-icon-slot">
-                                                                        {% if report.seq_scan_indicator %}
-                                                                        <i class="bi bi-database-exclamation" title="Query contains a Seq Scan"></i>
-                                                                        {% endif %}
-                                                                    </span>
-                                                                    <span class="query-gantt-icon-slot">
-                                                                        {% if report.has_ai_hints %}
-                                                                        <i class="bi bi-chat-left-text" title="AI insight available"></i>
-                                                                        {% endif %}
-                                                                    </span>
-                                                                </span>
-                                                            </span>
-                                                            <span class="query-gantt-track">
-                                                                <span class="query-gantt-bar"></span>
-                                                            </span>
-                                                        </button>
-                                                        {% endfor %}
-                                                    </div>
-                                                </div>
-                                            </div>
+        {% for day in month_data.days %}
+        {% if reports.by_day.get(day) %}
+        {% set reports_list = reports.by_day.get(day) %}
 
-                                            {# Pannello destro: dettaglio query #}
-                                            <div class="split flex-grow-1" style="overflow-y: auto; padding: 0.5rem;">
-                                                <div class="tab-content query-tab-content" id="queryTabContent-{{ day | safe_id }}">
-                                                    {% for report in reports_list %}
-                                                    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
-                                                         id="query-content-{{ day | safe_id }}-{{ loop.index0 }}" 
-                                                         role="tabpanel" 
-                                                         aria-labelledby="query-tab-{{ day | safe_id }}-{{ loop.index0 }}">
-                                                        {{ query_details_content(report, day, loop.index0, optimizations) }}
-                                                    </div>
-                                                    {% endfor %}
-                                                </div>
-                                            </div>
-                                        </div>
+        <div class="aiqo-day-panel {% if day != ns_tp.last_day_overall %}d-none{% endif %}"
+             id="day-panel-{{ day | safe_id }}"
+             data-day="{{ day }}">
 
-                                        {# Split initialization moved to JS component (SplitLayout) #}
-                                    </div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
+            {# Day header strip #}
+            <div class="aiqo-day-header">
+                <span class="aiqo-day-title">{{ day }}</span>
+                <span class="aiqo-day-stat-chip">
+                    <span class="chip-label">Queries</span>
+                    <strong id="total-queries-{{ day | safe_id }}">{{ reports_list|length }}</strong>
+                </span>
+                <span class="aiqo-day-stat-chip">
+                    <span class="chip-label">Total time</span>
+                    <strong id="cumulated-time-day-{{ day | safe_id }}">—</strong>
+                </span>
+            </div>
+
+            {# Split: Left (timeline) + Right (details) #}
+            <div id="split-container-{{ day | safe_id }}" class="aiqo-day-split">
+
+                {# Left pane — Chart.js timeline #}
+                <div class="split aiqo-timeline-pane" style="width: 18%; min-width: 120px;">
+                    <div class="aiqo-timeline-wrapper" id="timeline-wrapper-{{ day | safe_id }}">
+                        <canvas id="timeline-{{ day | safe_id }}"></canvas>
+                    </div>
+                </div>
+
+                {# Right pane — query detail tabs #}
+                <div class="split" style="min-width: 300px; flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                    <div class="tab-content query-tab-content" id="queryTabContent-{{ day | safe_id }}">
+                        {% for report in reports_list %}
+                        <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
+                             id="query-content-{{ day | safe_id }}-{{ loop.index0 }}"
+                             role="tabpanel">
+                            {{ query_details_content(report, day, loop.index0, optimizations) }}
                         </div>
+                        {% endfor %}
+                    </div>
+                    {# Hidden table used by DateTabUpdater for queries-by-code breakdown #}
+                    <table class="d-none" aria-hidden="true">
+                        <tbody id="queries-by-code-table-body-{{ day | safe_id }}"></tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+        {% endif %}
         {% endfor %}
     {% endfor %}
+{% endfor %}

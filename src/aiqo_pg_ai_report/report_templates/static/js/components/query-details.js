@@ -4,14 +4,11 @@
 ;(function () {
   window.AIQO = window.AIQO || {};
   AIQO.Components = AIQO.Components || {};
-  const queryAccordionState = {
-    stats: true,
-    ai: false,
-    queryopt: false,
-    pev2: false,
-    compare: false,
-    chart: false,
-  };
+  // Last-active inner tab — restored when navigating to a new query
+  const queryDetailTabState = { activeTab: 'plan' };
+  // Per-appId cache of { day, report } for use in activateDetailTab
+  const queryDetailDataStore = {};
+
   const queryAnnotationToggleState = {
     initialized: false,
     includeQuery: true,
@@ -68,117 +65,50 @@
     return { safeDay, index, appId };
   }
 
-  function updateAccordionButtonState(collapseEl, isOpen) {
-    if (!collapseEl || !collapseEl.id) return;
-    const selector = `[data-bs-target="#${collapseEl.id}"]`;
-    const button = document.querySelector(selector);
-    if (!button) return;
+  function activateDetailTab(appId, tabName) {
+    const planPane = document.getElementById(`qd-pane-plan-${appId}`);
+    if (!planPane) return;
+    const content = planPane.closest('.aiqo-qd-content');
+    const qdRoot  = planPane.closest('.aiqo-qd');
+    if (!content || !qdRoot) return;
 
-    button.classList.toggle('collapsed', !isOpen);
-    button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-  }
+    // Hide all panes, show target (fall back to plan)
+    content.querySelectorAll('.aiqo-qd-pane').forEach((p) => p.classList.remove('active'));
+    const targetPane = document.getElementById(`qd-pane-${tabName}-${appId}`);
+    const activePane = targetPane || planPane;
+    activePane.classList.add('active');
+    const activeName = targetPane ? tabName : 'plan';
 
-  function setAccordionDomState(collapseEl, shouldOpen) {
-    if (!collapseEl) return;
+    // Update tab button active state
+    qdRoot.querySelectorAll('.aiqo-qd-tab').forEach((b) => b.classList.remove('active'));
+    const activeBtn = qdRoot.querySelector(`[data-qd-tab="${activeName}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
 
-    collapseEl.classList.add('collapse');
-    collapseEl.classList.remove('collapsing');
-    collapseEl.classList.toggle('show', shouldOpen);
-    collapseEl.style.height = '';
-    updateAccordionButtonState(collapseEl, shouldOpen);
-  }
+    queryDetailTabState.activeTab = activeName;
 
-  function syncAccordionsByKey(queryAccordionKey, shouldOpen, sourceEl) {
-    document
-      .querySelectorAll(`.accordion-collapse[data-query-accordion-key="${queryAccordionKey}"]`)
-      .forEach((collapseEl) => {
-        if (collapseEl === sourceEl) {
-          updateAccordionButtonState(collapseEl, shouldOpen);
-          return;
-        }
-        setAccordionDomState(collapseEl, shouldOpen);
-      });
-  }
-
-  function bindAccordionStateHandlers(appId) {
-    const accordionRoot = document.getElementById(`accordion-${appId}`);
-    if (!accordionRoot || accordionRoot.dataset.accordionStateBound === 'true') return;
-
-    accordionRoot
-      .querySelectorAll('.accordion-collapse[data-query-accordion-key]')
-      .forEach((collapseEl) => {
-        const { queryAccordionKey } = collapseEl.dataset;
-        if (!queryAccordionKey) return;
-
-        collapseEl.addEventListener('shown.bs.collapse', () => {
-          queryAccordionState[queryAccordionKey] = true;
-          updateAccordionButtonState(collapseEl, true);
-          syncAccordionsByKey(queryAccordionKey, true, collapseEl);
-        });
-        collapseEl.addEventListener('hidden.bs.collapse', () => {
-          queryAccordionState[queryAccordionKey] = false;
-          updateAccordionButtonState(collapseEl, false);
-          syncAccordionsByKey(queryAccordionKey, false, collapseEl);
-        });
-      });
-
-    accordionRoot.dataset.accordionStateBound = 'true';
-  }
-
-  function applyAccordionState(appId) {
-    const accordionRoot = document.getElementById(`accordion-${appId}`);
-    if (!accordionRoot) return;
-
-    accordionRoot
-      .querySelectorAll('.accordion-collapse[data-query-accordion-key]')
-      .forEach((collapseEl) => {
-        const { queryAccordionKey } = collapseEl.dataset;
-        if (!queryAccordionKey || !(queryAccordionKey in queryAccordionState)) return;
-
-        const shouldOpen = !!queryAccordionState[queryAccordionKey];
-        setAccordionDomState(collapseEl, shouldOpen);
-      });
-  }
-
-  function findScrollableParent(el) {
-    let current = el ? el.parentElement : null;
-
-    while (current) {
-      const style = window.getComputedStyle(current);
-      const canScrollY = /(auto|scroll)/.test(style.overflowY);
-      if (canScrollY && current.scrollHeight > current.clientHeight) {
-        return current;
+    // Lazy init per-tab
+    const stored = queryDetailDataStore[appId];
+    if (stored) {
+      if (activeName === 'plan') {
+        schedulePev2Mount(appId, stored.report);
       }
-      current = current.parentElement;
+      if (activeName === 'trend') {
+        setTimeout(() => refreshQueryChart(appId), 0);
+      }
     }
-
-    return null;
   }
 
-  function scrollToFirstOpenAccordion(appId) {
-    const accordionRoot = document.getElementById(`accordion-${appId}`);
-    if (!accordionRoot) return;
+  function bindInnerTabHandlers(appId, day, report) {
+    const planPane = document.getElementById(`qd-pane-plan-${appId}`);
+    const qdRoot   = planPane ? planPane.closest('.aiqo-qd') : null;
+    if (!qdRoot || qdRoot.dataset.innerTabsBound === 'true') return;
 
-    const firstOpenCollapse = accordionRoot.querySelector('.accordion-collapse.show');
-    if (!firstOpenCollapse) return;
+    queryDetailDataStore[appId] = { day, report };
 
-    const header = firstOpenCollapse.previousElementSibling;
-    const scrollTarget = header || firstOpenCollapse;
-    const scrollParent = findScrollableParent(accordionRoot);
-
-    if (scrollParent) {
-      const parentRect = scrollParent.getBoundingClientRect();
-      const targetRect = scrollTarget.getBoundingClientRect();
-      const offsetTop = targetRect.top - parentRect.top + scrollParent.scrollTop - 12;
-
-      scrollParent.scrollTo({
-        top: Math.max(offsetTop, 0),
-        behavior: 'smooth',
-      });
-      return;
-    }
-
-    scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    qdRoot.querySelectorAll('.aiqo-qd-tab').forEach((btn) => {
+      btn.addEventListener('click', () => activateDetailTab(appId, btn.dataset.qdTab));
+    });
+    qdRoot.dataset.innerTabsBound = 'true';
   }
 
   function getReportFor(day, index) {
@@ -221,33 +151,45 @@
     const rows = report.rows;
     const costFormatted = (cost !== null && !isNaN(cost))
       ? Number(cost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : 'N/A';
+      : null;
     const rowsFormatted = (rows !== null && !isNaN(rows))
       ? Number(rows).toLocaleString()
-      : 'N/A';
+      : null;
 
-    container.innerHTML = `
-      <div class="row gy-2 gx-3 text-nowrap">
-        <div class="col-auto"><strong>Start:</strong> ${validStart}</div>
-        <div class="col-auto"><strong>End:</strong> ${validEnd}</div>
-        <div class="col-auto"><strong>Duration:</strong> ${durationFmt}</div>
-        <div class="col-auto"><strong>Cost:</strong> ${costFormatted}</div>
-        <div class="col-auto"><strong>Rows:</strong> ${rowsFormatted}</div>
-      </div>`;
+    // Duration color class matching timeline colors
+    let durClass = 'crit';
+    if (Number.isFinite(durationMillis)) {
+      if (durationMillis < 100)  durClass = 'fast';
+      else if (durationMillis < 500)  durClass = 'ok';
+      else if (durationMillis < 2000) durClass = 'warn';
+    }
+
+    const chip = (label, value) => value != null
+      ? `<span class="aiqo-qd-chip"><span class="chip-l">${label}</span> ${value}</span>`
+      : '';
+    const durChip = durationFmt !== 'N/A'
+      ? `<span class="aiqo-qd-chip aiqo-qd-chip-dur--${durClass}"><span class="chip-l">Duration</span> ${durationFmt}</span>`
+      : '';
+
+    container.innerHTML = [
+      chip('Start', validStart !== 'N/A' ? validStart : null),
+      chip('End', validEnd !== 'N/A' ? validEnd : null),
+      durChip,
+      chip('Cost', costFormatted),
+      chip('Rows', rowsFormatted),
+    ].join('');
   }
 
   function isPev2ReadyToMount(appId) {
     const container = document.getElementById(appId);
     if (!container) return false;
-
-    const pev2Collapse = container.closest('.accordion-collapse[data-query-accordion-key="pev2"]');
-    if (pev2Collapse && !pev2Collapse.classList.contains('show')) return false;
-
+    const pane = container.closest('.aiqo-qd-pane');
+    if (pane && !pane.classList.contains('active')) return false;
     return isElementVisible(container);
   }
 
   function createPev2Markup() {
-    return '<pev2 :plan-source="plan" :plan-query="query" style="display: block; aspect-ratio: 16 / 9; width: 100%;"></pev2>';
+    return '<pev2 :plan-source="plan" :plan-query="query" style="display: block; width: 100%; height: 100%;"></pev2>';
   }
 
   function teardownPev2(container) {
@@ -262,6 +204,10 @@
     }
 
     container._aiqoPev2App = null;
+    // Remove data-v-app unconditionally: if unmount() threw, Vue may have left
+    // the attribute behind, causing the next mountPev2 call to see alreadyMounted=true
+    // and silently bail out without rendering anything.
+    container.removeAttribute('data-v-app');
     container.innerHTML = createPev2Markup();
   }
 
@@ -272,12 +218,20 @@
     const mountTicket = (container._aiqoPev2MountTicket || 0) + 1;
     container._aiqoPev2MountTicket = mountTicket;
 
+    const tryMount = (attemptsLeft) => {
+      const c = document.getElementById(appId);
+      if (!c || c._aiqoPev2MountTicket !== mountTicket) return;
+      if (!isPev2ReadyToMount(appId)) {
+        if (attemptsLeft > 0) {
+          requestAnimationFrame(() => tryMount(attemptsLeft - 1));
+        }
+        return;
+      }
+      mountPev2(appId, report, options);
+    };
+
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const targetContainer = document.getElementById(appId);
-        if (!targetContainer || targetContainer._aiqoPev2MountTicket !== mountTicket) return;
-        mountPev2(appId, report, options);
-      });
+      requestAnimationFrame(() => tryMount(3));
     });
   }
 
@@ -1314,51 +1268,13 @@
     chart.update('none');
   }
 
-  function bindDetailSectionHandlers(appId, day, report) {
-    const accordionRoot = document.getElementById(`accordion-${appId}`);
-    if (!accordionRoot || accordionRoot.dataset.detailSectionHandlersBound === 'true') return;
-
-    const chartCollapse = accordionRoot.querySelector(
-      '.accordion-collapse[data-query-accordion-key="chart"]'
-    );
-    if (chartCollapse) {
-      chartCollapse.addEventListener('shown.bs.collapse', () => {
-        renderQueryChart(appId, day, report);
-        setTimeout(() => refreshQueryChart(appId), 0);
-      });
-    }
-
-    const pev2Collapse = accordionRoot.querySelector(
-      '.accordion-collapse[data-query-accordion-key="pev2"]'
-    );
-    if (pev2Collapse) {
-      pev2Collapse.addEventListener('shown.bs.collapse', () => {
-        schedulePev2Mount(appId, report, { forceRemount: true });
-        setTimeout(() => refreshQueryChart(appId), 0);
-      });
-    }
-
-    const compareCollapse = accordionRoot.querySelector(
-      '.accordion-collapse[data-query-accordion-key="compare"]'
-    );
-    if (compareCollapse) {
-      compareCollapse.addEventListener('shown.bs.collapse', () => {
-        renderPlanComparisonTree(appId, report);
-      });
-    }
-
-    accordionRoot.dataset.detailSectionHandlersBound = 'true';
-  }
-
   function safeInitForTab(tabEl) {
     const ids = deriveIdsFromQueryTabId(tabEl.id);
     if (!ids) return;
     const { safeDay, index, appId } = ids;
-    const day = safeDay; // days are safe-id equals YYYY-MM-DD
-    const generalStatsId = `query-details-general-${appId}`;
+    const day = safeDay;
     const queryPaneId = `query-content-${safeDay}-${index}`;
 
-    // Wait for the active query pane to be visible before initializing its content.
     const fn = function () {
       const queryPane = document.getElementById(queryPaneId);
       if (!isElementVisible(queryPane)) {
@@ -1367,90 +1283,26 @@
       }
       const report = getReportFor(day, index);
       if (!report) return;
-      bindAccordionStateHandlers(appId);
-      bindDetailSectionHandlers(appId, day, report);
-      applyAccordionState(appId);
-      formatGeneralStats(generalStatsId, report);
-      requestAnimationFrame(() => scrollToFirstOpenAccordion(appId));
-      if (queryAccordionState.pev2) {
-        schedulePev2Mount(appId, report, { forceRemount: true });
-      }
-      if (queryAccordionState.compare) {
-        renderPlanComparisonTree(appId, report);
-      }
+
+      bindInnerTabHandlers(appId, day, report);
+      formatGeneralStats(`query-details-general-${appId}`, report);
+      // Tear down any previous Pev2 instance so it re-renders fresh for this query
+      teardownPev2(document.getElementById(appId));
+      // Render chart eagerly so annotation handlers are wired; chart resizes on tab show
       renderQueryChart(appId, day, report);
+      // Activate last-used tab (falls back to 'plan' if not present on this query)
+      activateDetailTab(appId, queryDetailTabState.activeTab);
     };
     fn();
   }
 
-  function getVisibleDaySafeId() {
-    const visibleDayContent = document.querySelector('.day-tab-content:not(.d-none)');
-    if (visibleDayContent) {
-      const activePane = visibleDayContent.querySelector('.tab-pane.show.active');
-      if (activePane && activePane.id && activePane.id.indexOf('tab-day-') === 0) {
-        return activePane.id.replace('tab-day-', '');
-      }
-    }
-
-    const activeDayInVisibleContainer = document.querySelector(
-      '.day-tabs-container:not(.d-none) .day-tabs .nav-link.active'
-    );
-    if (activeDayInVisibleContainer) {
-      return activeDayInVisibleContainer.id.replace('tab-day-', '').replace(/-tab$/, '');
-    }
-
-    const fallbackActive = document.querySelector('.day-tabs .nav-link.active');
-    if (fallbackActive) {
-      return fallbackActive.id.replace('tab-day-', '').replace(/-tab$/, '');
-    }
-    return null;
-  }
-
-  function findQueryTabForDay(safeDay) {
-    if (!safeDay) return null;
-    const dayPane = document.getElementById(`tab-day-${safeDay}`);
-    if (dayPane) {
-      const activeQuery = dayPane.querySelector('.query-gantt-row.active');
-      if (activeQuery) return activeQuery;
-      const fallbackQuery = dayPane.querySelector('.query-gantt-row');
-      if (fallbackQuery) return fallbackQuery;
-    }
-    return document.querySelector(`[id^="query-tab-${safeDay}-"]`);
-  }
-
-  function initListeners() {
-    // Initialize on query tab shown
-    document.querySelectorAll('[id^="query-tab-"]').forEach((tabEl) => {
-      tabEl.addEventListener('shown.bs.tab', function () {
-        safeInitForTab(tabEl);
-      });
-    });
-
-    // Initialize the first query for the currently active day (if any)
-    const safeDay = getVisibleDaySafeId();
-    if (safeDay) {
-      const initialQueryTab = findQueryTabForDay(safeDay);
-      if (initialQueryTab) {
-        setTimeout(() => safeInitForTab(initialQueryTab), 100);
-      }
-    }
-
-    // When a day tab is shown, initialize the first query tab for that day
-    document.querySelectorAll('[id^="tab-day-"]').forEach((dayTabBtn) => {
-      if (!/-tab$/.test(dayTabBtn.id)) return;
-      dayTabBtn.addEventListener('shown.bs.tab', function () {
-        const safeDay = dayTabBtn.id.replace('tab-day-', '').replace(/-tab$/, '');
-        const targetQueryTab = findQueryTabForDay(safeDay);
-        if (targetQueryTab) {
-          setTimeout(() => safeInitForTab(targetQueryTab), 100);
-        }
-      });
-    });
-  }
-
   AIQO.Components.QueryDetails = {
     init() {
-      initListeners();
+      // Initialization driven entirely by sidebar.navigateToDay → initForQuery
+    },
+
+    initForQuery(safeDay, index) {
+      safeInitForTab({ id: `query-tab-${safeDay}-${index}` });
     },
   };
 })();

@@ -1,28 +1,31 @@
-<div class="d-flex justify-content-between align-items-center my-4">
-    <div>
-        {% if metadata.model and not metadata.skip_ai_analysis %}
-        <h1 class="text-start mb-2">PostgreSQL Auto Explain Report ({{ metadata.model }})</h1>
-        {% else %}
-        <h1 class="text-start mb-2">PostgreSQL Auto Explain Report</h1>
-        {% endif %}
-        <h3 class="text-start text-muted mb-1">Report date: {{ metadata.timestamp | default("N/A") }}</h3>
-        {% if metadata.auto_explain_log_min_duration %}
-        <p class="text-start text-muted mb-1">auto_explain.log_min_duration: {{ metadata.auto_explain_log_min_duration }}</p>
-        <p class="text-start text-muted mb-1">Only queries exceeding this threshold are displayed in the report.</p>
-        {% endif %}
-        <p class="text-start text-muted mb-0">Version: v{{ metadata.version | default("unknown") }}</p>
-    </div>
-    <div class="flex-shrink-0">
-        <a href="https://github.com/ivanrododendro/aiqo-report">
-            <img src="data:image/png;base64,{{ 'static/img/aiqo-report-large.png' | embed_image }}" alt="AIQO Logo" style="max-height: 120px; height: auto;">
-        </a>
-    </div>
-</div>
-{% include 'components/_tabs.html' %}
-{% include 'components/_global_synthesis.html' %}
-{% include 'components/_context_section.html' %}
+{% include 'components/_sidebar.html' %}
 
-<div class="modal fade" id="planCompareModal" tabindex="-1" aria-labelledby="planCompareModalTitle" aria-hidden="true">
+<main class="aiqo-main" id="aiqo-main">
+
+    {# ── Day view ─────────────────────────────────────────────────────────── #}
+    <div id="aiqo-view-days" class="aiqo-view d-none">
+        {% include 'components/_tabs.html' %}
+    </div>
+
+    {# ── Summary view (default) ───────────────────────────────────────────── #}
+    <div id="aiqo-view-summary" class="aiqo-view">
+        <div class="aiqo-overview-scroll">
+            {% include 'components/_global_synthesis.html' %}
+        </div>
+    </div>
+
+    {# ── Context view ─────────────────────────────────────────────────────── #}
+    <div id="aiqo-view-context" class="aiqo-view d-none">
+        <div class="aiqo-overview-scroll">
+            {% include 'components/_context_section.html' %}
+        </div>
+    </div>
+
+</main>
+
+{# Plan comparison modal (shared across all views) #}
+<div class="modal fade" id="planCompareModal" tabindex="-1"
+     aria-labelledby="planCompareModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl plan-compare-modal-dialog">
         <div class="modal-content">
             <div class="modal-header plan-compare-modal-header">
