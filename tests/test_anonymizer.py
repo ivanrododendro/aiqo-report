@@ -192,6 +192,25 @@ class TestExtractFromSql:
         a = make_anon()
         a.extract_from_sql("")
 
+    def test_extracts_index_name_from_create_index(self):
+        a = make_anon()
+        a.extract_from_sql("CREATE INDEX idx_users_email ON public.users (email)")
+        assert "idx_users_email" in a._map
+        assert a._map["idx_users_email"].startswith("idx_")
+
+    def test_create_index_extracts_table_and_schema(self):
+        a = make_anon()
+        a.extract_from_sql("CREATE INDEX idx_orders_customer ON public.orders (customer_id)")
+        assert "idx_orders_customer" in a._map
+        assert "orders" in a._map
+        assert "public" in a._map
+
+    def test_create_unique_index_extracts_index_name(self):
+        a = make_anon()
+        a.extract_from_sql("CREATE UNIQUE INDEX idx_users_id ON users (id)")
+        assert "idx_users_id" in a._map
+        assert a._map["idx_users_id"].startswith("idx_")
+
 
 # ---------------------------------------------------------------------------
 # Anonymize

@@ -122,6 +122,9 @@ class SchemaAnonymizer:
             elif isinstance(node, exp.Column):
                 if node.name:
                     self._alias(node.name, "column")
+            elif isinstance(node, exp.Index):
+                if node.name:
+                    self._alias(node.name, "index")
             elif isinstance(node, exp.Anonymous):
                 if node.name and node.name.lower() not in _BUILTIN_PG_FUNCTIONS:
                     self._alias(node.name, "function")
