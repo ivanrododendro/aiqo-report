@@ -86,6 +86,12 @@ body.aiqo-app-shell {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.aiqo-exec-note {
+  color: #475569;
+  font-size: 0.625rem;
+  line-height: 1.55;
+  margin-bottom: 0.1rem;
+}
 
 /* ─── Section nav tabs ────────────────────────────────────────────────────── */
 .aiqo-sidebar-nav {

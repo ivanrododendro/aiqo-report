@@ -979,7 +979,7 @@
     menuEl.setAttribute('role', 'menu');
     menuEl.innerHTML = `
       <button type="button" class="chart-context-menu-item" data-action="compare">
-        Compare with current query
+        Compare current execution with this as baseline
       </button>
     `;
     document.body.appendChild(menuEl);

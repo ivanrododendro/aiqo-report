@@ -83,7 +83,7 @@ class PGAutoExplainAnalyzer:
         self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
 
         from aiqo_pg_ai_report.anonymizer import SchemaAnonymizer
-        self.anonymizer = None if getattr(args, "no_anonymize", False) else SchemaAnonymizer()
+        self.anonymizer = None if (getattr(args, "no_anonymize", False) or getattr(args, "skip_ai_analysis", False)) else SchemaAnonymizer()
 
         # Initialize ContextLoader which handles loading prompts and all context/optimization files
         self.context_loader = ContextLoader(

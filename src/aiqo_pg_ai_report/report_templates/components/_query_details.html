@@ -40,7 +40,6 @@
         {% if report.ai_hints %}
         <button class="aiqo-qd-tab" data-qd-tab="ai" type="button" role="tab">
             <i class="bi bi-stars" aria-hidden="true"></i> AI
-            <span class="aiqo-qd-tab-dot" aria-hidden="true"></span>
         </button>
         {% endif %}
         <button class="aiqo-qd-tab" data-qd-tab="trend" type="button" role="tab">
@@ -102,7 +101,7 @@
                     <input class="form-check-input" type="checkbox"
                            id="toggle-ann-server-{{ app_id }}"
                            data-query-annotation-key="includeServer">
-                    <label class="form-check-label" for="toggle-ann-server-{{ app_id }}">Server Opts</label>
+                    <label class="form-check-label" for="toggle-ann-server-{{ app_id }}">Server Optimizations</label>
                 </div>
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox"
@@ -114,6 +113,9 @@
             <canvas id="execTimeChart-{{ app_id }}" width="400" height="160"
                     data-query-opt-list="opt-list-{{ app_id }}"
                     data-server-opt-list="server-opt-list-{{ app_id }}"></canvas>
+            <div class="text-center text-muted mt-1" style="font-size: 0.625rem;">
+                Use right click on datapoints in order to compare execution plans
+            </div>
 
             {% if server_legend_all %}
             <div class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-server-list-{{ app_id }}">
