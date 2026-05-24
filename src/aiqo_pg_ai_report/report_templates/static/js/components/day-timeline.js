@@ -26,6 +26,18 @@
     return           'rgba(239, 68,  68,  1)';
   }
 
+  let _copyToastTimer = null;
+
+  function showCopyToast(code) {
+    const toast = document.getElementById('aiqo-copy-toast');
+    const msg   = document.getElementById('aiqo-copy-toast-msg');
+    if (!toast) return;
+    if (msg) msg.textContent = '‘' + code + '’ copied';
+    toast.classList.add('visible');
+    if (_copyToastTimer) clearTimeout(_copyToastTimer);
+    _copyToastTimer = setTimeout(() => toast.classList.remove('visible'), 2200);
+  }
+
   AIQO.Components.DayTimeline = {
     _charts: {},
     _selectedChartIdx: {},
@@ -197,6 +209,30 @@
       chart._aiqoBorderColors = timedReports.map(({ r }) => durationBorder(r.duration || 0));
 
       this._charts[safeDay] = chart;
+
+      // Double-click on a row copies its short code to the clipboard
+      canvas.addEventListener('dblclick', (event) => {
+        const yScale = chart.scales && chart.scales.y;
+        if (!yScale) return;
+        const rawIdx = Math.round(yScale.getValueForPixel(event.offsetY));
+        if (rawIdx == null || rawIdx < 0 || rawIdx >= timedReports.length) return;
+        const code = timedReports[rawIdx].r.code
+          ? timedReports[rawIdx].r.code.substring(0, 6)
+          : labels[rawIdx];
+        navigator.clipboard.writeText(code).then(() => showCopyToast(code)).catch(() => {
+          // fallback for browsers that deny clipboard outside user gesture
+          showCopyToast(code);
+        });
+      });
+
+      // Hint note at the bottom of the timeline pane
+      const pane = canvas.closest('.aiqo-timeline-pane');
+      if (pane && !pane.querySelector('.aiqo-timeline-hint')) {
+        const hint = document.createElement('div');
+        hint.className = 'aiqo-timeline-hint';
+        hint.textContent = 'Double click to copy query code';
+        pane.appendChild(hint);
+      }
     },
 
     _updateSelection(safeDay) {
