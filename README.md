@@ -4,7 +4,7 @@ The AIQO PostgreSQL AI Report Generator is a powerful command-line tool designed
 
 It is well suited to scenarios where complexity, data volume and fragmentation make it difficult or impossible to reproduce the execution plan outside the production environment.
 
-Download the [sample HTML report](https://github.com/ivanrododendro/aiqo-report/releases/download/1.4.2/sample_report.zip) or the [target query report for query 421865](https://github.com/ivanrododendro/aiqo-report/releases/download/1.4.2/target_query_report_421865.zip) for a randomized dataset created using explain.dalibo.com sample plans. AI hint is at day may 4, real reports are more meaningful due to detailed context you can provide to AI analisys.
+Download the [sample HTML report](https://github.com/ivanrododendro/aiqo-report/releases/latest/download/sample_report.zip) or the [target query report for query 421865](https://github.com/ivanrododendro/aiqo-report/releases/latest/download/target_query_report_421865.zip) for a randomized dataset created using explain.dalibo.com sample plans. AI hint is at day may 4, real reports are more meaningful due to detailed context you can provide to AI analisys.
 
 ![](docs/infographic.webp)
 

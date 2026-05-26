@@ -9,79 +9,170 @@
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    function activateTargetQueryRow(row) {
-        if (!row) return false;
+document.addEventListener('DOMContentLoaded', function () {
 
-        const dayPane = row.closest('[id^="tab-day-"]');
-        const targetSelector = row.getAttribute('data-query-target');
-        if (!dayPane || !targetSelector) return false;
-
-        const targetPane = dayPane.querySelector(targetSelector);
-        if (!targetPane) return false;
-
-        dayPane.querySelectorAll('.query-gantt-row.active').forEach((activeRow) => {
-            activeRow.classList.remove('active');
-            activeRow.setAttribute('aria-selected', 'false');
-        });
-
-        dayPane.querySelectorAll('.query-tab-content .tab-pane.show.active').forEach((activePane) => {
-            activePane.classList.remove('show', 'active');
-        });
-
-        row.classList.add('active');
-        row.setAttribute('aria-selected', 'true');
-        targetPane.classList.add('show', 'active');
-        row.dispatchEvent(new Event('shown.bs.tab', { bubbles: true }));
-        return true;
+    // ── Init chart manager and query details ──────────────────────────────────
+    window.reportChartManager = new AIQO.Core.ReportChartManager(reportData);
+    if (AIQO.Components && AIQO.Components.QueryDetails) {
+        AIQO.Components.QueryDetails.init();
     }
 
-    function updateSelectedExecutionLabel(row) {
-        const label = document.getElementById('selectedExecutionLabel');
-        if (!label || !row) return;
-        label.textContent = row.getAttribute('data-query-timestamp') || 'N/A';
+    // ── State ─────────────────────────────────────────────────────────────────
+    let _currentView = 'query';
+    let _contextInitialized = false;
+    const _occurrenceVisited = {}; // tracks first-visit per "day-index" key
+
+    // ── activateOccurrence ────────────────────────────────────────────────────
+    function activateOccurrence(day, index) {
+        const safeDay = window.ReportUtils ? ReportUtils.dateToSafeId(day) : day.replace(/[^a-z0-9]/gi, '-');
+
+        // Deactivate all query panes
+        document.querySelectorAll('#queryTabContent-target-query .tab-pane').forEach(function (p) {
+            p.classList.remove('show', 'active');
+        });
+
+        // Activate target pane
+        const target = document.getElementById('query-content-' + safeDay + '-' + index);
+        if (target) {
+            target.classList.add('show', 'active');
+            if (AIQO.Components && AIQO.Components.QueryDetails) {
+                AIQO.Components.QueryDetails.initForQuery(safeDay, index);
+                // On first visit activate the AI tab; subsequent visits respect user's last choice
+                const visitKey = safeDay + '-' + index;
+                if (!_occurrenceVisited[visitKey]) {
+                    _occurrenceVisited[visitKey] = true;
+                    const aiTab = target.querySelector('.aiqo-qd-tab[data-qd-tab="ai"]');
+                    if (aiTab) aiTab.click();
+                }
+            }
+        }
+
+        // Update occurrence list active state
+        document.querySelectorAll('.aiqo-occurrence-btn').forEach(function (btn) {
+            const btnDay   = btn.getAttribute('data-day');
+            const btnIndex = parseInt(btn.getAttribute('data-index'), 10);
+            btn.classList.toggle('active', btnDay === day && btnIndex === index);
+        });
+
+        // Update selected execution label in sidebar
+        const activeBtn = document.querySelector(
+            '.aiqo-occurrence-btn[data-day="' + day + '"][data-index="' + index + '"]'
+        );
+        if (activeBtn) {
+            const ts = activeBtn.getAttribute('data-timestamp') || day;
+            const label = document.getElementById('selectedExecutionLabel');
+            if (label) label.textContent = ts;
+        }
+
+        // Ensure query view is visible
+        if (_currentView !== 'query') showView('query');
     }
 
+    // ── showView ──────────────────────────────────────────────────────────────
+    function showView(viewName) {
+        _currentView = viewName;
+
+        // Toggle main areas
+        const qView = document.getElementById('aiqo-view-query');
+        const cView = document.getElementById('aiqo-view-context');
+        if (qView) qView.classList.toggle('d-none', viewName !== 'query');
+        if (cView) cView.classList.toggle('d-none', viewName !== 'context');
+
+        // Toggle sidebar sections
+        const qSection = document.getElementById('aiqo-sidebar-section-query');
+        const cSection = document.getElementById('aiqo-sidebar-section-context');
+        if (qSection) qSection.classList.toggle('d-none', viewName !== 'query');
+        if (cSection) cSection.classList.toggle('d-none', viewName !== 'context');
+
+        // Update nav tab state
+        const btnQuery   = document.getElementById('btn-section-query');
+        const btnContext = document.getElementById('btn-section-context');
+        if (btnQuery) {
+            btnQuery.classList.toggle('active', viewName === 'query');
+            btnQuery.setAttribute('aria-selected', viewName === 'query' ? 'true' : 'false');
+        }
+        if (btnContext) {
+            btnContext.classList.toggle('active', viewName === 'context');
+            btnContext.setAttribute('aria-selected', viewName === 'context' ? 'true' : 'false');
+        }
+
+        // On first context view: activate first panel
+        if (viewName === 'context' && !_contextInitialized) {
+            _contextInitialized = true;
+            const firstContextBtn = document.querySelector('#aiqo-sidebar-section-context .aiqo-section-nav-btn[data-panel]');
+            if (firstContextBtn) activateContextPanel(firstContextBtn);
+        }
+    }
+
+    // ── activateContextPanel ──────────────────────────────────────────────────
+    function activateContextPanel(btn) {
+        const panelId = btn.getAttribute('data-panel');
+        document.querySelectorAll('.aiqo-section-panel').forEach(function (p) {
+            p.classList.add('d-none');
+        });
+        const panel = document.getElementById(panelId);
+        if (panel) panel.classList.remove('d-none');
+
+        document.querySelectorAll('#aiqo-sidebar-section-context .aiqo-section-nav-btn').forEach(function (b) {
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+    }
+
+    // ── Wire: occurrence list ─────────────────────────────────────────────────
+    document.querySelectorAll('.aiqo-occurrence-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const day   = btn.getAttribute('data-day');
+            const index = parseInt(btn.getAttribute('data-index'), 10);
+            activateOccurrence(day, index);
+        });
+    });
+
+    // ── Wire: sidebar nav tabs ────────────────────────────────────────────────
+    const btnQuery = document.getElementById('btn-section-query');
+    const btnContext = document.getElementById('btn-section-context');
+    if (btnQuery)   btnQuery.addEventListener('click',   function () { showView('query'); });
+    if (btnContext) btnContext.addEventListener('click', function () { showView('context'); });
+
+    // ── Wire: context section nav items ───────────────────────────────────────
+    document.querySelectorAll('#aiqo-sidebar-section-context .aiqo-section-nav-btn[data-panel]').forEach(function (btn) {
+        btn.addEventListener('click', function () { activateContextPanel(btn); });
+    });
+
+    // ── Wire: duplicate AI analysis links (cross-occurrence) ─────────────────
+    document.querySelectorAll('[data-role="duplicate-ai-analysis-link"]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            const targetDay   = link.getAttribute('data-target-day');
+            const targetIndex = parseInt(link.getAttribute('data-target-index'), 10);
+            if (targetDay && !isNaN(targetIndex)) activateOccurrence(targetDay, targetIndex);
+        });
+    });
+
+    // ── window.reportNavigator: used by query-details.js trend chart clicks ──
     window.reportNavigator = {
-        navigateToQuery: function(queryCode, day) {
-            const safeDay = window.ReportUtils && typeof ReportUtils.dateToSafeId === 'function'
-                ? ReportUtils.dateToSafeId(day)
-                : day;
-            const targetRow = Array.from(document.querySelectorAll(`[id^="query-tab-${safeDay}-"]`)).find((row) => {
-                return row.getAttribute('data-query-code') === queryCode;
-            });
-            if (!targetRow) return false;
-            const activated = activateTargetQueryRow(targetRow);
-            if (activated) updateSelectedExecutionLabel(targetRow);
-            return activated;
+        navigateToQueryInstance: function (day, index) {
+            activateOccurrence(day, index);
+            return true;
         },
-        navigateToQueryInstance: function(day, index) {
-            const safeDay = window.ReportUtils && typeof ReportUtils.dateToSafeId === 'function'
-                ? ReportUtils.dateToSafeId(day)
-                : day;
-            const targetRow = document.getElementById(`query-tab-${safeDay}-${index}`);
-            if (!targetRow) return false;
-            const activated = activateTargetQueryRow(targetRow);
-            if (activated) updateSelectedExecutionLabel(targetRow);
-            return activated;
+        navigateToQuery: function (queryCode, day) {
+            // Find the first occurrence on that day matching the code
+            const btn = document.querySelector('.aiqo-occurrence-btn[data-day="' + day + '"]');
+            if (!btn) return false;
+            const index = parseInt(btn.getAttribute('data-index'), 10);
+            activateOccurrence(day, index);
+            return true;
         },
     };
 
-    window.reportChartManager = new AIQO.Core.ReportChartManager(reportData);
-
-    if (AIQO.Components && AIQO.Components.QueryDetails) AIQO.Components.QueryDetails.init();
-
-    document.querySelectorAll('[id^="query-tab-"]').forEach((row) => {
-        row.addEventListener('shown.bs.tab', function() {
-            updateSelectedExecutionLabel(row);
-        });
+    // ── Tooltips ──────────────────────────────────────────────────────────────
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+        bootstrap.Tooltip.getOrCreateInstance(el, { container: 'body', trigger: 'hover focus' });
     });
 
-    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
-        bootstrap.Tooltip.getOrCreateInstance(element, {
-            container: 'body',
-            trigger: 'hover focus',
-        });
-    });
+    // ── Initial selection ─────────────────────────────────────────────────────
+    const initialDay   = '{{ target_query.selected_day }}';
+    const initialIndex = {{ target_query.selected_index }};
+    activateOccurrence(initialDay, initialIndex);
 });
 </script>

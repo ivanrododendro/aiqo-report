@@ -1,5 +1,5 @@
 {# Macro per visualizzare i dettagli di una singola query #}
-{% macro query_details_content(report, day, index, optimizations) %}
+{% macro query_details_content(report, day, index, optimizations, ai_first=False) %}
 {% set app_id = 'app-' ~ day | safe_id ~ '-' ~ index %}
 {% set query_optimizations_for_query = (optimizations.query | default({}, true)).get(report.code, []) %}
 {% set legend_entries_generic = optimizations.annotations.legend_entries.generic | default([], true) %}
@@ -34,13 +34,17 @@
 
     {# ── Tab strip ───────────────────────────────────────────────────────────── #}
     <div class="aiqo-qd-tabs" role="tablist">
+        {% if ai_first and report.ai_hints %}
+        <button class="aiqo-qd-tab" data-qd-tab="ai" type="button" role="tab">
+            <i class="bi bi-stars" aria-hidden="true"></i> AI
+        </button>
+        {% endif %}
         <button class="aiqo-qd-tab" data-qd-tab="plan" type="button" role="tab">
             <i class="bi bi-diagram-3" aria-hidden="true"></i> Plan &amp; Query
         </button>
-        {% if report.ai_hints %}
+        {% if not ai_first and report.ai_hints %}
         <button class="aiqo-qd-tab" data-qd-tab="ai" type="button" role="tab">
             <i class="bi bi-stars" aria-hidden="true"></i> AI
-            <span class="aiqo-qd-tab-dot" aria-hidden="true"></span>
         </button>
         {% endif %}
         <button class="aiqo-qd-tab" data-qd-tab="trend" type="button" role="tab">
@@ -102,7 +106,7 @@
                     <input class="form-check-input" type="checkbox"
                            id="toggle-ann-server-{{ app_id }}"
                            data-query-annotation-key="includeServer">
-                    <label class="form-check-label" for="toggle-ann-server-{{ app_id }}">Server Opts</label>
+                    <label class="form-check-label" for="toggle-ann-server-{{ app_id }}">Server Optimizations</label>
                 </div>
                 <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox"
@@ -114,6 +118,9 @@
             <canvas id="execTimeChart-{{ app_id }}" width="400" height="160"
                     data-query-opt-list="opt-list-{{ app_id }}"
                     data-server-opt-list="server-opt-list-{{ app_id }}"></canvas>
+            <div class="text-center text-muted mt-1" style="font-size: 0.625rem;">
+                Use right click on datapoints in order to compare execution plans
+            </div>
 
             {% if server_legend_all %}
             <div class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-server-list-{{ app_id }}">

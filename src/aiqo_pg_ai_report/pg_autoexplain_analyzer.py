@@ -81,9 +81,10 @@ class PGAutoExplainAnalyzer:
         self.disable_general_hints_synthesis = args.disable_general_hints_synthesis
         self.context_folder = args.context_folder  # Nouveau paramètre renommé
         self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
+        self.demo = getattr(args, "demo", False)
 
         from aiqo_pg_ai_report.anonymizer import SchemaAnonymizer
-        self.anonymizer = None if getattr(args, "no_anonymize", False) else SchemaAnonymizer()
+        self.anonymizer = None if (getattr(args, "no_anonymize", False) or getattr(args, "skip_ai_analysis", False)) else SchemaAnonymizer()
 
         # Initialize ContextLoader which handles loading prompts and all context/optimization files
         self.context_loader = ContextLoader(
@@ -130,7 +131,10 @@ class PGAutoExplainAnalyzer:
                 options.append(("Analyze all occurrences", "yes"))
             if self.disable_general_hints_synthesis:
                 options.append(("General hints synthesis", "disabled"))
-        options.append(("Anonymization", "disabled" if not self.anonymizer else "enabled"))
+        if self.anonymizer:
+            options.append(("Anonymization", "demo (output not deanonymized)" if self.demo else "enabled"))
+        else:
+            options.append(("Anonymization", "disabled"))
         if self.filter_strings:
             options.append(("Filters", ", ".join(self.filter_strings)))
         return options
@@ -189,7 +193,7 @@ class PGAutoExplainAnalyzer:
         )
         if ai_hints_result is None:
             return "AI analysis failed or timed out."
-        if self.anonymizer:
+        if self.anonymizer and not self.demo:
             ai_hints_result = self.anonymizer.deanonymize(ai_hints_result)
         return ai_hints_result
 
@@ -313,7 +317,7 @@ class PGAutoExplainAnalyzer:
         )
         if ai_hints_result is None:
             return "AI analysis failed or timed out."
-        if self.anonymizer:
+        if self.anonymizer and not self.demo:
             ai_hints_result = self.anonymizer.deanonymize(ai_hints_result)
         return ai_hints_result
 
@@ -488,7 +492,7 @@ class PGAutoExplainAnalyzer:
         if synthesis is None:
             logger.warning("General hints synthesis failed or timed out")
             return None
-        if self.anonymizer:
+        if self.anonymizer and not self.demo:
             synthesis = self.anonymizer.deanonymize(synthesis)
         return synthesis
 
@@ -664,7 +668,7 @@ class PGAutoExplainAnalyzer:
         report_title = (
             "PostgreSQL Auto Explain Report"
             if self.skip_ai_analysis
-            else f"PostgreSQL Auto Explain AI Report ({self.model}) "
+            else "PostgreSQL Auto Explain AI Report"
         )
         general_hints_synthesis = self._build_general_hints_synthesis()
 
@@ -824,6 +828,11 @@ def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--no-anonymize",
         action="store_true",
         help="Disable DB object name anonymization before sending data to AI (default: anonymization enabled)",
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Demo mode: anonymize data sent to AI but do not deanonymize the output, safe for public sharing",
     )
 
     args, unknown_args = parser.parse_known_args(argv)

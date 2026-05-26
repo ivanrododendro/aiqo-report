@@ -17,17 +17,19 @@
         <div class="aiqo-sidebar-title">{{ metadata.title }}</div>
     </div>
 
-    {# ── Report metadata (log_min_duration etc.) ───────────────────────────── #}
-    {% if metadata.auto_explain_log_min_duration %}
-    <div class="aiqo-sidebar-meta">
-        auto_explain.log_min_duration: {{ metadata.auto_explain_log_min_duration }}
-        <span class="d-block mt-1">Only queries exceeding this threshold are displayed in the report.</span>
-    </div>
-    {% endif %}
-
-    {# ── Report generation timestamp ──────────────────────────────────────────── #}
-    <div class="aiqo-sidebar-meta">
-        Generated {{ metadata.timestamp }}
+    {# ── Report metadata (log_min_duration + timestamp) ────────────────────── #}
+    <div class="aiqo-sidebar-exec-options">
+        {% if metadata.auto_explain_log_min_duration %}
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">auto_explain.log_min_duration</span>
+            <span class="aiqo-exec-value">{{ metadata.auto_explain_log_min_duration }}</span>
+        </div>
+        <div class="aiqo-exec-note">Only queries exceeding this threshold are displayed.</div>
+        {% endif %}
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">Generated</span>
+            <span class="aiqo-exec-value">{{ metadata.timestamp }}</span>
+        </div>
     </div>
 
     {# ── Execution options ────────────────────────────────────────────────────── #}
