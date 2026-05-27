@@ -9,6 +9,10 @@
   const BUFFER_KEYS_FOR_TOTAL_IO = ['shared_read', 'shared_dirtied', 'shared_written', 'temp_read', 'temp_written'];
   const QUERY_POINT_HOVER_RADIUS_PX = 12;
 
+  Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = '#64748b';
+
   AIQO.Core.ChartFactory = class ChartFactory {
   constructor(reportData) {
     this.reportData = reportData;
@@ -224,6 +228,21 @@
           },
         },
         annotation: { annotations },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true },
+            pinch: { enabled: true },
+            mode: 'x',
+            resetOnDoubleClick: true,
+          },
+          pan: {
+            enabled: true,
+            mode: 'x',
+          },
+          limits: {
+            x: { min: 'original', max: 'original' },
+          },
+        },
       },
       scales: {
         x: {
@@ -465,6 +484,21 @@
           },
         },
         annotation: { annotations },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true },
+            pinch: { enabled: true },
+            mode: 'x',
+            resetOnDoubleClick: true,
+          },
+          pan: {
+            enabled: true,
+            mode: 'x',
+          },
+          limits: {
+            x: { min: 'original', max: 'original' },
+          },
+        },
       },
       scales: {
         x: {
