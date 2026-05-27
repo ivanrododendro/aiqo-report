@@ -48,8 +48,6 @@ class ReportDataProcessor:
         """
         Crea una entrée de rapport à partir des données de log et des indices AI.
         """
-        query_name = log_entry["query_name"]
-        job_name = log_entry["job_name"]
         execution_plan = log_entry["execution_plan"]
         timestamp = log_entry["timestamp"]
         duration = log_entry["duration"]
@@ -58,7 +56,7 @@ class ReportDataProcessor:
             """Trim title to avoid overly long headings."""
             return text if len(text) <= limit else text[:limit] + "..."
 
-        title = _truncate_title(log_entry.get("title", (job_name + " " + query_name).strip()))
+        title = _truncate_title(log_entry.get("title", ""))
 
         # Validate and sanitize execution plan
         if execution_plan is None or execution_plan == "":
@@ -75,8 +73,6 @@ class ReportDataProcessor:
             "plan": execution_plan,
             "query_text": log_entry["query_text"],
             "query_timestamp": timestamp,
-            "query_name": query_name,
-            "job_name": job_name,
             "code": query_code,
             "day": timestamp[:10],
             "seq_scan_indicator": seq_scan_indicator,
@@ -102,7 +98,7 @@ class ReportDataProcessor:
         if query_code not in self.all_query_stats_dict:
             self.all_query_stats_dict[query_code] = {
                 "code": query_code,
-                "name": report["query_name"],
+                "name": report["title"],
                 "count": 1,
                 "cumulated_time": duration,
             }
@@ -702,7 +698,7 @@ class ReportDataProcessor:
             "baseline": {
                 "day": baseline_day,
                 "index": baseline_index,
-                "title": baseline_report.get("title") or baseline_report.get("query_name") or baseline_report.get("code"),
+                "title": baseline_report.get("title") or baseline_report.get("code"),
                 "timestamp": baseline_report.get("query_timestamp"),
             },
             "current": {

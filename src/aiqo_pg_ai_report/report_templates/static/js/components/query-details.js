@@ -931,8 +931,8 @@
     title.style.overflow = 'hidden';
     title.style.whiteSpace = 'nowrap';
     title.style.textOverflow = 'ellipsis';
-    title.title = currentReport.title || currentReport.query_name || currentReport.code || '';
-    title.textContent = currentReport.title || currentReport.query_name || currentReport.code || 'Query';
+    title.title = currentReport.title || currentReport.code || '';
+    title.textContent = currentReport.title || currentReport.code || 'Query';
 
     header.appendChild(title);
     card.appendChild(header);

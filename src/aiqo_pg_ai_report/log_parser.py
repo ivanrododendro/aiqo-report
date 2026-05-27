@@ -89,18 +89,15 @@ def parse_log_entry(log_entry_text):
     full_block = match.group(1).strip()
     lines = full_block.splitlines()
 
-    # Extract the title (first one or two lines of the query)
-    if len(lines) >= 2 and lines[0].strip().startswith("--") and lines[1].strip().startswith("--"):
-        job_name = lines[0]
-        query_name = lines[1]
-        start_index = 2  # Skip the title lines for further processing
-    else:
-        job_name = ""
-        query_name = [" ".join(lines[0:])]
-        start_index = 0
-
-    job_name = "\n".join(job_name).strip().replace("\t", "").replace("\n", "")
-    query_name = "\n".join(query_name).strip().replace("\t", "").replace("\n", "")
+    # Extract leading comment lines as title
+    start_index = 0
+    title_lines = []
+    for line in lines:
+        if line.strip().startswith("--"):
+            title_lines.append(line.strip().lstrip("-").strip())
+            start_index += 1
+        else:
+            break
 
     # Split based on the first occurrence of "cost="
     query_lines = []
@@ -231,14 +228,10 @@ def parse_log_entry(log_entry_text):
             logger.warning(f"Could not parse WAL statistics: {e}")
 
     query_text_clean = "\n".join(query_lines).strip()
-    title = (job_name + " " + query_name).strip()
-    if not title:
-        title = query_text_clean
+    title = " ".join(title_lines) if title_lines else query_text_clean
 
     result = {
         "timestamp": timestamp,
-        "query_name": query_name,
-        "job_name": job_name,
         "title": title,
         "query_text": query_text_clean,
         "execution_plan": "\n".join(plan_lines).strip(),
@@ -362,46 +355,17 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
     plan_json_obj = _normalize_parallel_workers(plan_json_obj)
 
     query_text_raw = plan_json_obj.get("Query Text", "")
-    job_name = ""
-    query_name = ""
     query_text = query_text_raw.strip() if isinstance(query_text_raw, str) else ""
+    title_lines = []
 
     if isinstance(query_text_raw, str):
-        stripped_query_text = query_text_raw.strip()
-        # Support both:
-        # 1. single-line payloads: "-- Job: X -- Task Y select ..."
-        # 2. multi-line payloads:
-        #    -- Job: X
-        #    -- Task Y
-        #    select ...
-        multiline_comment_pattern = re.compile(
-            r"--\s*Job:\s*(?P<job>[^\n\r]*)[\r\n]+\s*--\s*Task\s*(?P<task>[^\n\r]*)"
-            r"[\r\n]+(?P<sql>(?:update|insert|select|delete|with|create|alter|drop)\b.*)",
-            re.IGNORECASE | re.DOTALL,
-        )
-        singleline_comment_pattern = re.compile(
-            r"--\s*Job:\s*(?P<job>.*?)\s+--\s*Task\s+(?P<task>.*?)(?:\s+|;\s*)(?P<sql>"
-            r"(?:update|insert|select|delete|with|create|alter|drop)\b.*)",
-            re.IGNORECASE | re.DOTALL,
-        )
-        comment_match = multiline_comment_pattern.match(stripped_query_text)
-        if not comment_match and "\n" not in stripped_query_text and "\r" not in stripped_query_text:
-            comment_match = singleline_comment_pattern.match(stripped_query_text)
-        if comment_match:
-            job_name = f"-- Job: {comment_match.group('job').strip()}"
-            query_name = f"-- Task {comment_match.group('task').strip()}"
-            query_text = comment_match.group("sql").strip()
-        else:
-            query_lines = [line.strip() for line in query_text_raw.splitlines() if line.strip()]
-            if len(query_lines) >= 2 and query_lines[0].startswith("--") and query_lines[1].startswith("--"):
-                job_name = query_lines[0]
-                query_name = query_lines[1]
-                query_text = "\n".join(query_lines[2:]).strip()
-            elif query_lines:
-                query_text = "\n".join(query_lines[1:]).strip() if query_lines[0].startswith("--") else "\n".join(query_lines)
-
-    job_name = job_name.replace("\t", "").replace("\n", "")
-    query_name = query_name.replace("\t", "").replace("\n", "")
+        all_lines = [line.strip() for line in query_text_raw.splitlines() if line.strip()]
+        for line in all_lines:
+            if line.startswith("--"):
+                title_lines.append(line.lstrip("-").strip())
+            else:
+                break
+        query_text = "\n".join(all_lines[len(title_lines):]).strip()
 
     plan_root = plan_json_obj.get("Plan")
     if not isinstance(plan_root, dict):
@@ -447,14 +411,10 @@ def parse_json_log_entry(log_entry_text: str) -> dict[str, Any]:
         "bytes": plan_root.get("WAL Bytes"),
     }
 
-    title = (job_name + " " + query_name).strip()
-    if not title:
-        title = query_text
+    title = " ".join(title_lines) if title_lines else query_text
 
     result = {
         "timestamp": timestamp,
-        "query_name": query_name,
-        "job_name": job_name,
         "title": title,
         "query_text": query_text,
         "execution_plan": json.dumps(plan_json_obj, indent=2),

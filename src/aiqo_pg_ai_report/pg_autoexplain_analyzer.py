@@ -202,8 +202,7 @@ class PGAutoExplainAnalyzer:
             return True
 
         searchable_values = (
-            log_entry["job_name"],
-            log_entry["query_name"],
+            log_entry["title"],
             log_entry["query_text"],
             query_code,
         )
@@ -224,7 +223,7 @@ class PGAutoExplainAnalyzer:
 
         line_info = f", line: {log_entry.get('source_line')}" if log_entry.get("source_line") is not None else ""
         timestamp_info = f", date: {log_entry.get('timestamp')}" if log_entry.get("timestamp") else ""
-        title = (log_entry.get("job_name", "") + " " + log_entry.get("query_name", "")).strip()
+        title = log_entry.get("title", "")
         title_info = f", title: {_truncate(title)}" if title else ""
         logger.info(f"Query code : {query_code[:6]}{line_info}{timestamp_info}{title_info}")
 
