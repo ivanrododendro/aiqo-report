@@ -1,0 +1,368 @@
+/* App shell */
+html,
+body.aiqo-app-shell {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.aiqo-app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── Sidebar ─────────────────────────────────────────────────────────────── */
+.aiqo-sidebar {
+  width: 268px;
+  min-width: 268px;
+  max-width: 268px;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #1e293b;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-right: 1px solid #334155;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+.aiqo-sidebar::-webkit-scrollbar { width: 4px; }
+.aiqo-sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+/* Sidebar header */
+.aiqo-sidebar-header {
+  padding: 0.75rem 0.875rem 0.625rem;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+.aiqo-sidebar-logo { max-height: 28px; width: auto; flex-shrink: 0; }
+.aiqo-sidebar-title {
+  font-size: 0.7rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  text-align: left;
+}
+.aiqo-sidebar-version {
+  font-size: 0.625rem;
+  color: #475569;
+  line-height: 1.2;
+}
+
+/* Metadata strip (log_min_duration etc.) */
+.aiqo-sidebar-meta {
+  padding: 0.375rem 0.875rem 0.5rem;
+  border-bottom: 1px solid #334155;
+  font-size: 0.625rem;
+  color: #475569;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+/* Execution options block */
+.aiqo-sidebar-exec-options {
+  padding: 0.375rem 0.875rem 0.4rem;
+  border-bottom: 1px solid #334155;
+  font-size: 0.625rem;
+  flex-shrink: 0;
+}
+.aiqo-sidebar-exec-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  line-height: 1.55;
+}
+.aiqo-exec-label {
+  color: #475569;
+  white-space: nowrap;
+}
+.aiqo-exec-value {
+  color: #94a3b8;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aiqo-exec-note {
+  color: #475569;
+  font-size: 0.625rem;
+  line-height: 1.55;
+  margin-bottom: 0.1rem;
+}
+
+/* ─── Section nav tabs ────────────────────────────────────────────────────── */
+.aiqo-sidebar-nav {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid #334155;
+}
+.aiqo-sidebar-nav-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.45rem 0.25rem 0.35rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  transition: color 0.1s, border-color 0.1s;
+  line-height: 1.2;
+  margin-bottom: -1px;
+}
+.aiqo-sidebar-nav-btn i { font-size: 0.875rem; }
+.aiqo-sidebar-nav-btn:hover { color: #cbd5e1; }
+.aiqo-sidebar-nav-btn.active {
+  color: #60a5fa;
+  border-bottom-color: #3b82f6;
+}
+
+/* ─── Sidebar sections ────────────────────────────────────────────────────── */
+.aiqo-sidebar-section { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.aiqo-sidebar-section.d-none { display: none !important; }
+
+/* Section nav item list (used by Summary and Context sections) */
+.aiqo-section-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 0.375rem 0;
+  flex: 1;
+}
+.aiqo-section-nav-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: #64748b;
+  font-size: 0.71875rem;
+  font-weight: 500;
+  padding: 0.3rem 0.875rem 0.3rem 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.aiqo-section-nav-btn i { font-size: 0.75rem; flex-shrink: 0; }
+.aiqo-section-nav-btn:hover { background: #1e293b; color: #cbd5e1; border-left-color: #475569; }
+.aiqo-section-nav-btn.active { color: #93c5fd; border-left-color: #3b82f6; background: rgba(59,130,246,0.08); }
+
+/* ─── Activity heatmap ────────────────────────────────────────────────────── */
+.aiqo-heatmap-section {
+  padding: 0.625rem 0.875rem 0.5rem;
+  border-bottom: 1px solid #334155;
+  flex-shrink: 0;
+}
+.aiqo-heatmap-label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+  margin-bottom: 0.375rem;
+}
+/* Container for month rows */
+#aiqo-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.aiqo-heatmap-month-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.aiqo-heatmap-month-label {
+  font-size: 0.5rem;
+  color: #475569;
+  width: 34px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.aiqo-heatmap-days-row {
+  display: flex;
+  gap: 1px;
+  flex: 1;
+}
+.aiqo-heatmap-cell {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: #0f172a;
+  flex-shrink: 0;
+}
+.aiqo-heatmap-cell.has-data {
+  cursor: pointer;
+  transition: outline 0.1s;
+}
+.aiqo-heatmap-cell.has-data:hover { outline: 1.5px solid #60a5fa; }
+.aiqo-heatmap-cell.selected { outline: 2px solid #3b82f6; }
+.aiqo-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.375rem;
+  font-size: 0.5625rem;
+  color: #475569;
+}
+.aiqo-heatmap-legend-cells {
+  display: flex;
+  gap: 2px;
+}
+.aiqo-heatmap-legend-cell {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+}
+
+/* ─── Date tree ───────────────────────────────────────────────────────────── */
+.aiqo-date-tree {
+  flex: 1;
+  padding: 0.375rem 0;
+  min-height: 0;
+}
+
+.aiqo-tree-year { margin-bottom: 0.125rem; }
+
+.aiqo-tree-year-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  font-size: 0.78125rem;
+  font-weight: 600;
+  padding: 0.3rem 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: color 0.1s;
+}
+.aiqo-tree-year-btn:hover { color: #f8fafc; }
+.aiqo-tree-year-btn .chevron {
+  font-size: 0.55rem;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.aiqo-tree-year.expanded > .aiqo-tree-year-btn .chevron { transform: rotate(90deg); }
+.aiqo-tree-months { display: none; padding-left: 0.5rem; }
+.aiqo-tree-year.expanded > .aiqo-tree-months { display: block; }
+
+.aiqo-tree-month { margin-bottom: 0.0625rem; }
+.aiqo-tree-month-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.71875rem;
+  font-weight: 500;
+  padding: 0.2rem 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: color 0.1s;
+}
+.aiqo-tree-month-btn:hover { color: #cbd5e1; }
+.aiqo-tree-month-btn .chevron {
+  font-size: 0.45rem;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.aiqo-tree-month.expanded > .aiqo-tree-month-btn .chevron { transform: rotate(90deg); }
+.aiqo-tree-days { display: none; padding-left: 0.375rem; }
+.aiqo-tree-month.expanded > .aiqo-tree-days { display: block; }
+
+.aiqo-tree-day-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.6875rem;
+  padding: 0.175rem 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0.25rem;
+  transition: background 0.1s, color 0.1s;
+  font-variant-numeric: tabular-nums;
+}
+.aiqo-tree-day-btn:hover { background: #1e293b; color: #e2e8f0; }
+.aiqo-tree-day-btn.active { background: #1d4ed8; color: #eff6ff; }
+
+.aiqo-tree-day-count {
+  font-size: 0.5625rem;
+  background: #1e293b;
+  color: #64748b;
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  line-height: 1.7;
+  flex-shrink: 0;
+}
+.aiqo-tree-day-btn.active .aiqo-tree-day-count { background: #1e40af; color: #bfdbfe; }
+.aiqo-tree-day-btn:hover .aiqo-tree-day-count { background: #334155; color: #94a3b8; }
+
+/* ─── Sidebar footer ──────────────────────────────────────────────────────── */
+.aiqo-sidebar-footer {
+  flex-shrink: 0;
+  padding: 0.375rem 0.375rem 0.5rem;
+  border-top: 1px solid #334155;
+}
+.aiqo-sidebar-footer-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.71875rem;
+  padding: 0.35rem 0.625rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 0.25rem;
+  transition: background 0.1s, color 0.1s;
+}
+.aiqo-sidebar-footer-btn:hover { background: #1e293b; color: #e2e8f0; }
+.aiqo-sidebar-footer-btn.active { background: #1d4ed8; color: #eff6ff; }
+
+/* ─── Main content area ───────────────────────────────────────────────────── */
+.aiqo-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8125rem;
+  background: #f8fafc;
+}
+
+.aiqo-view {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.aiqo-view.d-none { display: none !important; }

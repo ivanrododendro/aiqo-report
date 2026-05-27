@@ -1,0 +1,1040 @@
+2026-03-01 08:12:14 CET [21001]: [1-1] db=bench,user=reporter,client=10.20.30.11,appname=sqlalchemy LOG:  duration: 0.134 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task Simple join (JSON format) day 01\nSELECT rel_users_exams.user_username AS rel_users_exams_user_username,\n       rel_users_exams.exam_id AS rel_users_exams_exam_id,\n       rel_users_exams.started_at AS rel_users_exams_started_at,\n       rel_users_exams.finished_at AS rel_users_exams_finished_at,\n       exam_1.id AS exam_1_id,\n       exam_1.title AS exam_1_title\nFROM rel_users_exams LEFT OUTER JOIN exam AS exam_1\n  ON exam_1.id = rel_users_exams.exam_id\nWHERE 1 = rel_users_exams.exam_id;",
+  "Plan": {
+    "Node Type": "Nested Loop",
+    "Join Type": "Left",
+    "Startup Cost": 11.95,
+    "Total Cost": 28.52,
+    "Plan Rows": 5,
+    "Plan Width": 157,
+    "Actual Startup Time": 0.007,
+    "Actual Total Time": 0.007,
+    "Actual Rows": 0,
+    "Actual Loops": 1,
+    "Inner Unique": true,
+    "Join Filter": "(exam_1.id = rel_users_exams.exam_id)",
+    "Shared Hit Blocks": 1,
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Relation Name": "rel_users_exams",
+        "Schema": "public",
+        "Alias": "rel_users_exams",
+        "Startup Cost": 11.8,
+        "Total Cost": 20.27,
+        "Plan Rows": 5,
+        "Plan Width": 52,
+        "Actual Startup Time": 0.006,
+        "Actual Total Time": 0.006,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Recheck Cond": "(1 = rel_users_exams.exam_id)",
+        "Shared Hit Blocks": 1,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Index Name": "rel_users_exams_pkey",
+            "Startup Cost": 0.0,
+            "Total Cost": 11.8,
+            "Plan Rows": 5,
+            "Plan Width": 0,
+            "Actual Startup Time": 0.003,
+            "Actual Total Time": 0.004,
+            "Actual Rows": 0,
+            "Actual Loops": 1,
+            "Index Cond": "(1 = rel_users_exams.exam_id)",
+            "Shared Hit Blocks": 1
+          }
+        ]
+      },
+      {
+        "Node Type": "Index Scan",
+        "Parent Relationship": "Inner",
+        "Index Name": "exam_pkey",
+        "Relation Name": "exam",
+        "Schema": "public",
+        "Alias": "exam_1",
+        "Startup Cost": 0.15,
+        "Total Cost": 8.17,
+        "Plan Rows": 1,
+        "Plan Width": 105,
+        "Actual Startup Time": 0.0,
+        "Actual Total Time": 0.0,
+        "Actual Rows": 0,
+        "Actual Loops": 0,
+        "Index Cond": "(exam_1.id = 1)"
+      }
+    ]
+  },
+  "Planning Time": 0.905,
+  "Execution Time": 0.134
+}
+2026-03-02 09:07:33 CET [21018]: [1-1] db=bench,user=reporter,client=10.20.30.12,appname=sqlalchemy LOG:  duration: 6.248 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task Three joins, missing an index day 02\nSELECT rel_users_exams.user_username, question_1.id, answer_1.id\nFROM rel_users_exams\nLEFT JOIN exam AS exam_1 ON exam_1.id = rel_users_exams.exam_id\nLEFT JOIN question AS question_1 ON exam_1.id = question_1.exam_id\nLEFT JOIN answer AS answer_1 ON question_1.id = answer_1.question_id\nWHERE rel_users_exams.user_username = 'nicolas1'\n  AND rel_users_exams.exam_id = 1\nORDER BY question_1.id;",
+  "Plan": {
+    "Node Type": "Sort",
+    "Startup Cost": 624.86,
+    "Total Cost": 625.88,
+    "Plan Rows": 410,
+    "Plan Width": 726,
+    "Actual Startup Time": 6.039,
+    "Actual Total Time": 6.088,
+    "Actual Rows": 339,
+    "Actual Loops": 1,
+    "Sort Key": [
+      "question_1.id"
+    ],
+    "Sort Method": "quicksort",
+    "Shared Hit Blocks": 363,
+    "Plans": [
+      {
+        "Node Type": "Nested Loop",
+        "Parent Relationship": "Outer",
+        "Join Type": "Left",
+        "Startup Cost": 228.6,
+        "Total Cost": 607.06,
+        "Plan Rows": 410,
+        "Plan Width": 726,
+        "Actual Startup Time": 1.074,
+        "Actual Total Time": 5.576,
+        "Actual Rows": 339,
+        "Actual Loops": 1,
+        "Plans": [
+          {
+            "Node Type": "Nested Loop",
+            "Parent Relationship": "Outer",
+            "Join Type": "Left",
+            "Startup Cost": 0.0,
+            "Total Cost": 2.94,
+            "Plan Rows": 1,
+            "Plan Width": 99,
+            "Actual Startup Time": 0.025,
+            "Actual Total Time": 0.033,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Relation Name": "rel_users_exams",
+                "Schema": "public",
+                "Alias": "rel_users_exams",
+                "Startup Cost": 0.0,
+                "Total Cost": 1.73,
+                "Plan Rows": 1,
+                "Plan Width": 27,
+                "Actual Startup Time": 0.016,
+                "Actual Total Time": 0.021,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Filter": "((rel_users_exams.exam_id = 1) AND ((rel_users_exams.user_username)::text = 'nicolas1'::text))",
+                "Rows Removed by Filter": 56,
+                "Shared Hit Blocks": 1
+              },
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Inner",
+                "Relation Name": "exam",
+                "Schema": "public",
+                "Alias": "exam_1",
+                "Startup Cost": 0.0,
+                "Total Cost": 1.19,
+                "Plan Rows": 1,
+                "Plan Width": 72,
+                "Actual Startup Time": 0.006,
+                "Actual Total Time": 0.009,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Filter": "(exam_1.id = 1)",
+                "Rows Removed by Filter": 35,
+                "Shared Hit Blocks": 1
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash Join",
+            "Parent Relationship": "Inner",
+            "Join Type": "Right",
+            "Startup Cost": 228.6,
+            "Total Cost": 599.0,
+            "Plan Rows": 410,
+            "Plan Width": 627,
+            "Actual Startup Time": 1.047,
+            "Actual Total Time": 5.42,
+            "Actual Rows": 339,
+            "Actual Loops": 1,
+            "Hash Cond": "(answer_1.question_id = question_1.id)",
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Relation Name": "answer",
+                "Schema": "public",
+                "Alias": "answer_1",
+                "Startup Cost": 0.0,
+                "Total Cost": 311.13,
+                "Plan Rows": 14713,
+                "Plan Width": 55,
+                "Actual Startup Time": 0.007,
+                "Actual Total Time": 1.962,
+                "Actual Rows": 14726,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 164
+              },
+              {
+                "Node Type": "Hash",
+                "Parent Relationship": "Inner",
+                "Startup Cost": 227.66,
+                "Total Cost": 227.66,
+                "Plan Rows": 75,
+                "Plan Width": 572,
+                "Actual Startup Time": 1.025,
+                "Actual Total Time": 1.025,
+                "Actual Rows": 63,
+                "Actual Loops": 1,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Parent Relationship": "Outer",
+                    "Relation Name": "question",
+                    "Schema": "public",
+                    "Alias": "question_1",
+                    "Startup Cost": 0.0,
+                    "Total Cost": 227.66,
+                    "Plan Rows": 75,
+                    "Plan Width": 572,
+                    "Actual Startup Time": 0.004,
+                    "Actual Total Time": 0.984,
+                    "Actual Rows": 63,
+                    "Actual Loops": 1,
+                    "Filter": "(question_1.exam_id = 1)",
+                    "Rows Removed by Filter": 2637,
+                    "Shared Hit Blocks": 194
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Planning Time": 1.206,
+  "Execution Time": 6.248
+}
+2026-03-03 11:45:09 CET [21025]: [1-1] db=bench,user=reporter,client=10.20.30.13,appname=pgbench LOG:  duration: 548.488 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task Partitions day 03\nSELECT *\nFROM pgbench_accounts\nWHERE aid BETWEEN 5000000 AND 9000000;",
+  "Plan": {
+    "Node Type": "Append",
+    "Startup Cost": 0.43,
+    "Total Cost": 170502.33,
+    "Plan Rows": 4018259,
+    "Plan Width": 97,
+    "Actual Startup Time": 0.007,
+    "Actual Total Time": 464.318,
+    "Actual Rows": 4000001,
+    "Actual Loops": 1,
+    "Shared Hit Blocks": 39,
+    "Shared Read Blocks": 69641,
+    "Plans": [
+      {
+        "Node Type": "Index Scan",
+        "Parent Relationship": "Member",
+        "Index Name": "pgbench_accounts_2_pkey",
+        "Relation Name": "pgbench_accounts_2",
+        "Alias": "pgbench_accounts_1",
+        "Startup Cost": 0.43,
+        "Total Cost": 8.45,
+        "Plan Rows": 1,
+        "Plan Width": 97,
+        "Actual Startup Time": 0.006,
+        "Actual Total Time": 0.007,
+        "Actual Rows": 1,
+        "Actual Loops": 1,
+        "Index Cond": "((aid >= 5000000) AND (aid <= 9000000))",
+        "Shared Hit Blocks": 4
+      },
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Member",
+        "Relation Name": "pgbench_accounts_3",
+        "Alias": "pgbench_accounts_2",
+        "Startup Cost": 0.0,
+        "Total Cost": 78484.0,
+        "Plan Rows": 2500000,
+        "Plan Width": 97,
+        "Actual Startup Time": 0.032,
+        "Actual Total Time": 163.701,
+        "Actual Rows": 2500000,
+        "Actual Loops": 1,
+        "Filter": "((aid >= 5000000) AND (aid <= 9000000))",
+        "Shared Hit Blocks": 32,
+        "Shared Read Blocks": 40952
+      },
+      {
+        "Node Type": "Index Scan",
+        "Parent Relationship": "Member",
+        "Index Name": "pgbench_accounts_4_pkey",
+        "Relation Name": "pgbench_accounts_4",
+        "Alias": "pgbench_accounts_3",
+        "Startup Cost": 0.43,
+        "Total Cost": 71918.59,
+        "Plan Rows": 1518258,
+        "Plan Width": 97,
+        "Actual Startup Time": 0.02,
+        "Actual Total Time": 148.504,
+        "Actual Rows": 1500000,
+        "Actual Loops": 1,
+        "Index Cond": "((aid >= 5000000) AND (aid <= 9000000))",
+        "Shared Hit Blocks": 3,
+        "Shared Read Blocks": 28689
+      }
+    ]
+  },
+  "Planning Time": 0.271,
+  "Execution Time": 548.488
+}
+2026-03-04 14:21:56 CET [21041]: [1-1] db=bench,user=reporter,client=10.20.30.14,appname=psql LOG:  duration: 381072.164 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task DELETE with triggers day 04\nDELETE FROM emailmessages\nWHERE emailmessageid IN (\n  SELECT emailmessageid FROM emailmessages LIMIT 5000\n);",
+  "Plan": {
+    "Node Type": "Delete",
+    "Relation Name": "emailmessages",
+    "Startup Cost": 224.85,
+    "Total Cost": 38989.92,
+    "Plan Rows": 5000,
+    "Plan Width": 34,
+    "Actual Startup Time": 217158.57,
+    "Actual Total Time": 217158.57,
+    "Actual Rows": 0,
+    "Actual Loops": 1,
+    "Shared Hit Blocks": 2579331,
+    "Shared Read Blocks": 506594,
+    "Plans": [
+      {
+        "Node Type": "Nested Loop",
+        "Parent Relationship": "Outer",
+        "Startup Cost": 224.85,
+        "Total Cost": 38989.92,
+        "Plan Rows": 5000,
+        "Plan Width": 34,
+        "Actual Startup Time": 7.105,
+        "Actual Total Time": 4576.019,
+        "Actual Rows": 5000,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 20223,
+        "Shared Read Blocks": 395,
+        "Plans": [
+          {
+            "Node Type": "HashAggregate",
+            "Parent Relationship": "Outer",
+            "Strategy": "Hashed",
+            "Startup Cost": 224.42,
+            "Total Cost": 274.42,
+            "Plan Rows": 5000,
+            "Plan Width": 32,
+            "Actual Startup Time": 7.072,
+            "Actual Total Time": 23.891,
+            "Actual Rows": 5000,
+            "Actual Loops": 1,
+            "Group Key": [
+              "ANY_subquery.emailmessageid"
+            ],
+            "Shared Hit Blocks": 583,
+            "Plans": [
+              {
+                "Node Type": "Limit",
+                "Parent Relationship": "Outer",
+                "Startup Cost": 0.43,
+                "Total Cost": 161.92,
+                "Plan Rows": 5000,
+                "Plan Width": 4,
+                "Actual Startup Time": 0.053,
+                "Actual Total Time": 2.808,
+                "Actual Rows": 5000,
+                "Actual Loops": 1,
+                "Plans": [
+                  {
+                    "Node Type": "Index Only Scan",
+                    "Parent Relationship": "Outer",
+                    "Index Name": "emailmessages_pkey",
+                    "Relation Name": "emailmessages",
+                    "Alias": "emailmessages_1",
+                    "Startup Cost": 0.43,
+                    "Total Cost": 89834.2,
+                    "Plan Rows": 2781465,
+                    "Plan Width": 4,
+                    "Actual Startup Time": 0.051,
+                    "Actual Total Time": 2.26,
+                    "Actual Rows": 5000,
+                    "Actual Loops": 1,
+                    "Heap Fetches": 609,
+                    "Shared Hit Blocks": 583
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "Inner",
+            "Index Name": "emailmessages_pkey",
+            "Relation Name": "emailmessages",
+            "Startup Cost": 0.43,
+            "Total Cost": 7.73,
+            "Plan Rows": 1,
+            "Plan Width": 10,
+            "Actual Startup Time": 0.903,
+            "Actual Total Time": 0.905,
+            "Actual Rows": 1,
+            "Actual Loops": 5000,
+            "Index Cond": "(emailmessageid = ANY_subquery.emailmessageid)",
+            "Shared Hit Blocks": 19640,
+            "Shared Read Blocks": 395
+          }
+        ]
+      }
+    ]
+  },
+  "Planning Time": 2.482,
+  "Execution Time": 381072.164
+}
+2026-03-05 07:58:42 CET [21057]: [1-1] db=bench,user=reporter,client=10.20.30.15,appname=sqlalchemy LOG:  duration: 0.134 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task Simple join (JSON format) day 05\nSELECT rel_users_exams.user_username AS rel_users_exams_user_username,\n       rel_users_exams.exam_id AS rel_users_exams_exam_id,\n       rel_users_exams.started_at AS rel_users_exams_started_at,\n       rel_users_exams.finished_at AS rel_users_exams_finished_at,\n       exam_1.id AS exam_1_id,\n       exam_1.title AS exam_1_title\nFROM rel_users_exams LEFT OUTER JOIN exam AS exam_1\n  ON exam_1.id = rel_users_exams.exam_id\nWHERE 1 = rel_users_exams.exam_id;",
+  "Plan": {
+    "Node Type": "Nested Loop",
+    "Join Type": "Left",
+    "Startup Cost": 11.95,
+    "Total Cost": 28.52,
+    "Plan Rows": 5,
+    "Plan Width": 157,
+    "Actual Startup Time": 0.007,
+    "Actual Total Time": 0.007,
+    "Actual Rows": 0,
+    "Actual Loops": 1,
+    "Inner Unique": true,
+    "Join Filter": "(exam_1.id = rel_users_exams.exam_id)",
+    "Shared Hit Blocks": 1,
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Relation Name": "rel_users_exams",
+        "Schema": "public",
+        "Alias": "rel_users_exams",
+        "Startup Cost": 11.8,
+        "Total Cost": 20.27,
+        "Plan Rows": 5,
+        "Plan Width": 52,
+        "Actual Startup Time": 0.006,
+        "Actual Total Time": 0.006,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Recheck Cond": "(1 = rel_users_exams.exam_id)",
+        "Shared Hit Blocks": 1,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Index Name": "rel_users_exams_pkey",
+            "Startup Cost": 0.0,
+            "Total Cost": 11.8,
+            "Plan Rows": 5,
+            "Plan Width": 0,
+            "Actual Startup Time": 0.003,
+            "Actual Total Time": 0.004,
+            "Actual Rows": 0,
+            "Actual Loops": 1,
+            "Index Cond": "(1 = rel_users_exams.exam_id)",
+            "Shared Hit Blocks": 1
+          }
+        ]
+      },
+      {
+        "Node Type": "Index Scan",
+        "Parent Relationship": "Inner",
+        "Index Name": "exam_pkey",
+        "Relation Name": "exam",
+        "Schema": "public",
+        "Alias": "exam_1",
+        "Startup Cost": 0.15,
+        "Total Cost": 8.17,
+        "Plan Rows": 1,
+        "Plan Width": 105,
+        "Actual Startup Time": 0.0,
+        "Actual Total Time": 0.0,
+        "Actual Rows": 0,
+        "Actual Loops": 0,
+        "Index Cond": "(exam_1.id = 1)"
+      }
+    ]
+  },
+  "Planning Time": 0.905,
+  "Execution Time": 0.134
+}
+2026-03-06 10:16:05 CET [21073]: [1-1] db=bench,user=reporter,client=10.20.30.16,appname=sqlalchemy LOG:  duration: 6.248 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task Three joins, missing an index day 06\nSELECT rel_users_exams.user_username, question_1.id, answer_1.id\nFROM rel_users_exams\nLEFT JOIN exam AS exam_1 ON exam_1.id = rel_users_exams.exam_id\nLEFT JOIN question AS question_1 ON exam_1.id = question_1.exam_id\nLEFT JOIN answer AS answer_1 ON question_1.id = answer_1.question_id\nWHERE rel_users_exams.user_username = 'nicolas1'\n  AND rel_users_exams.exam_id = 1\nORDER BY question_1.id;",
+  "Plan": {
+    "Node Type": "Sort",
+    "Startup Cost": 624.86,
+    "Total Cost": 625.88,
+    "Plan Rows": 410,
+    "Plan Width": 726,
+    "Actual Startup Time": 6.039,
+    "Actual Total Time": 6.088,
+    "Actual Rows": 339,
+    "Actual Loops": 1,
+    "Sort Key": [
+      "question_1.id"
+    ],
+    "Sort Method": "quicksort",
+    "Shared Hit Blocks": 363,
+    "Plans": [
+      {
+        "Node Type": "Nested Loop",
+        "Parent Relationship": "Outer",
+        "Join Type": "Left",
+        "Startup Cost": 228.6,
+        "Total Cost": 607.06,
+        "Plan Rows": 410,
+        "Plan Width": 726,
+        "Actual Startup Time": 1.074,
+        "Actual Total Time": 5.576,
+        "Actual Rows": 339,
+        "Actual Loops": 1,
+        "Plans": [
+          {
+            "Node Type": "Nested Loop",
+            "Parent Relationship": "Outer",
+            "Join Type": "Left",
+            "Startup Cost": 0.0,
+            "Total Cost": 2.94,
+            "Plan Rows": 1,
+            "Plan Width": 99,
+            "Actual Startup Time": 0.025,
+            "Actual Total Time": 0.033,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Relation Name": "rel_users_exams",
+                "Schema": "public",
+                "Alias": "rel_users_exams",
+                "Startup Cost": 0.0,
+                "Total Cost": 1.73,
+                "Plan Rows": 1,
+                "Plan Width": 27,
+                "Actual Startup Time": 0.016,
+                "Actual Total Time": 0.021,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Filter": "((rel_users_exams.exam_id = 1) AND ((rel_users_exams.user_username)::text = 'nicolas1'::text))",
+                "Rows Removed by Filter": 56,
+                "Shared Hit Blocks": 1
+              },
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Inner",
+                "Relation Name": "exam",
+                "Schema": "public",
+                "Alias": "exam_1",
+                "Startup Cost": 0.0,
+                "Total Cost": 1.19,
+                "Plan Rows": 1,
+                "Plan Width": 72,
+                "Actual Startup Time": 0.006,
+                "Actual Total Time": 0.009,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Filter": "(exam_1.id = 1)",
+                "Rows Removed by Filter": 35,
+                "Shared Hit Blocks": 1
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash Join",
+            "Parent Relationship": "Inner",
+            "Join Type": "Right",
+            "Startup Cost": 228.6,
+            "Total Cost": 599.0,
+            "Plan Rows": 410,
+            "Plan Width": 627,
+            "Actual Startup Time": 1.047,
+            "Actual Total Time": 5.42,
+            "Actual Rows": 339,
+            "Actual Loops": 1,
+            "Hash Cond": "(answer_1.question_id = question_1.id)",
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Relation Name": "answer",
+                "Schema": "public",
+                "Alias": "answer_1",
+                "Startup Cost": 0.0,
+                "Total Cost": 311.13,
+                "Plan Rows": 14713,
+                "Plan Width": 55,
+                "Actual Startup Time": 0.007,
+                "Actual Total Time": 1.962,
+                "Actual Rows": 14726,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 164
+              },
+              {
+                "Node Type": "Hash",
+                "Parent Relationship": "Inner",
+                "Startup Cost": 227.66,
+                "Total Cost": 227.66,
+                "Plan Rows": 75,
+                "Plan Width": 572,
+                "Actual Startup Time": 1.025,
+                "Actual Total Time": 1.025,
+                "Actual Rows": 63,
+                "Actual Loops": 1,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Parent Relationship": "Outer",
+                    "Relation Name": "question",
+                    "Schema": "public",
+                    "Alias": "question_1",
+                    "Startup Cost": 0.0,
+                    "Total Cost": 227.66,
+                    "Plan Rows": 75,
+                    "Plan Width": 572,
+                    "Actual Startup Time": 0.004,
+                    "Actual Total Time": 0.984,
+                    "Actual Rows": 63,
+                    "Actual Loops": 1,
+                    "Filter": "(question_1.exam_id = 1)",
+                    "Rows Removed by Filter": 2637,
+                    "Shared Hit Blocks": 194
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Planning Time": 1.206,
+  "Execution Time": 6.248
+}
+2026-03-07 13:34:27 CET [21089]: [1-1] db=bench,user=reporter,client=10.20.30.17,appname=pgbench LOG:  duration: 548.488 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task Partitions day 07\nSELECT *\nFROM pgbench_accounts\nWHERE aid BETWEEN 5000000 AND 9000000;",
+  "Plan": {
+    "Node Type": "Append",
+    "Startup Cost": 0.43,
+    "Total Cost": 170502.33,
+    "Plan Rows": 4018259,
+    "Plan Width": 97,
+    "Actual Startup Time": 0.007,
+    "Actual Total Time": 464.318,
+    "Actual Rows": 4000001,
+    "Actual Loops": 1,
+    "Shared Hit Blocks": 39,
+    "Shared Read Blocks": 69641,
+    "Plans": [
+      {
+        "Node Type": "Index Scan",
+        "Parent Relationship": "Member",
+        "Index Name": "pgbench_accounts_2_pkey",
+        "Relation Name": "pgbench_accounts_2",
+        "Alias": "pgbench_accounts_1",
+        "Startup Cost": 0.43,
+        "Total Cost": 8.45,
+        "Plan Rows": 1,
+        "Plan Width": 97,
+        "Actual Startup Time": 0.006,
+        "Actual Total Time": 0.007,
+        "Actual Rows": 1,
+        "Actual Loops": 1,
+        "Index Cond": "((aid >= 5000000) AND (aid <= 9000000))",
+        "Shared Hit Blocks": 4
+      },
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Member",
+        "Relation Name": "pgbench_accounts_3",
+        "Alias": "pgbench_accounts_2",
+        "Startup Cost": 0.0,
+        "Total Cost": 78484.0,
+        "Plan Rows": 2500000,
+        "Plan Width": 97,
+        "Actual Startup Time": 0.032,
+        "Actual Total Time": 163.701,
+        "Actual Rows": 2500000,
+        "Actual Loops": 1,
+        "Filter": "((aid >= 5000000) AND (aid <= 9000000))",
+        "Shared Hit Blocks": 32,
+        "Shared Read Blocks": 40952
+      },
+      {
+        "Node Type": "Index Scan",
+        "Parent Relationship": "Member",
+        "Index Name": "pgbench_accounts_4_pkey",
+        "Relation Name": "pgbench_accounts_4",
+        "Alias": "pgbench_accounts_3",
+        "Startup Cost": 0.43,
+        "Total Cost": 71918.59,
+        "Plan Rows": 1518258,
+        "Plan Width": 97,
+        "Actual Startup Time": 0.02,
+        "Actual Total Time": 148.504,
+        "Actual Rows": 1500000,
+        "Actual Loops": 1,
+        "Index Cond": "((aid >= 5000000) AND (aid <= 9000000))",
+        "Shared Hit Blocks": 3,
+        "Shared Read Blocks": 28689
+      }
+    ]
+  },
+  "Planning Time": 0.271,
+  "Execution Time": 548.488
+}
+2026-03-08 16:02:11 CET [21105]: [1-1] db=bench,user=reporter,client=10.20.30.18,appname=psql LOG:  duration: 381072.164 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task DELETE with triggers day 08\nDELETE FROM emailmessages\nWHERE emailmessageid IN (\n  SELECT emailmessageid FROM emailmessages LIMIT 5000\n);",
+  "Plan": {
+    "Node Type": "Delete",
+    "Relation Name": "emailmessages",
+    "Startup Cost": 224.85,
+    "Total Cost": 38989.92,
+    "Plan Rows": 5000,
+    "Plan Width": 34,
+    "Actual Startup Time": 217158.57,
+    "Actual Total Time": 217158.57,
+    "Actual Rows": 0,
+    "Actual Loops": 1,
+    "Shared Hit Blocks": 2579331,
+    "Shared Read Blocks": 506594,
+    "Plans": [
+      {
+        "Node Type": "Nested Loop",
+        "Parent Relationship": "Outer",
+        "Startup Cost": 224.85,
+        "Total Cost": 38989.92,
+        "Plan Rows": 5000,
+        "Plan Width": 34,
+        "Actual Startup Time": 7.105,
+        "Actual Total Time": 4576.019,
+        "Actual Rows": 5000,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 20223,
+        "Shared Read Blocks": 395,
+        "Plans": [
+          {
+            "Node Type": "HashAggregate",
+            "Parent Relationship": "Outer",
+            "Strategy": "Hashed",
+            "Startup Cost": 224.42,
+            "Total Cost": 274.42,
+            "Plan Rows": 5000,
+            "Plan Width": 32,
+            "Actual Startup Time": 7.072,
+            "Actual Total Time": 23.891,
+            "Actual Rows": 5000,
+            "Actual Loops": 1,
+            "Group Key": [
+              "ANY_subquery.emailmessageid"
+            ],
+            "Shared Hit Blocks": 583,
+            "Plans": [
+              {
+                "Node Type": "Limit",
+                "Parent Relationship": "Outer",
+                "Startup Cost": 0.43,
+                "Total Cost": 161.92,
+                "Plan Rows": 5000,
+                "Plan Width": 4,
+                "Actual Startup Time": 0.053,
+                "Actual Total Time": 2.808,
+                "Actual Rows": 5000,
+                "Actual Loops": 1,
+                "Plans": [
+                  {
+                    "Node Type": "Index Only Scan",
+                    "Parent Relationship": "Outer",
+                    "Index Name": "emailmessages_pkey",
+                    "Relation Name": "emailmessages",
+                    "Alias": "emailmessages_1",
+                    "Startup Cost": 0.43,
+                    "Total Cost": 89834.2,
+                    "Plan Rows": 2781465,
+                    "Plan Width": 4,
+                    "Actual Startup Time": 0.051,
+                    "Actual Total Time": 2.26,
+                    "Actual Rows": 5000,
+                    "Actual Loops": 1,
+                    "Heap Fetches": 609,
+                    "Shared Hit Blocks": 583
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Node Type": "Index Scan",
+            "Parent Relationship": "Inner",
+            "Index Name": "emailmessages_pkey",
+            "Relation Name": "emailmessages",
+            "Startup Cost": 0.43,
+            "Total Cost": 7.73,
+            "Plan Rows": 1,
+            "Plan Width": 10,
+            "Actual Startup Time": 0.903,
+            "Actual Total Time": 0.905,
+            "Actual Rows": 1,
+            "Actual Loops": 5000,
+            "Index Cond": "(emailmessageid = ANY_subquery.emailmessageid)",
+            "Shared Hit Blocks": 19640,
+            "Shared Read Blocks": 395
+          }
+        ]
+      }
+    ]
+  },
+  "Planning Time": 2.482,
+  "Execution Time": 381072.164
+}
+2026-03-09 08:43:50 CET [21119]: [1-1] db=bench,user=reporter,client=10.20.30.19,appname=sqlalchemy LOG:  duration: 0.134 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task Simple join (JSON format) day 09\nSELECT rel_users_exams.user_username AS rel_users_exams_user_username,\n       rel_users_exams.exam_id AS rel_users_exams_exam_id,\n       rel_users_exams.started_at AS rel_users_exams_started_at,\n       rel_users_exams.finished_at AS rel_users_exams_finished_at,\n       exam_1.id AS exam_1_id,\n       exam_1.title AS exam_1_title\nFROM rel_users_exams LEFT OUTER JOIN exam AS exam_1\n  ON exam_1.id = rel_users_exams.exam_id\nWHERE 1 = rel_users_exams.exam_id;",
+  "Plan": {
+    "Node Type": "Nested Loop",
+    "Join Type": "Left",
+    "Startup Cost": 11.95,
+    "Total Cost": 28.52,
+    "Plan Rows": 5,
+    "Plan Width": 157,
+    "Actual Startup Time": 0.007,
+    "Actual Total Time": 0.007,
+    "Actual Rows": 0,
+    "Actual Loops": 1,
+    "Inner Unique": true,
+    "Join Filter": "(exam_1.id = rel_users_exams.exam_id)",
+    "Shared Hit Blocks": 1,
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Relation Name": "rel_users_exams",
+        "Schema": "public",
+        "Alias": "rel_users_exams",
+        "Startup Cost": 11.8,
+        "Total Cost": 20.27,
+        "Plan Rows": 5,
+        "Plan Width": 52,
+        "Actual Startup Time": 0.006,
+        "Actual Total Time": 0.006,
+        "Actual Rows": 0,
+        "Actual Loops": 1,
+        "Recheck Cond": "(1 = rel_users_exams.exam_id)",
+        "Shared Hit Blocks": 1,
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Index Name": "rel_users_exams_pkey",
+            "Startup Cost": 0.0,
+            "Total Cost": 11.8,
+            "Plan Rows": 5,
+            "Plan Width": 0,
+            "Actual Startup Time": 0.003,
+            "Actual Total Time": 0.004,
+            "Actual Rows": 0,
+            "Actual Loops": 1,
+            "Index Cond": "(1 = rel_users_exams.exam_id)",
+            "Shared Hit Blocks": 1
+          }
+        ]
+      },
+      {
+        "Node Type": "Index Scan",
+        "Parent Relationship": "Inner",
+        "Index Name": "exam_pkey",
+        "Relation Name": "exam",
+        "Schema": "public",
+        "Alias": "exam_1",
+        "Startup Cost": 0.15,
+        "Total Cost": 8.17,
+        "Plan Rows": 1,
+        "Plan Width": 105,
+        "Actual Startup Time": 0.0,
+        "Actual Total Time": 0.0,
+        "Actual Rows": 0,
+        "Actual Loops": 0,
+        "Index Cond": "(exam_1.id = 1)"
+      }
+    ]
+  },
+  "Planning Time": 0.905,
+  "Execution Time": 0.134
+}
+2026-03-10 12:27:38 CET [21134]: [1-1] db=bench,user=reporter,client=10.20.30.20,appname=sqlalchemy LOG:  duration: 6.248 ms  plan:
+{
+  "Query Text": "-- Job: DALIBO samples\n-- Task Three joins, missing an index day 10\nSELECT rel_users_exams.user_username, question_1.id, answer_1.id\nFROM rel_users_exams\nLEFT JOIN exam AS exam_1 ON exam_1.id = rel_users_exams.exam_id\nLEFT JOIN question AS question_1 ON exam_1.id = question_1.exam_id\nLEFT JOIN answer AS answer_1 ON question_1.id = answer_1.question_id\nWHERE rel_users_exams.user_username = 'nicolas1'\n  AND rel_users_exams.exam_id = 1\nORDER BY question_1.id;",
+  "Plan": {
+    "Node Type": "Sort",
+    "Startup Cost": 624.86,
+    "Total Cost": 625.88,
+    "Plan Rows": 410,
+    "Plan Width": 726,
+    "Actual Startup Time": 6.039,
+    "Actual Total Time": 6.088,
+    "Actual Rows": 339,
+    "Actual Loops": 1,
+    "Sort Key": [
+      "question_1.id"
+    ],
+    "Sort Method": "quicksort",
+    "Shared Hit Blocks": 363,
+    "Plans": [
+      {
+        "Node Type": "Nested Loop",
+        "Parent Relationship": "Outer",
+        "Join Type": "Left",
+        "Startup Cost": 228.6,
+        "Total Cost": 607.06,
+        "Plan Rows": 410,
+        "Plan Width": 726,
+        "Actual Startup Time": 1.074,
+        "Actual Total Time": 5.576,
+        "Actual Rows": 339,
+        "Actual Loops": 1,
+        "Plans": [
+          {
+            "Node Type": "Nested Loop",
+            "Parent Relationship": "Outer",
+            "Join Type": "Left",
+            "Startup Cost": 0.0,
+            "Total Cost": 2.94,
+            "Plan Rows": 1,
+            "Plan Width": 99,
+            "Actual Startup Time": 0.025,
+            "Actual Total Time": 0.033,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Relation Name": "rel_users_exams",
+                "Schema": "public",
+                "Alias": "rel_users_exams",
+                "Startup Cost": 0.0,
+                "Total Cost": 1.73,
+                "Plan Rows": 1,
+                "Plan Width": 27,
+                "Actual Startup Time": 0.016,
+                "Actual Total Time": 0.021,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Filter": "((rel_users_exams.exam_id = 1) AND ((rel_users_exams.user_username)::text = 'nicolas1'::text))",
+                "Rows Removed by Filter": 56,
+                "Shared Hit Blocks": 1
+              },
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Inner",
+                "Relation Name": "exam",
+                "Schema": "public",
+                "Alias": "exam_1",
+                "Startup Cost": 0.0,
+                "Total Cost": 1.19,
+                "Plan Rows": 1,
+                "Plan Width": 72,
+                "Actual Startup Time": 0.006,
+                "Actual Total Time": 0.009,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Filter": "(exam_1.id = 1)",
+                "Rows Removed by Filter": 35,
+                "Shared Hit Blocks": 1
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash Join",
+            "Parent Relationship": "Inner",
+            "Join Type": "Right",
+            "Startup Cost": 228.6,
+            "Total Cost": 599.0,
+            "Plan Rows": 410,
+            "Plan Width": 627,
+            "Actual Startup Time": 1.047,
+            "Actual Total Time": 5.42,
+            "Actual Rows": 339,
+            "Actual Loops": 1,
+            "Hash Cond": "(answer_1.question_id = question_1.id)",
+            "Plans": [
+              {
+                "Node Type": "Seq Scan",
+                "Parent Relationship": "Outer",
+                "Relation Name": "answer",
+                "Schema": "public",
+                "Alias": "answer_1",
+                "Startup Cost": 0.0,
+                "Total Cost": 311.13,
+                "Plan Rows": 14713,
+                "Plan Width": 55,
+                "Actual Startup Time": 0.007,
+                "Actual Total Time": 1.962,
+                "Actual Rows": 14726,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 164
+              },
+              {
+                "Node Type": "Hash",
+                "Parent Relationship": "Inner",
+                "Startup Cost": 227.66,
+                "Total Cost": 227.66,
+                "Plan Rows": 75,
+                "Plan Width": 572,
+                "Actual Startup Time": 1.025,
+                "Actual Total Time": 1.025,
+                "Actual Rows": 63,
+                "Actual Loops": 1,
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Parent Relationship": "Outer",
+                    "Relation Name": "question",
+                    "Schema": "public",
+                    "Alias": "question_1",
+                    "Startup Cost": 0.0,
+                    "Total Cost": 227.66,
+                    "Plan Rows": 75,
+                    "Plan Width": 572,
+                    "Actual Startup Time": 0.004,
+                    "Actual Total Time": 0.984,
+                    "Actual Rows": 63,
+                    "Actual Loops": 1,
+                    "Filter": "(question_1.exam_id = 1)",
+                    "Rows Removed by Filter": 2637,
+                    "Shared Hit Blocks": 194
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "Planning Time": 1.206,
+  "Execution Time": 6.248
+}

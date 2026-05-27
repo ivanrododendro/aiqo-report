@@ -1,0 +1,82 @@
+{% from 'components/_query_details.html' import query_details_content %}
+
+{# JS includes — all chart + navigation + component scripts #}
+<script>
+{% include 'static/js/report-utils.js' %}
+{% include 'static/js/charts/scale-helper.js' %}
+{% include 'static/js/charts/data-validator.js' %}
+{% include 'static/js/charts/annotation-service.js' %}
+{% include 'static/js/charts/chart-factory.js' %}
+{% include 'static/js/charts/report-chart-manager.js' %}
+{% include 'static/js/report-navigation.js' %}
+{% include 'static/js/components/sidebar.js' %}
+{% include 'static/js/components/day-timeline.js' %}
+{% include 'static/js/components/tabs.js' %}
+{% include 'static/js/components/query-details.js' %}
+</script>
+
+{# ── Day panels (one per day with data) ─────────────────────────────────── #}
+{% set ns_tp = namespace(last_day_overall=None) %}
+{% for d in date_hierarchy.all_days | reverse %}
+    {% if ns_tp.last_day_overall is none and reports.by_day.get(d) %}
+        {% set ns_tp.last_day_overall = d %}
+    {% endif %}
+{% endfor %}
+
+{% for year in date_hierarchy.all_years %}
+    {% for month_num, month_data in date_hierarchy.years[year].months.items()|sort %}
+        {% for day in month_data.days %}
+        {% if reports.by_day.get(day) %}
+        {% set reports_list = reports.by_day.get(day) %}
+
+        <div class="aiqo-day-panel {% if day != ns_tp.last_day_overall %}d-none{% endif %}"
+             id="day-panel-{{ day | safe_id }}"
+             data-day="{{ day }}">
+
+            {# Day header strip #}
+            <div class="aiqo-day-header">
+                <span class="aiqo-day-title">{{ day }}</span>
+                <span class="aiqo-day-stat-chip">
+                    <span class="chip-label">Queries</span>
+                    <strong id="total-queries-{{ day | safe_id }}">{{ reports_list|length }}</strong>
+                </span>
+                <span class="aiqo-day-stat-chip">
+                    <span class="chip-label">Total time</span>
+                    <strong id="cumulated-time-day-{{ day | safe_id }}">—</strong>
+                </span>
+            </div>
+
+            {# Split: Left (timeline) + Right (details) #}
+            <div id="split-container-{{ day | safe_id }}" class="aiqo-day-split">
+
+                {# Left pane — Chart.js timeline #}
+                <div class="split aiqo-timeline-pane" style="width: 18%; min-width: 120px;">
+                    <div class="aiqo-timeline-wrapper" id="timeline-wrapper-{{ day | safe_id }}">
+                        <canvas id="timeline-{{ day | safe_id }}"></canvas>
+                    </div>
+                </div>
+
+                {# Right pane — query detail tabs #}
+                <div class="split" style="min-width: 300px; flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                    <div class="tab-content query-tab-content" id="queryTabContent-{{ day | safe_id }}">
+                        {% for report in reports_list %}
+                        <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
+                             id="query-content-{{ day | safe_id }}-{{ loop.index0 }}"
+                             role="tabpanel">
+                            {{ query_details_content(report, day, loop.index0, optimizations) }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {# Hidden table used by DateTabUpdater for queries-by-code breakdown #}
+                    <table class="d-none" aria-hidden="true">
+                        <tbody id="queries-by-code-table-body-{{ day | safe_id }}"></tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+        {% endif %}
+        {% endfor %}
+    {% endfor %}
+{% endfor %}

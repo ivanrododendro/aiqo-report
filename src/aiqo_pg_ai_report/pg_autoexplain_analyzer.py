@@ -1,0 +1,901 @@
+#!/usr/bin/env python
+
+import argparse
+import locale
+import logging
+import os
+import sys  # Import sys for exit
+import time
+from pathlib import Path
+
+import litellm
+
+# Ensure package imports resolve when run as a script
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+# Import classes and necessary constants from their new modules
+from aiqo_pg_ai_report.ai_caller import AiCaller, DEFAULT_AI_CALL_TIMEOUT
+from aiqo_pg_ai_report.log_parser import JsonLogParser, TextLogParser
+from aiqo_pg_ai_report.report_generator import ReportGenerator
+from aiqo_pg_ai_report.sql_utils import SQLUtils
+from aiqo_pg_ai_report.context import ContextLoader
+from aiqo_pg_ai_report.version import get_package_version, get_litellm_version
+
+DEFAULT_LANG = "fr"  # Default language for output, not for prompt file selection
+DEFAULT_MODEL = "gemini-3.1-flash-lite-preview"
+DEFAULT_MAX_AI_CALLS_UNLIMITED = -1
+DEFAULT_DUPLICATE_QUERY_AI_SKIP_MESSAGE = "AI analysis skipped, same query was already analyzed earlier."
+DEFAULT_TARGET_QUERY_AI_SKIP_MESSAGE = "AI analysis skipped for target query mode."
+
+# Configure logging (default to INFO, can be overridden by CLI)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def _show_supported_models_and_exit() -> None:
+    """Print supported models from litellm and terminate execution."""
+    models_data = None
+    try:
+        models_callable = getattr(litellm, "models", None)
+        if callable(models_callable):
+            models_data = models_callable()
+        elif hasattr(litellm, "model_list"):
+            models_data = getattr(litellm, "model_list")
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.error("Unable to retrieve supported models from litellm: %s", exc)
+
+    if models_data is None:
+        print("Unable to retrieve supported models from litellm.")
+        sys.exit(1)
+
+    print("Supported models:")
+    if not models_data:
+        print("- none reported")
+        sys.exit(0)
+
+    for model in models_data:
+        if isinstance(model, dict):
+            name = str(model.get("model_name") or model.get("id") or model.get("name") or model)
+            provider = model.get("litellm_provider") or model.get("provider")
+            suffix = f" (provider: {provider})" if provider else ""
+            print(f"- {name}{suffix}")
+        else:
+            print(f"- {model}")
+
+    sys.exit(0)
+
+
+class PGAutoExplainAnalyzer:
+    def __init__(self, args):
+        self.args = args
+        self.model = args.model
+        self.skip_ai_analysis = args.skip_ai_analysis
+        self.analyze_all_queries = args.analyze_all_queries
+        self.limit_ai_calls = args.limit_ai_calls
+        self.ai_call_timeout = args.ai_call_timeout
+        self.language = args.language
+        self.only_seq_scan_ai_analysis = args.only_seq_scan_ai_analysis
+        self.filter_strings = args.filter
+        self.custom_prompt = args.custom_prompt
+        self.target_query = args.target_query
+        self.disable_general_hints_synthesis = args.disable_general_hints_synthesis
+        self.context_folder = args.context_folder  # Nouveau paramètre renommé
+        self.directory_mode_active = args.directory_mode_active  # Nouveau: flag pour le mode répertoire
+        self.demo = getattr(args, "demo", False)
+
+        from aiqo_pg_ai_report.anonymizer import SchemaAnonymizer
+        self.anonymizer = None if (getattr(args, "no_anonymize", False) or getattr(args, "skip_ai_analysis", False)) else SchemaAnonymizer()
+
+        # Initialize ContextLoader which handles loading prompts and all context/optimization files
+        self.context_loader = ContextLoader(
+            script_base_path=Path(__file__).parent, context_folder_cli_arg=self.context_folder
+        )
+
+        self.ai_caller = AiCaller(
+            model=self.model,
+            ai_call_timeout=self.ai_call_timeout,
+            lang=self.language,
+            prompts={},  # ContextLoader no longer has a 'prompts' dictionary; AiCaller no longer needs it.
+            debug=args.debug,
+            disable_provider_cache=args.disable_provider_cache,
+            litellm_api_base=args.litellm_api_base,
+            litellm_api_key=args.litellm_api_key,
+        )
+        try:
+            self.log_parser = self._create_log_parser(args.format)
+        except ValueError as exc:
+            logger.error(str(exc))
+            sys.exit(1)
+        # Pass the base path of the current script to ReportGenerator
+        self.report_generator = ReportGenerator(self.context_loader.script_base_path, debug=args.debug)
+
+        # Initialize the data processor
+        from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
+
+        self.data_processor = ReportDataProcessor()
+        self.analyzed_query_codes: set[str] = set()
+
+    def _build_execution_options(self) -> list[tuple[str, str]]:
+        options: list[tuple[str, str]] = []
+        if self.skip_ai_analysis:
+            options.append(("AI analysis", "skipped"))
+        else:
+            options.append(("Model", self.model))
+            options.append(("Language", self.language))
+            limit = str(self.limit_ai_calls) if self.limit_ai_calls != -1 else "Unlimited"
+            options.append(("Max AI calls", limit))
+            options.append(("AI call timeout", f"{self.ai_call_timeout}s"))
+            if self.only_seq_scan_ai_analysis:
+                options.append(("Seq Scan only", "yes"))
+            if self.analyze_all_queries:
+                options.append(("Analyze all occurrences", "yes"))
+            if self.disable_general_hints_synthesis:
+                options.append(("General hints synthesis", "disabled"))
+        if self.anonymizer:
+            options.append(("Anonymization", "demo (output not deanonymized)" if self.demo else "enabled"))
+        else:
+            options.append(("Anonymization", "disabled"))
+        if self.filter_strings:
+            options.append(("Filters", ", ".join(self.filter_strings)))
+        return options
+
+    def _determine_ai_analysis_status(self, log_entry, query_code):
+        """
+        Détermine si l'analyse AI doit être effectuée et fournit un message de saut si elle est ignorée.
+        Retourne (should_perform_ai_call: bool, ai_hints_message: str).
+        """
+        if not self.analyze_all_queries and query_code in self.analyzed_query_codes:
+            logger.info(
+                "Skipping AI analysis for query code %s because it was already analyzed earlier",
+                query_code[:6],
+            )
+            return False, DEFAULT_DUPLICATE_QUERY_AI_SKIP_MESSAGE
+
+        if self.skip_ai_analysis:
+            logger.debug("Skipping AI analysis (skip_ai_analysis flag is true)")
+            return False, ""
+
+        if self.limit_ai_calls != -1 and self.ai_caller.call_count >= self.limit_ai_calls:
+            logger.warning("AI call limit reached. Skipping AI analysis for query")
+            return False, ""
+
+        # Vérifie l'analyse AI uniquement pour les Seq Scan
+        seq_scan_indicator = log_entry["execution_plan"].find("Seq Scan") != -1
+        if self.only_seq_scan_ai_analysis and not seq_scan_indicator:
+            logger.warning("Skipping AI analysis for query without Seq Scan (only_seq_scan_ai_analysis is true)")
+            return False, ""
+
+        return True, ""
+
+    def _perform_ai_call_and_get_hints(self, log_entry, query_code):
+        """
+        Effectue l'appel à l'API AI et retourne les indices ou un message d'échec.
+        """
+        plan = log_entry["execution_plan"]
+        if self.anonymizer:
+            self.anonymizer.extract_from_sql(log_entry["query_text"])
+            self.anonymizer.extract_from_plan(plan)
+            plan = self.anonymizer.anonymize(plan)
+        prompt_segments = self.context_loader.build_prompt_segments_with_optimizations(
+            plan=plan,
+            query_code=query_code,
+            custom_prompt=self.custom_prompt,
+            lang=self.language,
+            anonymizer=self.anonymizer,
+        )
+        cacheable_prefix = str(prompt_segments["cacheable_prefix"])
+        dynamic_suffix = str(prompt_segments["dynamic_suffix"])
+        ai_hints_result = self.ai_caller.call_ai_provider(
+            cacheable_prefix + dynamic_suffix,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+            has_static_context=bool(prompt_segments["has_static_context"]),
+        )
+        if ai_hints_result is None:
+            return "AI analysis failed or timed out."
+        if self.anonymizer and not self.demo:
+            ai_hints_result = self.anonymizer.deanonymize(ai_hints_result)
+        return ai_hints_result
+
+    def _matches_filter(self, log_entry, query_code):
+        if not self.filter_strings:
+            return True
+
+        searchable_values = (
+            log_entry["job_name"],
+            log_entry["query_name"],
+            log_entry["query_text"],
+            query_code,
+        )
+        return any(
+            filter_str.lower() in str(value).lower()
+            for filter_str in self.filter_strings
+            for value in searchable_values
+        )
+
+    def _process_parsed_log_entry(self, log_entry):
+        query_text = log_entry["query_text"]
+        query_code = SQLUtils.get_query_code(query_text)
+
+        def _truncate(text: str | None, limit: int = 40) -> str:
+            if not text:
+                return ""
+            return text if len(text) <= limit else text[:limit] + "..."
+
+        line_info = f", line: {log_entry.get('source_line')}" if log_entry.get("source_line") is not None else ""
+        timestamp_info = f", date: {log_entry.get('timestamp')}" if log_entry.get("timestamp") else ""
+        title = (log_entry.get("job_name", "") + " " + log_entry.get("query_name", "")).strip()
+        title_info = f", title: {_truncate(title)}" if title else ""
+        logger.info(f"Query code : {query_code[:6]}{line_info}{timestamp_info}{title_info}")
+
+        if not self._matches_filter(log_entry, query_code):
+            logger.info("Skipping query (code: %s) because it does not match filter criteria.", query_code[:6])
+            return
+
+        # Charge toujours les optimisations spécifiques à la requête dans le cache, indépendamment de l'analyse AI.
+        # Cela garantit qu'elles sont disponibles pour l'affichage du rapport.
+        self.context_loader.get_query_optimizations(query_code)
+
+        should_perform_ai_call, ai_hints = self._determine_ai_analysis_status(log_entry, query_code)
+
+        if should_perform_ai_call:
+            ai_hints = self._perform_ai_call_and_get_hints(log_entry, query_code)
+            if not self.analyze_all_queries:
+                self.analyzed_query_codes.add(query_code)
+        # else ai_hints contient déjà le message de saut
+
+        report = self.data_processor.create_report_entry(log_entry, query_code, ai_hints)
+        self.data_processor.update_statistics(report)
+
+    @staticmethod
+    def _sort_entries_by_timestamp(entries: list[dict]) -> list[dict]:
+        return sorted(entries, key=lambda entry: (str(entry.get("timestamp", "")), int(entry.get("source_line") or 0)))
+
+    def _collect_target_query_entries(self, log_files: list[Path]) -> tuple[str | None, list[dict]]:
+        matching_entries: list[dict] = []
+        target_query_code: str | None = None
+
+        for log_file in log_files:
+            for parsed_entry in self.log_parser.parse_log_file(log_file):
+                query_code = SQLUtils.get_query_code(parsed_entry["query_text"])
+                if query_code[: SQLUtils.SHORT_QUERY_CODE_LENGTH] != self.target_query:
+                    continue
+
+                if target_query_code is None:
+                    target_query_code = query_code
+                elif target_query_code != query_code:
+                    logger.error(
+                        "Target query filter %s matched multiple normalized SQL statements: %s and %s",
+                        self.target_query,
+                        target_query_code,
+                        query_code,
+                    )
+                    sys.exit(1)
+
+                parsed_entry["query_code"] = query_code
+                matching_entries.append(parsed_entry)
+
+        return target_query_code, self._sort_entries_by_timestamp(matching_entries)
+
+    def _apply_target_query_occurrence_limit(self, target_entries: list[dict]) -> list[dict]:
+        if self.limit_ai_calls == DEFAULT_MAX_AI_CALLS_UNLIMITED:
+            return target_entries
+
+        limited_entries = target_entries[: self.limit_ai_calls]
+        logger.info(
+            "Target query occurrence limit applied: using %s of %s matching occurrences",
+            len(limited_entries),
+            len(target_entries),
+        )
+        return limited_entries
+
+    def _perform_target_query_ai_analysis(self, query_code: str, target_entries: list[dict]) -> str:
+        if self.skip_ai_analysis:
+            logger.info("Skipping target query AI analysis because AI analysis is disabled")
+            return DEFAULT_TARGET_QUERY_AI_SKIP_MESSAGE
+
+        if self.anonymizer:
+            self.anonymizer.extract_from_sql(target_entries[0]["query_text"])
+            for entry in target_entries:
+                self.anonymizer.extract_from_plan(entry.get("execution_plan", ""))
+
+        prompt_segments = self.context_loader.build_target_query_prompt_segments(
+            query_code=query_code,
+            query_text=target_entries[0]["query_text"],
+            occurrences=target_entries,
+            custom_prompt=self.custom_prompt,
+            lang=self.language,
+            anonymizer=self.anonymizer,
+        )
+        cacheable_prefix = str(prompt_segments["cacheable_prefix"])
+        dynamic_suffix = str(prompt_segments["dynamic_suffix"])
+        ai_hints_result = self.ai_caller.call_ai_provider(
+            cacheable_prefix + dynamic_suffix,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+            has_static_context=bool(prompt_segments["has_static_context"]),
+        )
+        if ai_hints_result is None:
+            return "AI analysis failed or timed out."
+        if self.anonymizer and not self.demo:
+            ai_hints_result = self.anonymizer.deanonymize(ai_hints_result)
+        return ai_hints_result
+
+    @staticmethod
+    def _format_target_query_metric(metric_name: str, values: list[float | int | None]) -> str:
+        filtered_values = [value for value in values if value is not None]
+        if not filtered_values:
+            return f"{metric_name}: n/a"
+        return (
+            f"{metric_name}: min={min(filtered_values)} max={max(filtered_values)} "
+            f"last={filtered_values[-1]} samples={len(filtered_values)}"
+        )
+
+    def _build_target_query_stdout_output(
+        self,
+        query_code: str,
+        target_entries: list[dict],
+        report_filename: Path,
+    ) -> str:
+        first_entry = target_entries[0]
+        timestamps = [str(entry.get("timestamp", "")) for entry in target_entries if entry.get("timestamp")]
+        durations = [entry.get("duration") for entry in target_entries]
+        costs = [entry.get("cost") for entry in target_entries]
+        rows = [entry.get("rows") for entry in target_entries]
+        query_optimizations = self.context_loader.get_query_optimizations(query_code)
+
+        metadata_lines = [
+            "Target Query Analysis",
+            f"Short query code: {query_code[:6]}",
+            f"Full query code: {query_code}",
+            f"Occurrences: {len(target_entries)}",
+            (f"Execution range: {timestamps[0]} -> {timestamps[-1]}" if timestamps else "Execution range: n/a"),
+            f"Server optimizations loaded: {len(self.context_loader.server_optimizations)}",
+            f"Event entries loaded: {len(self.context_loader.event_optimizations)}",
+            f"Query optimizations loaded: {len(query_optimizations)}",
+            self._format_target_query_metric("Duration ms", durations),
+            self._format_target_query_metric("Total cost", costs),
+            self._format_target_query_metric("Rows", rows),
+            "",
+            "SQL",
+            first_entry["query_text"],
+            "",
+            f"HTML report: {report_filename}",
+        ]
+
+        return "\n".join(metadata_lines).strip() + "\n"
+
+    @staticmethod
+    def _build_target_query_report_payload(query_code: str, target_entries: list[dict], ai_result: str) -> dict:
+        from aiqo_pg_ai_report.report_data_processor import ReportDataProcessor
+
+        target_data_processor = ReportDataProcessor()
+
+        for entry in target_entries:
+            # Target query analysis is aggregated across every occurrence, so keep it visible
+            # regardless of which single execution is selected in the report UI.
+            report = target_data_processor.create_report_entry(entry, query_code, ai_result)
+            target_data_processor.update_statistics(report)
+
+        return {
+            "query_stats": target_data_processor.get_query_stats_list(),
+            "reports_by_day": target_data_processor.reports_by_day,
+            "daily_query_stats": target_data_processor.daily_query_stats,
+        }
+
+    def _run_target_query_mode(self, log_files: list[Path], report_filename: Path, start_time: float) -> None:
+        logger.info("Target Query Mode is ENABLED for filter %s", self.target_query)
+        if self.analyze_all_queries:
+            logger.info("Ignoring --analyze-all-queries in target query mode because the analysis is aggregated")
+
+        query_code, target_entries = self._collect_target_query_entries(log_files)
+
+        if not target_entries or query_code is None:
+            logger.error("No query matched target query filter %s", self.target_query)
+            self.ai_caller.show_stats()
+            self._log_processing_statistics(log_files, start_time, total_queries_override=0)
+            sys.exit(1)
+
+        target_entries = self._apply_target_query_occurrence_limit(target_entries)
+        if not target_entries:
+            logger.error("Target query occurrence limit excluded all matches for filter %s", self.target_query)
+            self.ai_caller.show_stats()
+            self._log_processing_statistics(log_files, start_time, total_queries_override=0)
+            sys.exit(1)
+
+        self.context_loader.set_query_date_range_from_entries(target_entries)
+        self.context_loader.get_query_optimizations(query_code)
+        ai_result = self._perform_target_query_ai_analysis(query_code, target_entries)
+        target_report_payload = self._build_target_query_report_payload(query_code, target_entries, ai_result)
+        self.report_generator.generate_target_query_report(
+            str(report_filename),
+            "PostgreSQL Auto Explain Report"
+            if self.skip_ai_analysis
+            else f"PostgreSQL Auto Explain AI Report ({self.model}) ",
+            self.model,
+            get_package_version(),
+            target_report_payload["query_stats"],
+            target_report_payload["reports_by_day"],
+            target_report_payload["daily_query_stats"],
+            self.context_loader.query_optimizations_cache,
+            self.context_loader.server_optimizations,
+            self.context_loader.event_optimizations,
+            self.context_loader.ddl_context,
+            self.context_loader.server_configuration_context,
+            self.context_loader.project_context,
+            self.skip_ai_analysis,
+            None,
+            query_code,
+            execution_options=self._build_execution_options(),
+        )
+        logger.info("Output target query report: %s", report_filename)
+        stdout_output = self._build_target_query_stdout_output(query_code, target_entries, report_filename)
+        print(stdout_output, end="")
+
+        self.ai_caller.show_stats()
+        self._log_processing_statistics(log_files, start_time, total_queries_override=len(target_entries))
+
+    @staticmethod
+    def _is_general_hint_candidate(ai_hints: str) -> bool:
+        """Return True when an AI hint contains actionable model output suitable for synthesis."""
+        if not ai_hints:
+            return False
+
+        excluded_prefixes = (
+            "AI analysis skipped",
+            "AI analysis failed",
+            "No analysis content found",
+            "Could not estimate token count",
+            "Token count (",
+        )
+        return not ai_hints.startswith(excluded_prefixes)
+
+    def _build_general_hints_synthesis(self) -> str | None:
+        """Generate a global synthesis of recurring generic hints when enough AI analyses are available."""
+        if self.skip_ai_analysis:
+            logger.info("Skipping general hints synthesis because AI analysis is disabled")
+            return None
+
+        if self.disable_general_hints_synthesis:
+            logger.info("Skipping general hints synthesis because it was disabled by CLI flag")
+            return None
+
+        ai_hints_list = [
+            report["ai_hints"]
+            for report in self.data_processor.all_reports
+            if self._is_general_hint_candidate(report.get("ai_hints", ""))
+        ]
+        if len(ai_hints_list) < 2:
+            logger.info(
+                "Skipping general hints synthesis because only %s AI-analyzed quer%s available",
+                len(ai_hints_list),
+                "y is" if len(ai_hints_list) == 1 else "ies are",
+            )
+            return None
+
+        logger.info("Generating general hints synthesis from %s AI analyses", len(ai_hints_list))
+        if self.anonymizer:
+            ai_hints_list = [self.anonymizer.anonymize(h) for h in ai_hints_list]
+        prompt_segments = self.context_loader.build_general_hints_synthesis_prompt_segments(
+            ai_hints_list,
+            lang=self.language,
+            anonymizer=self.anonymizer,
+        )
+        cacheable_prefix = str(prompt_segments["cacheable_prefix"])
+        dynamic_suffix = str(prompt_segments["dynamic_suffix"])
+        synthesis = self.ai_caller.call_ai_provider(
+            cacheable_prefix + dynamic_suffix,
+            cacheable_prefix=cacheable_prefix,
+            dynamic_suffix=dynamic_suffix,
+            has_static_context=bool(prompt_segments["has_static_context"]),
+        )
+        if synthesis is None:
+            logger.warning("General hints synthesis failed or timed out")
+            return None
+        if self.anonymizer and not self.demo:
+            synthesis = self.anonymizer.deanonymize(synthesis)
+        return synthesis
+
+    @staticmethod
+    def _format_int_locale(value: int) -> str:
+        """Format integers using the current locale; fall back to comma separators."""
+        try:
+            locale.setlocale(locale.LC_ALL, "")
+            formatted = locale.format_string("%d", value, grouping=True)
+            conv = locale.localeconv()
+            thousands_sep = conv.get("thousands_sep") or conv.get("THOUSANDS_SEP")
+            if thousands_sep:
+                return formatted
+        except Exception:
+            pass
+        return f"{value:,}"
+
+    @staticmethod
+    def _ensure_target_query_hash_in_report_filename(report_filename: str | Path, short_query_code: str) -> Path:
+        report_path = Path(report_filename)
+        suffix = report_path.suffix or ".html"
+        stem = report_path.stem if report_path.suffix else report_path.name
+        expected_suffix = f"_{short_query_code}"
+
+        if stem.endswith(expected_suffix):
+            final_name = f"{stem}{suffix}"
+        else:
+            final_name = f"{stem}{expected_suffix}{suffix}"
+
+        return report_path.with_name(final_name)
+
+    def _log_processing_statistics(
+        self, log_files, start_time: float, total_queries_override: int | None = None
+    ) -> None:
+        """Log summary metrics for the current run."""
+        elapsed_seconds = time.perf_counter() - start_time
+        total_queries = (
+            total_queries_override if total_queries_override is not None else len(self.data_processor.all_reports)
+        )
+        total_log_lines = getattr(self.log_parser, "total_log_lines_processed", 0)
+        logger.info("--- Log processing statistics ---")
+        logger.info("Total log files processed: %s", len(log_files))
+        logger.info("Total queries processed: %s", total_queries)
+        logger.info("Total log lines processed: %s", self._format_int_locale(total_log_lines))
+        logger.info("Total execution time: %.2f seconds", elapsed_seconds)
+        logger.info("-------------------------------")
+
+    def run(self):
+        # Rate limit variables are now handled within AiCaller, so these global assignments are removed.
+        start_time = time.perf_counter()
+
+        log_files = []
+        report_filename = None
+
+        if self.directory_mode_active:  # Utilise le nouveau flag
+            directory = Path(self.args.log_filename)
+            # La vérification de l'existence du répertoire est maintenant faite dans parse_cli_arguments
+
+            log_files = list(directory.glob("*.log")) + list(directory.glob("*.gz")) + list(directory.glob("*.zip"))
+            if not log_files:
+                logger.error(f"No .log, .gz or .zip files found in directory: {self.args.log_filename}")
+                sys.exit(1)  # Utiliser sys.exit(1) pour quitter proprement
+
+            # Process files from oldest to newest based on last modification time
+            log_files = sorted(log_files, key=lambda path: path.stat().st_mtime)
+            logger.info(f"Processing directory: {self.args.log_filename}")
+            logger.info(
+                "Files will be processed in chronological order (oldest to newest): %s",
+                [str(f) for f in log_files],
+            )
+
+            if self.args.report_filename:
+                report_filename = self.args.report_filename
+            else:
+                report_filename = str(directory / f"{directory.name}_report.html")
+
+        else:  # Single file mode
+            log_file_path = Path(self.args.log_filename)
+            # La vérification de l'existence du fichier est maintenant faite dans parse_cli_arguments
+            log_files = [log_file_path]
+
+            report_filename = (
+                self.args.report_filename if self.args.report_filename else f"{self.args.log_filename}_report.html"
+            )
+            logger.info(f"Processing PostgreSQL log file {self.args.log_filename}")
+
+        if self.target_query:
+            report_filename = self._ensure_target_query_hash_in_report_filename(report_filename, self.target_query)
+
+        resolved_report_filename = Path(report_filename).resolve()
+        if not self.target_query:
+            logger.info(f"Output report: {resolved_report_filename}")
+
+        # Load all contexts and optimizations using the ContextLoader
+        self.context_loader.load_all_contexts(self.args.log_filename, self.directory_mode_active)
+
+        if self.anonymizer and self.context_loader.ddl_context:
+            self.anonymizer.extract_from_sql(self.context_loader.ddl_context)
+        if self.anonymizer:
+            self.context_loader.pre_anonymize_static_data(self.anonymizer)
+        logger.info("DB object anonymization: %s", "enabled" if self.anonymizer else "disabled")
+
+        if self.skip_ai_analysis:
+            logger.info("Skipping AI Analysis")
+        else:
+            logger.info(f"Using model: {self.model}")
+            if self.target_query:
+                logger.info(
+                    "Maximum target query occurrences: %s",
+                    self.limit_ai_calls if self.limit_ai_calls != -1 else "Unlimited",
+                )
+            else:
+                logger.info(f"Maximum AI calls: {self.limit_ai_calls if self.limit_ai_calls != -1 else 'Unlimited'}")
+            logger.info(f"AI API call timeout: {self.ai_call_timeout} seconds")
+            logger.info(f"Language for AI output: {self.language}")
+            logger.info(f"AI Analysis only for Seq Scan queries : {self.only_seq_scan_ai_analysis}")
+            logger.info(f"Analyze all query occurrences independently: {self.analyze_all_queries}")
+            logger.info(f"General hints synthesis disabled: {self.disable_general_hints_synthesis}")
+            logger.info(f"Provider-side prompt cache disabled: {self.args.disable_provider_cache}")
+            if self.args.litellm_api_base:
+                logger.info("LiteLLM proxy API base configured: %s", self.args.litellm_api_base)
+            if self.custom_prompt:
+                logger.info(f"Custom prompt provided: {self.custom_prompt}")
+            # Updated log messages for DDL and server config context
+            if self.context_loader.ddl_context:
+                if self.context_loader.optimization_base_path:
+                    logger.info(
+                        f"DDL context loaded from file: {self.context_loader.optimization_base_path / 'DDL.txt'}"
+                    )
+                else:
+                    logger.info("DDL context loaded.")
+            if self.context_loader.server_configuration_context:
+                if self.context_loader.optimization_base_path:
+                    logger.info(
+                        f"Server configuration context loaded from file: {self.context_loader.optimization_base_path / 'CONFIG.txt'}"
+                    )
+                else:
+                    logger.info("Server configuration context loaded.")
+            if self.context_loader.project_context:
+                if self.context_loader.optimization_base_path:
+                    logger.info(
+                        f"Project context loaded from file: {self.context_loader.optimization_base_path / 'PROJECT.txt'}"
+                    )
+                else:
+                    logger.info("Project context loaded.")
+            # Log for context folder
+            if self.context_loader.optimization_base_path:
+                logger.info(f"Optimization context loaded from folder: {self.context_loader.optimization_base_path}")
+
+        if self.filter_strings:
+            logger.info(
+                f"Report entries and AI analysis will be filtered by: {', '.join(self.filter_strings)}."
+            )
+
+        if self.target_query:
+            self._run_target_query_mode(log_files, resolved_report_filename, start_time)
+            return
+
+        for log_file in log_files:
+            for parsed_entry in self.log_parser.parse_log_file(log_file):
+                self._process_parsed_log_entry(parsed_entry)
+
+        # Get query stats from data processor
+        query_stats_list = self.data_processor.get_query_stats_list()
+        total_queries = len(self.data_processor.all_reports)
+
+        if total_queries == 0:
+            logger.warning("No queries were analyzed for the selected log input. Report generation will be skipped.")
+            self.ai_caller.show_stats()
+            self._log_processing_statistics(log_files, start_time)
+            return
+
+        report_title = (
+            "PostgreSQL Auto Explain Report"
+            if self.skip_ai_analysis
+            else "PostgreSQL Auto Explain AI Report"
+        )
+        general_hints_synthesis = self._build_general_hints_synthesis()
+
+        # Passer les optimisations collectées au générateur de rapport
+        self.report_generator.generate_report(
+            str(resolved_report_filename),
+            report_title,
+            self.model,
+            get_package_version(),
+            query_stats_list,
+            self.data_processor.reports_by_day,
+            self.data_processor.daily_query_stats,
+            self.context_loader.query_optimizations_cache,  # Pass the query optimizations cache from ContextLoader
+            self.context_loader.server_optimizations,  # Pass pre-loaded server optimizations from ContextLoader
+            self.context_loader.event_optimizations,  # Pass pre-loaded event optimizations from ContextLoader
+            self.context_loader.ddl_context,
+            self.context_loader.server_configuration_context,
+            self.context_loader.project_context,
+            self.skip_ai_analysis,  # Pass the skip_ai_analysis flag
+            general_hints_synthesis,
+            execution_options=self._build_execution_options(),
+        )
+
+        self.ai_caller.show_stats()
+        self._log_processing_statistics(log_files, start_time)
+
+    @staticmethod
+    def _create_log_parser(log_format: str):
+        log_format_normalized = log_format.lower()
+        if log_format_normalized == "json":
+            return JsonLogParser()
+        if log_format_normalized == "text":
+            return TextLogParser()
+        if log_format_normalized == "yaml":
+            raise ValueError(f"format {log_format_normalized} unsupported.")
+        raise ValueError(f"format {log_format} unsupported.")
+
+
+def parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    version_string = f"{get_package_version()} (litellm {get_litellm_version()})"
+    parser = argparse.ArgumentParser(description="Process PostgreSQL log file and generate an analysis report.")
+    parser.add_argument(
+        "log_filename", nargs="?", help="Path to the PostgreSQL log file or directory containing log files."
+    )  # Updated help text
+    parser.add_argument(
+        "-sm",
+        "--supported-models",
+        action="store_true",
+        help="Show supported models detected by litellm and exit.",
+    )
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {version_string}",
+        help="Show the current version derived from git tags and exit.",
+    )
+    parser.add_argument(
+        "-m", "--model", default=DEFAULT_MODEL, help=f"AI model to use for analysis (default: ${DEFAULT_MODEL})"
+    )
+    parser.add_argument(
+        "-l",
+        "--limit-ai-calls",
+        type=int,
+        default=DEFAULT_MAX_AI_CALLS_UNLIMITED,
+        help=(
+            "Maximum number of per-query AI calls to make. "
+            "In target query mode, limits the number of matching query occurrences included in the aggregated "
+            "analysis. "
+            f"Use -1 for unlimited (default: ${DEFAULT_MAX_AI_CALLS_UNLIMITED})"
+        ),
+    )
+    parser.add_argument(
+        "--ai-call-timeout",
+        type=int,
+        default=DEFAULT_AI_CALL_TIMEOUT,
+        help=f"Timeout for AI API calls in seconds (default: ${DEFAULT_AI_CALL_TIMEOUT})",
+    )
+    parser.add_argument(
+        "--disable-provider-cache",
+        action="store_true",
+        help="Disable provider-side prompt caching for all supported LLM providers (default: false)",
+    )
+    parser.add_argument(
+        "--litellm-api-base",
+        default=None,
+        help="LiteLLM proxy API base URL. Falls back to LITELLM_API_BASE when omitted.",
+    )
+    parser.add_argument(
+        "--litellm-api-key",
+        default=None,
+        help="LiteLLM proxy API key. Falls back to LITELLM_API_KEY when omitted.",
+    )
+    parser.add_argument(
+        "--disable-general-hints-synthesis",
+        action="store_true",
+        help="Disable the additional AI call that synthesizes recurring generic hints across analyzed queries.",
+    )
+    parser.add_argument("--language", default=DEFAULT_LANG, help=f"Language for AI output (default: ${DEFAULT_LANG})")
+    parser.add_argument(
+        "-s",
+        "--skip_ai_analysis",
+        action="store_true",
+        help="Skips the AI analysis and only generates the HTML report (default: false)",
+    )
+    parser.add_argument(
+        "-o",
+        "--only-seq-scan-ai-analysis",
+        action="store_true",
+        help="Enables AI Analysis only for queries with Seq Scan (default: false)",
+    )
+    parser.add_argument(
+        "-aaa",
+        "--analyze-all-queries",
+        action="store_true",
+        help="Analyze every query occurrence independently instead of reusing the first AI analysis per query code.",
+    )
+    parser.add_argument(
+        "-f",
+        "--filter",
+        action="append",
+        help="Process only queries that contain the specified string in the comment, SQL, or query code. Can be specified multiple times.",
+    )
+    parser.add_argument(
+        "-c", "--custom-prompt", type=str, default=None, help="Add a custom prompt to the default AI prompt (optional)"
+    )
+    parser.add_argument(
+        "-r", "--report-filename", type=str, default=None, help="Override the HTML report filename (optional)"
+    )
+    parser.add_argument(
+        "--target-query",
+        "-tq",
+        type=str,
+        default=None,
+        help=(
+            "Analyze only the query matching the provided 6-character short hash. "
+            "In this mode the result is printed to stdout instead of generating the HTML report."
+        ),
+    )
+    parser.add_argument(
+        "--context-folder",
+        "-cf",
+        type=str,
+        default=None,
+        help="Path to a directory containing optimization context files (SERVER.txt, EVENTS.txt, query-specific .txt files). Overrides the default 'CONTEXT' subfolder behavior.",
+    )
+    parser.add_argument(
+        "--format",
+        "-fmt",
+        type=str,
+        default="text",
+        choices=["json", "text", "yaml"],
+        help="Log format to parse: text (default), json, yaml (unsupported).",
+    )
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging (default: false)")
+    parser.add_argument(
+        "--no-anonymize",
+        action="store_true",
+        help="Disable DB object name anonymization before sending data to AI (default: anonymization enabled)",
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Demo mode: anonymize data sent to AI but do not deanonymize the output, safe for public sharing",
+    )
+
+    args, unknown_args = parser.parse_known_args(argv)
+
+    if unknown_args:
+        logger.warning(f"Unrecognized arguments: {unknown_args}. These will be ignored.")
+
+    if args.supported_models:
+        _show_supported_models_and_exit()
+
+    args.litellm_api_base = args.litellm_api_base or os.getenv("LITELLM_API_BASE")
+    args.litellm_api_key = args.litellm_api_key or os.getenv("LITELLM_API_KEY")
+
+    if args.target_query is not None:
+        try:
+            args.target_query = SQLUtils.normalize_short_query_code(args.target_query)
+        except ValueError as exc:
+            parser.error(str(exc))
+
+    if args.target_query and args.filter:
+        parser.error("--target-query cannot be combined with --filter.")
+
+    # New logic for path validation and directory mode detection
+    if not args.log_filename:
+        parser.error("The 'log_filename' argument is required. Please provide a path to a log file or a directory.")
+
+    log_path = Path(args.log_filename)
+
+    if not log_path.exists():
+        logger.error(f"Erreur: Le chemin spécifié '{args.log_filename}' n'existe pas.")
+        sys.exit(1)
+
+    args.directory_mode_active = log_path.is_dir()
+
+    if args.directory_mode_active:
+        logger.info(f"L'exécution est en mode répertoire pour le chemin : {args.log_filename}")
+    else:
+        if not log_path.is_file():  # If it's not a directory, it must be a file
+            logger.error(
+                f"Erreur: Le chemin spécifié '{args.log_filename}' n'est ni un fichier ni un répertoire valide."
+            )
+            sys.exit(1)
+        logger.info(f"L'exécution est en mode fichier unique pour le chemin : {args.log_filename}")
+
+    return args
+
+
+def main():
+    logger.info("AIQO PG Report v%s", get_package_version())
+    args = parse_cli_arguments()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logging.getLogger("ai_caller").setLevel(logging.DEBUG)
+        logging.getLogger("context").setLevel(logging.DEBUG)
+        logging.getLogger("log_parser").setLevel(logging.DEBUG)
+        logging.getLogger("report_generator").setLevel(logging.DEBUG)
+        logging.getLogger("sql_utils").setLevel(logging.DEBUG)
+        logger.debug("Debug logging enabled.")
+
+    analyzer = PGAutoExplainAnalyzer(args)
+    analyzer.run()
+
+
+if __name__ == "__main__":
+    main()

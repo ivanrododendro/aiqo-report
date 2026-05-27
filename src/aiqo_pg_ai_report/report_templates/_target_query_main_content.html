@@ -1,0 +1,168 @@
+{% from 'components/_query_details.html' import query_details_content %}
+
+{# ── Sidebar ───────────────────────────────────────────────────────────────── #}
+<aside class="aiqo-sidebar" id="aiqo-sidebar">
+
+    {# Header #}
+    <div class="aiqo-sidebar-header">
+        <a href="https://github.com/ivanrododendro/aiqo-report" target="_blank" rel="noopener noreferrer">
+            <img class="aiqo-sidebar-logo"
+                 src="data:image/png;base64,{{ 'static/img/aiqo-report-large.png' | embed_image }}"
+                 alt="AIQO">
+        </a>
+        <div class="aiqo-sidebar-title">{{ metadata.title }}</div>
+        <div class="aiqo-sidebar-version">v{{ metadata.version }}</div>
+    </div>
+
+    {# Report metadata #}
+    <div class="aiqo-sidebar-exec-options">
+        {% if metadata.auto_explain_log_min_duration %}
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">auto_explain.log_min_duration</span>
+            <span class="aiqo-exec-value">{{ metadata.auto_explain_log_min_duration }}</span>
+        </div>
+        <div class="aiqo-exec-note">Only queries exceeding this threshold are displayed.</div>
+        {% endif %}
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">Generated</span>
+            <span class="aiqo-exec-value">{{ metadata.timestamp }}</span>
+        </div>
+    </div>
+
+    {% if metadata.execution_options %}
+    <div class="aiqo-sidebar-exec-options">
+        {% for label, value in metadata.execution_options %}
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">{{ label }}</span>
+            <span class="aiqo-exec-value">{{ value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Target query info #}
+    <div class="aiqo-sidebar-exec-options" style="border-top: 1px solid #334155;">
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">Target query</span>
+            <span class="aiqo-exec-value font-monospace">[{{ target_query.short_code }}]</span>
+        </div>
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">Occurrences</span>
+            <span class="aiqo-exec-value">{{ target_query.occurrences }}</span>
+        </div>
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">Selected</span>
+            <span class="aiqo-exec-value" id="selectedExecutionLabel">
+                {{ target_query.selected_report.query_timestamp | default('N/A') }}
+            </span>
+        </div>
+    </div>
+
+    {# Section tabs: Query / Context #}
+    <div class="aiqo-sidebar-nav" role="tablist">
+        <button class="aiqo-sidebar-nav-btn active" id="btn-section-query"
+                type="button" role="tab" aria-selected="true">
+            <i class="bi bi-list-ul" aria-hidden="true"></i>
+            <span>Query</span>
+        </button>
+        <button class="aiqo-sidebar-nav-btn" id="btn-section-context"
+                type="button" role="tab" aria-selected="false">
+            <i class="bi bi-file-earmark-code" aria-hidden="true"></i>
+            <span>Context</span>
+        </button>
+    </div>
+
+    {# Query section: occurrence list #}
+    <div id="aiqo-sidebar-section-query" class="aiqo-sidebar-section">
+        <nav class="aiqo-occurrence-list" aria-label="Occurrence navigation">
+            {% for day, reports_list in reports.by_day.items()|sort(reverse=True) %}
+                {% for report in reports_list %}
+                <button class="aiqo-occurrence-btn {% if day == target_query.selected_day and loop.index0 == target_query.selected_index %}active{% endif %}"
+                        type="button"
+                        data-day="{{ day }}"
+                        data-index="{{ loop.index0 }}"
+                        data-timestamp="{{ report.query_timestamp | default('') }}">
+                    <span class="aiqo-occurrence-ts">{{ report.query_timestamp | default(day) }}</span>
+                    <span class="aiqo-occurrence-dur">{{ report.duration | default('—') }}</span>
+                </button>
+                {% endfor %}
+            {% endfor %}
+        </nav>
+    </div>
+
+    {# Context section: nav items #}
+    <div id="aiqo-sidebar-section-context" class="aiqo-sidebar-section d-none">
+        {% if contexts.ddl or contexts.server_config or contexts.project %}
+        <nav class="aiqo-section-nav" aria-label="Context navigation">
+            {% if contexts.ddl %}
+            <button class="aiqo-section-nav-btn" type="button" data-panel="context-panel-ddl">
+                <i class="bi bi-database" aria-hidden="true"></i>
+                <span>DDL Context</span>
+            </button>
+            {% endif %}
+            {% if contexts.server_config %}
+            <button class="aiqo-section-nav-btn" type="button" data-panel="context-panel-server-config">
+                <i class="bi bi-gear" aria-hidden="true"></i>
+                <span>Server Configuration</span>
+            </button>
+            {% endif %}
+            {% if contexts.project %}
+            <button class="aiqo-section-nav-btn" type="button" data-panel="context-panel-project">
+                <i class="bi bi-file-text" aria-hidden="true"></i>
+                <span>Project Context</span>
+            </button>
+            {% endif %}
+        </nav>
+        {% endif %}
+    </div>
+
+</aside>
+
+{# ── Main content ──────────────────────────────────────────────────────────── #}
+<main class="aiqo-main" id="aiqo-main">
+
+    {# Query view #}
+    <div id="aiqo-view-query" class="aiqo-view">
+        <div class="tab-content query-tab-content" id="queryTabContent-target-query">
+            {% for day, reports_list in reports.by_day.items()|sort %}
+                {% for report in reports_list %}
+                <div class="tab-pane fade {% if day == target_query.selected_day and loop.index0 == target_query.selected_index %}show active{% endif %}"
+                     id="query-content-{{ day | safe_id }}-{{ loop.index0 }}"
+                     role="tabpanel">
+                    {{ query_details_content(report, day, loop.index0, optimizations, ai_first=True) }}
+                </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Context view #}
+    <div id="aiqo-view-context" class="aiqo-view d-none">
+        <div class="aiqo-overview-scroll">
+            {% include 'components/_context_section.html' %}
+        </div>
+    </div>
+
+</main>
+
+{# Plan comparison modal #}
+<div class="modal fade" id="planCompareModal" tabindex="-1"
+     aria-labelledby="planCompareModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl plan-compare-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header plan-compare-modal-header">
+                <div>
+                    <h5 class="modal-title" id="planCompareModalTitle">Plan comparison</h5>
+                    <div class="small text-muted" id="planCompareModalSubtitle"></div>
+                </div>
+            </div>
+            <div class="modal-body" id="planCompareModalBody"></div>
+        </div>
+    </div>
+</div>
+
+{# Copy-code toast #}
+<div class="aiqo-copy-toast" id="aiqo-copy-toast" aria-live="polite" aria-atomic="true">
+    <i class="bi bi-clipboard-check"></i>
+    <span id="aiqo-copy-toast-msg">Code copied</span>
+</div>

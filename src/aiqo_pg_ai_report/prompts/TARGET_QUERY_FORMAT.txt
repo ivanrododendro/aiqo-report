@@ -1,0 +1,13 @@
+Expected format:
+- Generate HTML code
+- Dont generate main structure HTML tags, just those strictly related to the context you are generating
+- Use <code> tags for all database object names, PostgreSQL parameters and SQL code snippets.
+- PostgreSQL parameters cited must include a link to the PostgreSQLco.nf documentation in the following format: https://postgresqlco.nf/doc/fr/param/<parameter>/.
+- strictly avoid asciidoc or markdown tags
+
+Suggested HTML structure:
+<p><h3>Executive Summary</h3>...</p>
+<p><h3>Timeline Analysis</h3>...</p>
+<p><h3>Plan Evolution</h3>...</p>
+<p><h3>Impact Assessment</h3>...</p>
+<p><h3>Remaining Optimization Paths</h3>...</p>

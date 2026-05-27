@@ -1,0 +1,21 @@
+GOAL
+Analyze the following *query + execution plan* pair and propose OPTIMIZATION PATHS.
+Recommendations should reflect only workflows considered “best practice” in the PostgreSQL community.
+
+WORK INSTRUCTIONS
+1. **Initial summary**
+   - Summarize in maximum 5 lines the sections of the plan that most affect the total time (cost, actual time, rows, loops, hits/misses on buffers).
+2. **Detailed diagnosis**
+   - Highlight the most costly nodes explaining their probable cause (e.g., seq scan on large table, sort on disk, hash over-flow, cardinality estimation problems) in a numbered list
+3. **Optimization paths** 
+   - Provide specific optimization paths for the query keeping in account the indexes already defined for the query and explaining why the path is meaningful for this specific query, for each provide a reference to the numbered list in the diagnosis section
+   - Do not provide speculation based hints, focus only on the data provided 
+   - Do not provide optimizations already applied to the query
+   - Before proposing an index creation you must check if an index with the same structure already exixts in the DDL context. Treat PRIMARY KEYS as UNIQUE indexes 
+   - ALWAYS briefly warn the user about the drawback, if any, for any optimization path provided
+   - Group by category between:
+     - *Query tuning* How rewrite query to make it more efficient / faster
+     - *Indices* (creation, removal, B-tree vs. GIN/BRIN, covering index), always provide DDL for index creation
+     - *Configuration parameters* (work_mem, maintenance_work_mem, effective_cache_size, shared_buffers, random_page_cost, parallel_*)
+     - *Data architecture* 
+     - *Infrastructure*

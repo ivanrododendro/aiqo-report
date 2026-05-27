@@ -1,0 +1,5 @@
+<!-- Minimal bootstrap: fragments include their own JS; we just run init -->
+<script>
+{% include 'static/js/app-init.js' %}
+document.addEventListener('DOMContentLoaded', function() { AIQO.Init.run(); });
+</script>

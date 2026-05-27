@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev --no-interaction
+
+      - name: Build distribution
+        run: poetry build
+
+  release-sample-report:
+    name: Release Sample Report
+    needs: test
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+    environment: AI
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install build dependencies
+        run: poetry install --with dev --no-interaction
+
+      - name: Generate sample report
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          mkdir -p docs
+          if [ -n "${GEMINI_API_KEY}" ]; then
+            poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log -r docs/sample.log_report.html --language english
+            poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log --target-query 421865 -r docs/target_query_report.html --language english
+          else
+            poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log --skip_ai_analysis -r docs/sample.log_report.html
+            poetry run python src/aiqo_pg_ai_report/pg_autoexplain_analyzer.py tests/data/sample.log --skip_ai_analysis --target-query 421865 -r docs/target_query_report.html --language english
+          fi
+          zip -j docs/sample_report.zip docs/sample.log_report.html
+          zip -j docs/target_query_report_421865.zip docs/target_query_report_421865.html
+
+      - name: Upload sample report asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            docs/sample_report.zip
+            docs/target_query_report_421865.zip
+
+  release-binaries:
+    name: Release ${{ matrix.label }}
+    needs:
+      - test
+      - release-sample-report
+    if: github.event_name == 'release' && github.event.action == 'published'
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            artifact: dist/linux/pg_aiqo_report
+            archive_asset: dist/linux/pg_aiqo_report-linux.tar.gz
+            label: Linux Binary
+          - os: macos-latest
+            target: macos-silicon
+            artifact: dist/macos-silicon/pg_aiqo_report
+            archive_asset: dist/macos-silicon/pg_aiqo_report-macos-silicon.tar.gz
+            label: macOS Binary
+          - os: windows-latest
+            target: windows
+            artifact: dist/windows/pg_aiqo_report.exe
+            archive_asset: dist/windows/pg_aiqo_report-windows.zip
+            label: Windows Binary
+    runs-on: ${{ matrix.os }}
+    env:
+      NUITKA_CACHE_DIR: ${{ github.workspace }}/.github-cache/nuitka/${{ matrix.target }}
+      NUITKA_CACHE_DIR_CCACHE: ${{ github.workspace }}/.github-cache/nuitka/${{ matrix.target }}/ccache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ccache (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ccache
+
+      - name: Install ccache (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ccache
+
+      - name: Restore Nuitka build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.NUITKA_CACHE_DIR }}
+          key: nuitka-${{ runner.os }}-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('poetry.lock', 'pyproject.toml', 'scripts/build_nuitka.sh', '.github/workflows/ci.yml') }}
+          restore-keys: |
+            nuitka-${{ runner.os }}-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-
+            nuitka-${{ runner.os }}-${{ matrix.target }}-
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install build dependencies
+        run: poetry install --with dev --no-interaction
+
+      - name: Build native binary
+        run: bash scripts/build_nuitka.sh ${{ matrix.target }}
+
+      - name: Prepare tar.gz release asset
+        if: matrix.target != 'windows'
+        shell: bash
+        run: tar -czf "${{ matrix.archive_asset }}" -C "$(dirname "${{ matrix.artifact }}")" "$(basename "${{ matrix.artifact }}")"
+
+      - name: Prepare zip release asset
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path '${{ matrix.artifact }}' -DestinationPath '${{ matrix.archive_asset }}' -Force
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: ${{ matrix.archive_asset }}

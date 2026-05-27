@@ -1,0 +1,94 @@
+# Usa un'immagine Python recente; cambia versione se ti serve
+image: python:3.11-slim
+
+stages:
+  - deps
+  - lint
+  - test
+  - build
+  # - publish   # opzionale (vedi in fondo)
+
+variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_PYTHON_VERSION_WARNING: "1"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  POETRY_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pypoetry"
+  POETRY_VIRTUALENVS_IN_PROJECT: "true"   # crea .venv dentro al repo
+  POETRY_NO_INTERACTION: "1"
+  POETRY_VERSION: "1.8.3"                  # blocca la versione di Poetry
+
+# Cache dipendenze e venv; si invalida quando cambia poetry.lock
+cache:
+  key:
+    files:
+      - poetry.lock
+  paths:
+    - .venv/
+    - .cache/pip
+    - .cache/pypoetry
+
+# Step comune: installa Poetry e dipendenze
+.install_poetry_and_deps: &install_poetry_and_deps
+  before_script:
+    - python --version
+    - pip install --upgrade pip
+    - pip install "poetry==$POETRY_VERSION"
+    - poetry --version
+    # Assicura che usiamo la versione di Python dell'immagine
+    - poetry env use "$(python -c 'import sys; print(sys.executable)')"
+    # Installa le dipendenze (prod + dev)
+    - poetry install --no-ansi
+
+deps:
+  stage: deps
+  script:
+    - poetry run python -c "import sys; print('OK deps on', sys.version)"
+  artifacts:
+    paths:
+      - .venv/
+  <<: *install_poetry_and_deps
+
+lint:
+  stage: lint
+  needs: ["deps"]
+  <<: *install_poetry_and_deps
+  script:
+    - poetry run black --check .
+    - poetry run flake8 .
+    - poetry run mypy .
+  allow_failure: false
+
+test:
+  stage: test
+  needs: ["deps"]
+  <<: *install_poetry_and_deps
+  script:
+    - poetry run pytest -q --maxfail=1 --disable-warnings
+  artifacts:
+    when: always
+    paths:
+      - .pytest_cache/
+    expire_in: 1 week
+
+build:
+  stage: build
+  needs: ["test"]
+  <<: *install_poetry_and_deps
+  script:
+    - poetry build -v
+  artifacts:
+    paths:
+      - dist/*.whl
+      - dist/*.tar.gz
+    expire_in: 2 weeks
+
+# Pubblicazione su PyPI (OPZIONALE): abilita e crea il secret CI/CD PYPI_TOKEN
+# publish:
+#   stage: publish
+#   needs: ["build"]
+#   rules:
+#     - if: '$CI_COMMIT_TAG'   # pubblica solo su tag
+#   <<: *install_poetry_and_deps
+#   script:
+#     - poetry config pypi-token.pypi "$PYPI_TOKEN"
+#     - poetry publish --no-ansi

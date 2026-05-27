@@ -1,0 +1,46 @@
+{% include 'components/_sidebar.html' %}
+
+<main class="aiqo-main" id="aiqo-main">
+
+    {# ── Day view ─────────────────────────────────────────────────────────── #}
+    <div id="aiqo-view-days" class="aiqo-view d-none">
+        {% include 'components/_tabs.html' %}
+    </div>
+
+    {# ── Summary view (default) ───────────────────────────────────────────── #}
+    <div id="aiqo-view-summary" class="aiqo-view">
+        <div class="aiqo-overview-scroll">
+            {% include 'components/_global_synthesis.html' %}
+        </div>
+    </div>
+
+    {# ── Context view ─────────────────────────────────────────────────────── #}
+    <div id="aiqo-view-context" class="aiqo-view d-none">
+        <div class="aiqo-overview-scroll">
+            {% include 'components/_context_section.html' %}
+        </div>
+    </div>
+
+</main>
+
+{# Copy-code toast (shared, shown on query double-click) #}
+<div class="aiqo-copy-toast" id="aiqo-copy-toast" aria-live="polite" aria-atomic="true">
+    <i class="bi bi-clipboard-check"></i>
+    <span id="aiqo-copy-toast-msg">Code copied</span>
+</div>
+
+{# Plan comparison modal (shared across all views) #}
+<div class="modal fade" id="planCompareModal" tabindex="-1"
+     aria-labelledby="planCompareModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl plan-compare-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header plan-compare-modal-header">
+                <div>
+                    <h5 class="modal-title" id="planCompareModalTitle">Plan comparison</h5>
+                    <div class="small text-muted" id="planCompareModalSubtitle"></div>
+                </div>
+            </div>
+            <div class="modal-body" id="planCompareModalBody"></div>
+        </div>
+    </div>
+</div>

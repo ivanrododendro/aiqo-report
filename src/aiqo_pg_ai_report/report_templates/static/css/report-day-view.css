@@ -1,0 +1,363 @@
+/* ─── PEV2 font override ───────────────────────────────────────────────────── */
+.plan-container,
+.plan-diagram {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ─── Day panel ───────────────────────────────────────────────────────────── */
+.aiqo-day-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.aiqo-day-panel.d-none { display: none !important; }
+
+/* Day header strip */
+.aiqo-day-header {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  min-height: 44px;
+}
+.aiqo-day-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.aiqo-day-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.71875rem;
+  background: #e2e8f0;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.175rem 0.55rem;
+  white-space: nowrap;
+}
+.aiqo-day-stat-chip .chip-label { color: #94a3b8; }
+
+/* Day split container */
+.aiqo-day-split {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Left pane: timeline */
+.aiqo-timeline-pane {
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid #e2e8f0;
+  min-width: 180px;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.aiqo-timeline-pane::-webkit-scrollbar { width: 4px; }
+.aiqo-timeline-pane::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+/* Timeline inner wrapper */
+.aiqo-timeline-wrapper {
+  padding: 0.375rem 0.25rem 0.375rem 0.375rem;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.aiqo-timeline-reset {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.5rem;
+  font-size: 0.625rem;
+  z-index: 10;
+  opacity: 0.55;
+  line-height: 1;
+  padding: 0.1rem 0.4rem;
+}
+.aiqo-timeline-reset:hover { opacity: 1; }
+
+/* Split gutter */
+.gutter {
+  background: #e2e8f0;
+  cursor: col-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.gutter:hover { background: #94a3b8; }
+
+/* Override Bootstrap elements that hardcode font sizes */
+.aiqo-main .accordion-button  { font-size: 0.8125rem; }
+.aiqo-main .card-header        { font-size: 0.8125rem; }
+.aiqo-main h2, .aiqo-main .h2 { font-size: 1rem; }
+.aiqo-main h3, .aiqo-main .h3 { font-size: 0.9375rem; }
+.aiqo-main h4, .aiqo-main .h4 { font-size: 0.875rem; }
+.aiqo-main h5, .aiqo-main .h5 { font-size: 0.8125rem; }
+.aiqo-main h6, .aiqo-main .h6 { font-size: 0.8125rem; }
+.aiqo-main pre, .aiqo-main code { font-size: 0.75rem; }
+
+/* Annotation badge palette (unchanged) */
+.badge-annotation-query { background-color: #d1e7dd; color: #0f5132; }
+.badge-annotation-server { background-color: #cfe2ff; color: #084298; }
+.badge-annotation-event { background-color: #e2e3e5; color: #41464b; }
+
+/* Fade toggle (unchanged) */
+.fade-toggle { transition: max-height 0.2s ease, opacity 0.2s ease; overflow: hidden; }
+.fade-toggle.is-hidden { max-height: 0 !important; opacity: 0; pointer-events: none; }
+.fade-toggle.is-shown { max-height: 2000px; opacity: 1; }
+
+/* Section panels (Summary / Context) */
+.aiqo-section-panel { flex: 1; overflow-y: auto; padding: 1.25rem; }
+.aiqo-section-panel.d-none { display: none !important; }
+.aiqo-section-panel-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Overview / context view (legacy scroll wrapper, kept for compatibility) */
+.aiqo-overview-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 1.25rem;
+}
+
+/* ─── Right detail pane: height chain ─────────────────────────────────────── */
+.query-tab-content { flex: 1; overflow: hidden; min-height: 0; }
+.query-tab-content .tab-pane.active { height: 100%; overflow: hidden; }
+
+/* ─── Query Detail (aiqo-qd) ──────────────────────────────────────────────── */
+.aiqo-qd {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: #fff;
+}
+
+/* Header */
+.aiqo-qd-header {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem 0.4rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.aiqo-qd-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.3rem;
+  min-width: 0;
+}
+.aiqo-qd-code {
+  font-size: 0.6875rem;
+  font-family: monospace;
+  background: #334155;
+  color: #94a3b8;
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  flex-shrink: 0;
+}
+.aiqo-qd-title {
+  font-size: 0.78125rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+.aiqo-qd-badge-seqscan {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Metric chips in header */
+.aiqo-qd-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; min-height: 1rem; }
+.aiqo-qd-chip {
+  font-size: 0.625rem;
+  background: #f1f5f9;
+  color: #475569;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+.aiqo-qd-chip .chip-l { color: #94a3b8; }
+.aiqo-qd-chip-dur--fast { background: #dcfce7; color: #15803d; }
+.aiqo-qd-chip-dur--ok   { background: #fef9c3; color: #a16207; }
+.aiqo-qd-chip-dur--warn { background: #ffedd5; color: #c2410c; }
+.aiqo-qd-chip-dur--crit { background: #fee2e2; color: #b91c1c; }
+
+/* Tab strip */
+.aiqo-qd-tabs {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.aiqo-qd-tabs::-webkit-scrollbar { display: none; }
+.aiqo-qd-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: color 0.1s, border-color 0.1s;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.aiqo-qd-tab i { font-size: 0.75rem; }
+.aiqo-qd-tab:hover { color: #334155; }
+.aiqo-qd-tab.active { color: #1d4ed8; border-bottom-color: #3b82f6; }
+.aiqo-qd-tab-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3b82f6;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Content area */
+.aiqo-qd-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+.aiqo-qd-pane {
+  display: none;
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.aiqo-qd-pane::-webkit-scrollbar { width: 4px; }
+.aiqo-qd-pane::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.aiqo-qd-pane.active { display: block; }
+.aiqo-qd-pane[data-qd-pane="plan"] { padding: 0; overflow: hidden; }
+.aiqo-qd-pane[data-qd-pane="plan"] > div { height: 100%; }
+
+/* AI tab body */
+.aiqo-qd-ai-body { width: 100%; }
+
+/* Trend controls row */
+.aiqo-qd-trend-controls { font-size: 0.71875rem; }
+
+/* Timeline hint note */
+.aiqo-timeline-hint {
+  font-size: 0.5625rem;
+  color: #94a3b8;
+  text-align: center;
+  padding: 0.25rem 0.375rem 0.375rem;
+  line-height: 1.3;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ─── Target Query: occurrence list ────────────────────────────────────────── */
+.aiqo-occurrence-list {
+  flex: 1;
+  padding: 0.375rem 0;
+  min-height: 0;
+}
+.aiqo-occurrence-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: #64748b;
+  font-size: 0.6875rem;
+  padding: 0.275rem 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  font-variant-numeric: tabular-nums;
+}
+.aiqo-occurrence-btn:hover { background: rgba(255,255,255,0.04); color: #e2e8f0; }
+.aiqo-occurrence-btn.active {
+  color: #93c5fd;
+  border-left-color: #3b82f6;
+  background: rgba(59,130,246,0.08);
+}
+.aiqo-occurrence-ts {
+  font-size: 0.625rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.aiqo-occurrence-dur {
+  font-size: 0.5625rem;
+  background: #1e293b;
+  color: #64748b;
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  line-height: 1.7;
+  flex-shrink: 0;
+}
+.aiqo-occurrence-btn.active .aiqo-occurrence-dur { background: #1e40af; color: #bfdbfe; }
+
+/* Copy-code toast */
+.aiqo-copy-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.aiqo-copy-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}

@@ -1,0 +1,16 @@
+.idea/
+.venv/
+api_keys.txt
+/.aider.chat.history.md
+__pycache__/
+src/.DS_Store
+.DS_Store
+.vscode/launch.json
+dist/
+nuitka-crash-report.xml
+src/aiqo_pg_ai_report/_version_generated.txt
+.aider*
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
