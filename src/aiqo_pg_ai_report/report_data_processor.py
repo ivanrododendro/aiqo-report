@@ -951,7 +951,7 @@ class ReportDataProcessor:
         if status == "unchanged":
             return "same"
         if self_status == "changed":
-            baseline_label = (baseline_snapshot or {}).get("node_type") or "Unknown"
+            baseline_label = (baseline_snapshot or {}).get("title") or (baseline_snapshot or {}).get("node_type") or "Unknown"
             return f"changed, was {baseline_label}"
         if status == "changed":
             return "changed subtree"

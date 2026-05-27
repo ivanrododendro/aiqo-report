@@ -392,7 +392,7 @@
 
     const labelEl = document.createElement('span');
     labelEl.className = 'plan-compare-label';
-    labelEl.textContent = node.current_label || node.baseline_label || node.title || 'Unknown node';
+    labelEl.textContent = node.title || node.current_label || node.baseline_label || 'Unknown node';
     contentEl.appendChild(labelEl);
 
     if (node.semantic_annotation) {
@@ -724,6 +724,17 @@
     };
   }
 
+  function formatPlanNodeTitle(node) {
+    if (!node) return null;
+    const nodeType = node['Node Type'] || 'Unknown';
+    const relationName = node['Relation Name'];
+    const indexName = node['Index Name'];
+    if (relationName && indexName) return `${nodeType} on ${relationName} using ${indexName}`;
+    if (relationName) return `${nodeType} on ${relationName}`;
+    if (indexName) return `${nodeType} using ${indexName}`;
+    return nodeType;
+  }
+
   function diffPlanNodes(baselineNode, currentNode, path = '0', depth = 0) {
     const children = [];
     let status = 'unchanged';
@@ -765,17 +776,20 @@
 
     const currentLabel = currentNode && currentNode['Node Type'] ? currentNode['Node Type'] : null;
     const baselineLabel = baselineNode && baselineNode['Node Type'] ? baselineNode['Node Type'] : null;
+    const currentTitle = formatPlanNodeTitle(currentNode);
+    const baselineTitle = formatPlanNodeTitle(baselineNode);
 
     return {
       path,
       depth,
       status,
       self_status: selfStatus,
+      title: currentTitle || baselineTitle,
       current_label: currentLabel,
       baseline_label: baselineLabel,
       current_subtree_label: summarizePlanSubtree(currentNode),
       baseline_subtree_label: summarizePlanSubtree(baselineNode),
-      semantic_annotation: buildSemanticAnnotation(status, selfStatus, baselineLabel),
+      semantic_annotation: buildSemanticAnnotation(status, selfStatus, baselineTitle || baselineLabel),
       changes,
       children,
       is_expanded: depth < 1 || status !== 'unchanged',

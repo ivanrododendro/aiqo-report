@@ -1,3 +1,9 @@
+/* ─── PEV2 font override ───────────────────────────────────────────────────── */
+.plan-container,
+.plan-diagram {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 /* ─── Day panel ───────────────────────────────────────────────────────────── */
 .aiqo-day-panel {
   display: flex;
