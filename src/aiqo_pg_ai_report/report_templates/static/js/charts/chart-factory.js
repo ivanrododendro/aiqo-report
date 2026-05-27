@@ -143,15 +143,26 @@
     }
   }
 
+  _computeXBounds(labels, annotations) {
+    const dates = [...labels];
+    Object.values(annotations).forEach((a) => {
+      if (a.xMin) dates.push(String(a.xMin));
+    });
+    if (!dates.length) return {};
+    dates.sort();
+    return { min: dates[0], max: dates[dates.length - 1] };
+  }
+
   createQueryExecutionChart(ctx, canvasId, queryCode, allExecutions, selectedDay, visibilityState, onVisibilityChange) {
     try {
       const validExecutions = AIQO.Core.DataValidator.validateExecutionData(allExecutions);
       const processedData = this._processExecutionData(validExecutions);
       const annotations = this.annotationService.buildQueryAnnotations(queryCode, processedData.labels, selectedDay);
+      const xBounds = this._computeXBounds(processedData.labels, annotations);
       const chart = new Chart(ctx, {
         type: 'line',
         data: this._createQueryChartData(processedData, visibilityState),
-        options: this._createQueryChartOptions(selectedDay, annotations, onVisibilityChange),
+        options: this._createQueryChartOptions(selectedDay, annotations, onVisibilityChange, xBounds),
       });
       this._applyAxisState(chart);
       chart.update('none');
@@ -312,7 +323,7 @@
         backgroundColor: 'rgba(0, 0, 0, 0.2)',
         pointBackgroundColor: '#000000',
         pointBorderColor: '#000000',
-        borderWidth: 2,
+        borderWidth: 1,
         fill: false,
         tension: 0.1,
         spanGaps: true,
@@ -324,7 +335,7 @@
         data: processedData.costs,
         borderColor: 'rgba(223, 166, 107, 1)',
         backgroundColor: 'rgba(223, 166, 107, 0.28)',
-        borderWidth: 2,
+        borderWidth: 1,
         fill: false,
         tension: 0.1,
         spanGaps: true,
@@ -337,7 +348,7 @@
         data: processedData.rows,
         borderColor: 'rgba(106, 168, 214, 1)',
         backgroundColor: 'rgba(106, 168, 214, 0.28)',
-        borderWidth: 2,
+        borderWidth: 1,
         fill: false,
         tension: 0.1,
         spanGaps: true,
@@ -363,7 +374,7 @@
             data: data,
             borderColor: bufferColors[key],
             backgroundColor: bufferColors[key].replace('1)', '0.2)'),
-            borderWidth: 2,
+            borderWidth: 1,
             fill: false,
             tension: 0.1,
             spanGaps: true,
@@ -388,7 +399,7 @@
             data: data,
             borderColor: walColors[key],
             backgroundColor: walColors[key].replace('1)', '0.2)'),
-            borderWidth: 2,
+            borderWidth: 1,
             fill: false,
             tension: 0.1,
             spanGaps: true,
@@ -406,7 +417,7 @@
         data: processedData.io_total,
         borderColor: 'rgba(98, 168, 168, 1)',
         backgroundColor: 'rgba(98, 168, 168, 0.28)',
-        borderWidth: 2,
+        borderWidth: 1,
         fill: false,
         tension: 0.1,
         spanGaps: true,
@@ -422,7 +433,7 @@
     };
   }
 
-  _createQueryChartOptions(selectedDay, annotations, onVisibilityChange) {
+  _createQueryChartOptions(selectedDay, annotations, onVisibilityChange, xBounds = {}) {
     return {
       responsive: true,
       onHover: (event, activeElements, chart) => {
@@ -501,7 +512,7 @@
         },
       },
       scales: {
-        x: {
+        x: Object.assign({
           type: 'time',
           time: {
             unit: 'day',
@@ -522,7 +533,7 @@
               return lbl === selectedDay ? '#1d4ed8' : '#94a3b8';
             },
           },
-        },
+        }, xBounds),
         y: AIQO.Core.ScaleHelper.createTimeScale(),
         yCost: AIQO.Core.ScaleHelper.createCostScale(),
         yRows: AIQO.Core.ScaleHelper.createRowsScale(),

@@ -93,7 +93,7 @@
                             <span>{{ month_data.name }}</span>
                         </button>
                         <div class="aiqo-tree-days">
-                            {% for day in month_data.days %}
+                            {% for day in month_data.days | reverse %}
                             {% if reports.by_day.get(day) %}
                             <button class="aiqo-tree-day-btn {% if day == ns_sid.last_day_overall %}active{% endif %}"
                                     type="button"

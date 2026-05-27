@@ -60,6 +60,7 @@
           0
         );
       });
+      this._staggerAnnotations(annotations);
       return annotations;
     }
 
@@ -126,7 +127,6 @@
         qList.forEach((opt) => {
           const date = (opt && opt.date) ? String(opt.date).split(' ')[0] : null;
           if (!date) return;
-          if (labels.indexOf(date) === -1) return;
           // Raise labels ~10px compared to legacy (use yAdjust=0 vs default 10)
           annotations['q_' + qIdx] = this._lineOnDate(date, String(qIdx), AIQO.Core.AnnotationService.COLORS.query, true, false, 0);
           qIdx += 1;
@@ -171,7 +171,23 @@
         });
       }
 
+      this._staggerAnnotations(annotations);
       return annotations;
+    }
+
+    _staggerAnnotations(annotations) {
+      const STEP_PX = 22;
+      const byDate = {};
+      Object.keys(annotations).forEach((key) => {
+        const date = annotations[key].xMin;
+        if (!byDate[date]) byDate[date] = [];
+        byDate[date].push(key);
+      });
+      Object.values(byDate).forEach((keys) => {
+        keys.forEach((key, i) => {
+          annotations[key].label.yAdjust = i * STEP_PX;
+        });
+      });
     }
 
     // Create a vertical line annotation on a given date (YYYY-MM-DD)
