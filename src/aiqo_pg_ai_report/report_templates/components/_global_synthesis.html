@@ -1,5 +1,36 @@
 {% from '_macros.html' import chart_container %}
 
+<div id="summary-panel-trends" class="aiqo-section-panel aiqo-overview-scroll">
+    <h2 class="aiqo-section-panel-title">Daily cumulative time and query volume trends</h2>
+    <div class="mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-3 mb-2 small">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="toggle-global-server" checked>
+                <label class="form-check-label" for="toggle-global-server">Server Optimizations</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="toggle-global-events">
+                <label class="form-check-label" for="toggle-global-events">Events</label>
+            </div>
+        </div>
+        {{ chart_container('dailyCumulatedTimeChart') }}
+    </div>
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <div class="card card-body h-100" id="legend-server-card">
+                <h6 class="fw-bold mb-2">Server Optimizations</h6>
+                <div id="genericOptimizationLegendServer" class="small"></div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="card card-body h-100" id="legend-events-card">
+                <h6 class="fw-bold mb-2">Events</h6>
+                <div id="genericOptimizationLegendEvents" class="small"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="summary-panel-expensive-queries" class="aiqo-section-panel aiqo-overview-scroll">
     <h2 class="aiqo-section-panel-title">Most expensive queries (all periods)</h2>
     <div class="card card-body">
@@ -32,37 +63,6 @@
     <div class="alert alert-info mb-0">{{ ai.general_hints_synthesis | safe }}</div>
 </div>
 {% endif %}
-
-<div id="summary-panel-trends" class="aiqo-section-panel aiqo-overview-scroll">
-    <h2 class="aiqo-section-panel-title">Daily cumulative time and query volume trends</h2>
-    <div class="mb-3">
-        <div class="d-flex flex-wrap align-items-center gap-3 mb-2 small">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="toggle-global-server" checked>
-                <label class="form-check-label" for="toggle-global-server">Server Optimizations</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="toggle-global-events">
-                <label class="form-check-label" for="toggle-global-events">Events</label>
-            </div>
-        </div>
-        {{ chart_container('dailyCumulatedTimeChart') }}
-    </div>
-    <div class="row g-3">
-        <div class="col-12 col-md-6">
-            <div class="card card-body h-100" id="legend-server-card">
-                <h6 class="fw-bold mb-2">Server Optimizations</h6>
-                <div id="genericOptimizationLegendServer" class="small"></div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6">
-            <div class="card card-body h-100" id="legend-events-card">
-                <h6 class="fw-bold mb-2">Events</h6>
-                <div id="genericOptimizationLegendEvents" class="small"></div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
 {% include 'static/js/components/global-synthesis.js' %}
