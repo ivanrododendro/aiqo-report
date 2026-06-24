@@ -80,6 +80,24 @@
       }
       return null;
     }
+
+    findPreferredDayForQuery(queryCode) {
+      const dailyStats = this.reportData.statistics.daily_stats || {};
+      const currentDay = (
+        window.AIQO
+        && AIQO.Sidebar
+        && typeof AIQO.Sidebar.getCurrentDay === 'function'
+      ) ? AIQO.Sidebar.getCurrentDay() : null;
+
+      if (
+        currentDay
+        && (dailyStats[currentDay] && dailyStats[currentDay].queries_by_code || {})[queryCode] != null
+      ) {
+        return currentDay;
+      }
+
+      return this.findEarliestDayForQuery(queryCode);
+    }
   };
 
   // ── DateTabUpdater ────────────────────────────────────────────────────────
@@ -140,7 +158,7 @@
         row.addEventListener('click', () => {
           const code = row.getAttribute('data-query-code');
           if (!code) return;
-          const targetDay = this.tabNavigator.findEarliestDayForQuery(code);
+          const targetDay = this.tabNavigator.findPreferredDayForQuery(code);
           if (targetDay) this.tabNavigator.navigateToQuery(code, targetDay);
         });
       });
@@ -165,6 +183,7 @@
     navigateToQuery(queryCode, day)     { return this.tabNavigator.navigateToQuery(queryCode, day); }
     navigateToQueryInstance(day, index) { return this.tabNavigator.navigateToQueryInstance(day, index); }
     findEarliestDayForQuery(code)       { return this.tabNavigator.findEarliestDayForQuery(code); }
+    findPreferredDayForQuery(code)      { return this.tabNavigator.findPreferredDayForQuery(code); }
 
     setupNavigationHandlers() {
       this.eventHandler.setupAllHandlers();

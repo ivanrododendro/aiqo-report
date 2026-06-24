@@ -38,16 +38,10 @@
       // Update sidebar tree active state
       document.querySelectorAll('.aiqo-tree-day-btn').forEach((b) => {
         b.classList.toggle('active', b.dataset.day === day);
+        b.setAttribute('aria-current', b.dataset.day === day ? 'page' : 'false');
       });
 
-      // Expand parent month + year
-      const btn = document.querySelector('.aiqo-tree-day-btn[data-day="' + day + '"]');
-      if (btn) {
-        const monthEl = btn.closest('.aiqo-tree-month');
-        const yearEl  = btn.closest('.aiqo-tree-year');
-        if (monthEl) monthEl.classList.add('expanded');
-        if (yearEl)  yearEl.classList.add('expanded');
-      }
+      this._openOnlyDayBranch(day);
 
       // Update heatmap selection
       document.querySelectorAll('.aiqo-heatmap-cell.selected').forEach((c) => c.classList.remove('selected'));
@@ -165,14 +159,20 @@
       document.querySelectorAll('.aiqo-tree-year-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           const yearEl = btn.closest('.aiqo-tree-year');
-          if (yearEl) yearEl.classList.toggle('expanded');
+          if (yearEl) {
+            const isExpanded = yearEl.classList.toggle('expanded');
+            btn.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+          }
         });
       });
 
       document.querySelectorAll('.aiqo-tree-month-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           const monthEl = btn.closest('.aiqo-tree-month');
-          if (monthEl) monthEl.classList.toggle('expanded');
+          if (monthEl) {
+            const isExpanded = monthEl.classList.toggle('expanded');
+            btn.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+          }
         });
       });
 
@@ -193,14 +193,12 @@
 
       if (btnQuery) {
         btnQuery.addEventListener('click', () => {
+          const defaultDay = this._getDefaultDay();
           if (this._currentView === 'days') {
-            // Already on days — no-op (tree click will navigate)
+            if (!this._currentDay && defaultDay) this.navigateToDay(defaultDay);
           } else {
-            if (this._currentDay) {
-              this.navigateToDay(this._currentDay);
-            } else {
-              this._showView('days');
-            }
+            if (defaultDay) this.navigateToDay(defaultDay);
+            else this._showView('days');
           }
         });
       }
@@ -301,22 +299,51 @@
 
     // ── Initial activation ──────────────────────────────────────────────────
 
-    _activateInitialDay() {
+    getCurrentDay() {
+      return this._currentDay;
+    },
+
+    _getDefaultDay() {
+      if (this._currentDay) return this._currentDay;
+
       const allDays = (reportData.date_hierarchy || {}).all_days || [];
       const dailyStat = (reportData.statistics || {}).daily_stats || {};
-      // Find the most recent day that has reports
       for (let i = allDays.length - 1; i >= 0; i--) {
-        if (dailyStat[allDays[i]]) {
-          this.navigateToDay(allDays[i]);
-          return;
-        }
+        if (dailyStat[allDays[i]]) return allDays[i];
       }
-      // Fallback: show first panel we can find
+
       const firstPanel = document.querySelector('.aiqo-day-panel');
-      if (firstPanel) {
-        const day = firstPanel.dataset.day;
-        if (day) this.navigateToDay(day);
+      return firstPanel ? firstPanel.dataset.day : null;
+    },
+
+    _openOnlyDayBranch(day) {
+      document.querySelectorAll('.aiqo-tree-month.expanded, .aiqo-tree-year.expanded').forEach((el) => {
+        el.classList.remove('expanded');
+        const toggle = el.querySelector(':scope > button[aria-expanded]');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      });
+
+      const btn = document.querySelector('.aiqo-tree-day-btn[data-day="' + day + '"]');
+      if (!btn) return;
+
+      const monthEl = btn.closest('.aiqo-tree-month');
+      const yearEl  = btn.closest('.aiqo-tree-year');
+
+      if (monthEl) {
+        monthEl.classList.add('expanded');
+        const monthBtn = monthEl.querySelector(':scope > .aiqo-tree-month-btn');
+        if (monthBtn) monthBtn.setAttribute('aria-expanded', 'true');
       }
+      if (yearEl) {
+        yearEl.classList.add('expanded');
+        const yearBtn = yearEl.querySelector(':scope > .aiqo-tree-year-btn');
+        if (yearBtn) yearBtn.setAttribute('aria-expanded', 'true');
+      }
+    },
+
+    _activateInitialDay() {
+      const defaultDay = this._getDefaultDay();
+      if (defaultDay) this.navigateToDay(defaultDay);
     },
   };
 })();
