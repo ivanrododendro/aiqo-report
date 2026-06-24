@@ -55,11 +55,6 @@
             <i class="bi bi-bar-chart" aria-hidden="true"></i> Stats
         </button>
         {% endif %}
-        {% if query_optimizations_for_query %}
-        <button class="aiqo-qd-tab" data-qd-tab="opts" type="button" role="tab">
-            <i class="bi bi-lightning-charge" aria-hidden="true"></i> Opts
-        </button>
-        {% endif %}
     </div>
 
     {# ── Tab content ─────────────────────────────────────────────────────────── #}
@@ -121,6 +116,20 @@
             <div class="text-center text-muted mt-1" style="font-size: 0.625rem;">
                 Use right click on datapoints in order to compare execution plans
             </div>
+
+            {% if query_optimizations_for_query %}
+            <div class="card card-body mt-3 fade-toggle is-shown" id="under-chart-query-list-{{ app_id }}">
+                <h6 class="fw-bold mb-2">Optimizations</h6>
+                <div class="mb-0" id="opt-list-{{ app_id }}">
+                    {% for opt in query_optimizations_for_query %}
+                    <div data-opt-date="{{ opt.date }}" data-opt-text="{{ opt.text }}">
+                        (<strong>{{ loop.index }}</strong>) {{ opt.text }}
+                        <span class="badge badge-annotation-query ms-2">{{ opt.date }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
 
             {% if server_legend_all %}
             <div class="card card-body mt-3 fade-toggle is-hidden" id="under-chart-server-list-{{ app_id }}">
@@ -228,20 +237,6 @@
                     </table>
                 </div>
                 {% endif %}
-            </div>
-        </div>
-        {% endif %}
-
-        {# Opts — only rendered if query optimizations exist #}
-        {% if query_optimizations_for_query %}
-        <div class="aiqo-qd-pane" data-qd-pane="opts" id="qd-pane-opts-{{ app_id }}">
-            <div id="opt-list-{{ app_id }}">
-                {% for opt in query_optimizations_for_query %}
-                <div data-opt-date="{{ opt.date }}" data-opt-text="{{ opt.text }}">
-                    (<strong>{{ loop.index }}</strong>) {{ opt.text }}
-                    <span class="badge badge-annotation-query ms-2">{{ opt.date }}</span>
-                </div>
-                {% endfor %}
             </div>
         </div>
         {% endif %}

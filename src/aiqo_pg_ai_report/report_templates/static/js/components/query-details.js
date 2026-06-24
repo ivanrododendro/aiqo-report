@@ -1239,8 +1239,10 @@
         }
 
         // Also toggle the under-chart lists with a quick animation
+        const queryList = document.getElementById(`under-chart-query-list-${appId}`);
         const serverList = document.getElementById(`under-chart-server-list-${appId}`);
         const eventList = document.getElementById(`under-chart-event-list-${appId}`);
+        toggleSection(queryList, !!queryAnnotationToggleState.includeQuery);
         toggleSection(serverList, !!queryAnnotationToggleState.includeServer);
         toggleSection(eventList, !!queryAnnotationToggleState.includeGeneric);
       };

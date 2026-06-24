@@ -72,6 +72,80 @@ def test_standard_report_header_shows_auto_explain_log_min_duration_from_server_
     assert "Only queries exceeding this threshold are displayed in the report." in rendered
 
 
+def test_standard_query_details_show_query_optimizations_under_trend_without_opts_tab(tmp_path):
+    template_base_path = Path(__file__).resolve().parents[1] / "src" / "aiqo_pg_ai_report"
+    generator = ReportGenerator(template_base_path, debug=True)
+    report = _minimal_report()
+    output_path = tmp_path / "report.html"
+
+    generator.generate_report(
+        output_path=output_path,
+        title="PostgreSQL Auto Explain Report",
+        model=None,
+        app_version="test",
+        query_stats=[{"code": report["code"], "name": "demo query", "count": 1, "cumulated_time": 1500}],
+        reports_by_day={report["day"]: [report]},
+        daily_query_stats={
+            report["day"]: {
+                "total_queries": 1,
+                "cumulated_time": 1500,
+                "queries_by_code": {report["code"]: 1500},
+            }
+        },
+        query_optimizations={report["code"]: [{"date": "2026-04-18", "text": "Added covering index"}]},
+        server_optimizations=[],
+        event_optimizations=[],
+        ddl_context=None,
+        server_config_context=None,
+        project_context=None,
+        skip_ai_analysis=True,
+        general_hints_synthesis=None,
+    )
+
+    rendered = output_path.read_text(encoding="utf-8")
+    assert 'data-qd-tab="opts"' not in rendered
+    assert 'data-qd-pane="opts"' not in rendered
+    assert 'id="under-chart-query-list-app-2026-04-18-0"' in rendered
+    assert 'id="opt-list-app-2026-04-18-0"' in rendered
+    assert "Added covering index" in rendered
+
+
+def test_standard_query_details_hide_query_optimization_card_when_absent(tmp_path):
+    template_base_path = Path(__file__).resolve().parents[1] / "src" / "aiqo_pg_ai_report"
+    generator = ReportGenerator(template_base_path, debug=True)
+    report = _minimal_report()
+    output_path = tmp_path / "report.html"
+
+    generator.generate_report(
+        output_path=output_path,
+        title="PostgreSQL Auto Explain Report",
+        model=None,
+        app_version="test",
+        query_stats=[{"code": report["code"], "name": "demo query", "count": 1, "cumulated_time": 1500}],
+        reports_by_day={report["day"]: [report]},
+        daily_query_stats={
+            report["day"]: {
+                "total_queries": 1,
+                "cumulated_time": 1500,
+                "queries_by_code": {report["code"]: 1500},
+            }
+        },
+        query_optimizations={},
+        server_optimizations=[],
+        event_optimizations=[],
+        ddl_context=None,
+        server_config_context=None,
+        project_context=None,
+        skip_ai_analysis=True,
+        general_hints_synthesis=None,
+    )
+
+    rendered = output_path.read_text(encoding="utf-8")
+    assert 'id="under-chart-query-list-app-2026-04-18-0"' not in rendered
+    assert 'id="opt-list-app-2026-04-18-0"' not in rendered
+    assert "Added covering index" not in rendered
+
+
 def test_target_query_template_hides_selected_execution_card_and_keeps_selected_report_details():
     template_base_path = Path(__file__).resolve().parents[1] / "src" / "aiqo_pg_ai_report"
     generator = ReportGenerator(template_base_path, debug=True)
