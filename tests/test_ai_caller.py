@@ -337,6 +337,29 @@ def test_build_response_params_gemini_sets_top_k_and_omits_prompt_cache_key(monk
     assert "prompt_cache_key" not in response_params
 
 
+def test_build_response_params_anthropic_omits_deprecated_top_k(monkeypatch):
+    monkeypatch.setattr(
+        "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",
+        lambda model: {"max_input_tokens": 100, "litellm_provider": "anthropic"},
+    )
+
+    caller = AiCaller(model="claude-opus-4-7", ai_call_timeout=7, lang="en", prompts={}, debug=False)
+
+    response_params = caller._build_response_params(
+        effective_model="claude-opus-4-7",
+        provider="anthropic",
+        model_info={"litellm_provider": "anthropic"},
+        messages=[{"role": "user", "content": "prompt"}],
+        cacheable_prefix="static prompt",
+        has_static_context=True,
+        cacheable_prefix_token_count=1024,
+    )
+
+    assert response_params["model"] == "claude-opus-4-7"
+    assert response_params["request_timeout"] == 7
+    assert "top_k" not in response_params
+
+
 def test_get_effective_model_keeps_litellm_proxy_prefix(monkeypatch):
     monkeypatch.setattr(
         "aiqo_pg_ai_report.ai_caller.litellm.get_model_info",

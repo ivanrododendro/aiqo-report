@@ -56,7 +56,6 @@ class GenericProviderStrategy:
             "seed": 42,
             "drop_params": True,
         }
-        response_params["top_k"] = 1
         return response_params
 
 
@@ -175,6 +174,11 @@ class GeminiProviderStrategy(GenericProviderStrategy):
         if context.model.startswith("gemini-"):
             return "gemini/" + context.model
         return context.model
+
+    def build_response_params(self, context: ProviderStrategyContext, effective_model: str, messages):
+        response_params = super().build_response_params(context, effective_model, messages)
+        response_params["top_k"] = 1
+        return response_params
 
     def build_messages(self, context: ProviderStrategyContext):
         if not self._should_mark_cacheable_prefix(context):
