@@ -54,8 +54,11 @@ print(f"Wrote embedded version {version} to {version_file}")
 PY
 
 # LiteLLM 1.104.0 uses a structural pattern that causes Nuitka to abort while
-# scanning the package. Patch only the build environment before compilation.
-poetry run python scripts/patch_litellm_for_nuitka.py
+# scanning the package. Keep a patched copy in the writable build workspace so
+# prebuilt toolchain images do not need writable site-packages directories.
+LITELLM_PATCHED_SOURCE_DIR="${PROJECT_ROOT}/.nuitka-build/litellm-patched"
+poetry run python scripts/patch_litellm_for_nuitka.py "${LITELLM_PATCHED_SOURCE_DIR}"
+export PYTHONPATH="${LITELLM_PATCHED_SOURCE_DIR}:${PYTHONPATH}"
 
 COMMON_ARGS=(
   "--standalone"
