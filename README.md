@@ -312,9 +312,10 @@ tar -xzf dist/linux-centos6/pg_aiqo_report-linux-centos6-x86_64.tar.gz
 ./dist/linux-centos6/pg_aiqo_report-centos6/pg_aiqo_report --version
 ```
 
-Docker is required for this legacy build. The build image is pinned to a manylinux2014
-digest, while the resulting launcher explicitly uses the bundled dynamic loader. This
-keeps the application and its native Python extensions independent from the system glibc.
+Docker is required for this legacy build. The build image is pinned to a current manylinux2014
+digest, which provides the required CPython 3.11 interpreter, while the resulting launcher
+explicitly uses the bundled dynamic loader. This keeps the application and its native Python
+extensions independent from the system glibc.
 The CI smoke test verifies the CentOS 6 userspace ABI with a manylinux2010 container. A
 release intended for production must also be tested on a real CentOS 6 VM with its 2.6.32
 kernel, because current Rust-based Python extensions officially target newer kernels.

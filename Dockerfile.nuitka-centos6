@@ -1,10 +1,19 @@
-FROM quay.io/pypa/manylinux2014_x86_64@sha256:012a15a28de1377c716577f109cbc40ffa3477498e2fdb0409e3b69b852b705e
+FROM quay.io/pypa/manylinux2014_x86_64@sha256:ffd6d1f11237599748657996b750db6b3a5b724fea5a81cd9ea65add4f45b6c9 AS tooling
 
-ENV PATH="/opt/python/cp311-cp311/bin:${PATH}" \
+ENV PYTHON_BIN="/opt/python/cp311-cp311/bin/python" \
+    RUSTUP_HOME="/opt/rustup" \
+    CARGO_HOME="/opt/cargo" \
+    PATH="/opt/cargo/bin:/opt/python/cp311-cp311/bin:${PATH}" \
     POETRY_VIRTUALENVS_CREATE=false \
     POETRY_NO_INTERACTION=1
 
-RUN python -m pip install --no-cache-dir "poetry==1.7.1"
+RUN curl -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh \
+    && sh /tmp/rustup-init.sh -y --profile minimal --default-toolchain 1.94.1 \
+    && rm /tmp/rustup-init.sh
+
+RUN "$PYTHON_BIN" -m pip install --no-cache-dir "poetry==1.7.1"
+
+FROM tooling AS build
 
 WORKDIR /build
 COPY pyproject.toml poetry.lock ./
