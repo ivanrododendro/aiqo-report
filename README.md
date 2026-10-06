@@ -292,6 +292,7 @@ poetry install
 Standalone binaries are produced with the same base name on every platform:
 
 - Linux: `dist/linux/pg_aiqo_report`
+- CentOS 6 (x86-64): `dist/linux-centos6/pg_aiqo_report-linux-centos6-x86_64.tar.gz`
 - macOS (Apple Silicon): `dist/macos-silicon/pg_aiqo_report`
 - Windows: `dist/windows/pg_aiqo_report.exe`
 
@@ -301,5 +302,25 @@ Build them with:
 poetry install --with dev
 ./scripts/build_nuitka.sh <linux|macos-silicon|windows>
 ```
+
+The CentOS 6 compatible distribution is built separately because it includes an isolated
+glibc 2.17 runtime and uses Nuitka standalone mode instead of onefile mode:
+
+```bash
+bash scripts/build_nuitka_centos6.sh
+tar -xzf dist/linux-centos6/pg_aiqo_report-linux-centos6-x86_64.tar.gz
+./dist/linux-centos6/pg_aiqo_report-centos6/pg_aiqo_report --version
+```
+
+Docker is required for this legacy build. The build image is pinned to a manylinux2014
+digest, while the resulting launcher explicitly uses the bundled dynamic loader. This
+keeps the application and its native Python extensions independent from the system glibc.
+The CI smoke test verifies the CentOS 6 userspace ABI with a manylinux2010 container. A
+release intended for production must also be tested on a real CentOS 6 VM with its 2.6.32
+kernel, because current Rust-based Python extensions officially target newer kernels.
+
+GitHub Actions builds this target only when a release is published, in the same release
+matrix used for Linux, macOS, and Windows. After the smoke test, the generated tarball is
+attached directly to the release with the other platform archives.
 
 The GitHub Actions release workflow persists Nuitka caches between runs by restoring `${GITHUB_WORKSPACE}/.github-cache/nuitka/<target>` through `actions/cache`. When `ccache` is available, the build script points Nuitka to that cached compiler store automatically.

@@ -1,0 +1,13 @@
+FROM quay.io/pypa/manylinux2014_x86_64@sha256:012a15a28de1377c716577f109cbc40ffa3477498e2fdb0409e3b69b852b705e
+
+ENV PATH="/opt/python/cp311-cp311/bin:${PATH}" \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_NO_INTERACTION=1
+
+RUN python -m pip install --no-cache-dir "poetry==1.7.1"
+
+WORKDIR /build
+COPY pyproject.toml poetry.lock ./
+RUN poetry install --with dev --no-root --no-interaction
+
+WORKDIR /workspace

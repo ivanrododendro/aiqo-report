@@ -5,7 +5,7 @@ set -euo pipefail
 TARGET_OS=${1:-}
 
 if [[ -z "${TARGET_OS}" ]]; then
-  echo "Usage: $0 <linux|macos-silicon|windows>" >&2
+  echo "Usage: $0 <linux|linux-centos6|macos-silicon|windows>" >&2
   exit 1
 fi
 
@@ -54,7 +54,6 @@ print(f"Wrote embedded version {version} to {version_file}")
 PY
 
 COMMON_ARGS=(
-  "--onefile"
   "--standalone"
   "--include-package=aiqo_pg_ai_report"
   "--include-package=litellm"
@@ -73,20 +72,34 @@ mkdir -p "$TARGET_DIST_DIR"
 case "$TARGET_OS" in
   linux)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
+      --onefile \
       --output-filename="${OUTPUT_BASENAME}" "$ENTRY_POINT"
+    ;;
+  linux-centos6)
+    if [[ "$(getconf GNU_LIBC_VERSION 2>/dev/null || true)" != "glibc 2.17" ]]; then
+      echo "The linux-centos6 target must be built in the pinned manylinux2014 container." >&2
+      echo "Run scripts/build_nuitka_centos6.sh instead." >&2
+      exit 1
+    fi
+
+    poetry run python -m nuitka "${COMMON_ARGS[@]}" \
+      --output-filename="${OUTPUT_BASENAME}.bin" "$ENTRY_POINT"
+    bash scripts/package_centos6_runtime.sh "$TARGET_DIST_DIR" "${OUTPUT_BASENAME}.bin"
     ;;
   macos-silicon)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
+      --onefile \
       --macos-target-arch=arm64 \
       --output-filename="${OUTPUT_BASENAME}" "$ENTRY_POINT"
     ;;
   windows)
     poetry run python -m nuitka "${COMMON_ARGS[@]}" \
+      --onefile \
       --assume-yes-for-downloads \
       --output-filename="${OUTPUT_BASENAME}.exe" "$ENTRY_POINT"
     ;;
   *)
-    echo "Unsupported target: $TARGET_OS (use linux, macos-silicon, or windows)" >&2
+    echo "Unsupported target: $TARGET_OS (use linux, linux-centos6, macos-silicon, or windows)" >&2
     exit 1
     ;;
 esac

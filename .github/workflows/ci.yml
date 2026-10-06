@@ -96,6 +96,11 @@ jobs:
             artifact: dist/linux/pg_aiqo_report
             archive_asset: dist/linux/pg_aiqo_report-linux.tar.gz
             label: Linux Binary
+          - os: ubuntu-latest
+            target: linux-centos6
+            artifact: dist/linux-centos6/pg_aiqo_report-centos6/pg_aiqo_report
+            archive_asset: dist/linux-centos6/pg_aiqo_report-linux-centos6-x86_64.tar.gz
+            label: Linux CentOS 6 Binary
           - os: macos-latest
             target: macos-silicon
             artifact: dist/macos-silicon/pg_aiqo_report
@@ -120,7 +125,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install ccache (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.target != 'linux-centos6'
         run: |
           sudo apt-get update
           sudo apt-get install -y ccache
@@ -134,22 +139,55 @@ jobs:
         with:
           path: |
             ${{ env.NUITKA_CACHE_DIR }}
-          key: nuitka-${{ runner.os }}-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('poetry.lock', 'pyproject.toml', 'scripts/build_nuitka.sh', '.github/workflows/ci.yml') }}
+          key: nuitka-${{ runner.os }}-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('poetry.lock', 'pyproject.toml', 'Dockerfile.nuitka-centos6', 'scripts/build_nuitka*.sh', 'scripts/*centos6*.sh', '.github/workflows/ci.yml') }}
           restore-keys: |
             nuitka-${{ runner.os }}-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-
             nuitka-${{ runner.os }}-${{ matrix.target }}-
 
       - name: Install Poetry
+        if: matrix.target != 'linux-centos6'
         run: pipx install poetry
 
       - name: Install build dependencies
+        if: matrix.target != 'linux-centos6'
         run: poetry install --with dev --no-interaction
 
       - name: Build native binary
+        if: matrix.target != 'linux-centos6'
         run: bash scripts/build_nuitka.sh ${{ matrix.target }}
 
+      - name: Set up Docker Buildx
+        if: matrix.target == 'linux-centos6'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build CentOS 6 toolchain image
+        if: matrix.target == 'linux-centos6'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.nuitka-centos6
+          tags: aiqo-report-nuitka-centos6
+          load: true
+          cache-from: type=gha,scope=centos6-toolchain
+          cache-to: type=gha,mode=max,scope=centos6-toolchain
+
+      - name: Build CentOS 6 compatible binary
+        if: matrix.target == 'linux-centos6'
+        env:
+          CENTOS6_SKIP_IMAGE_BUILD: "1"
+        run: bash scripts/build_nuitka_centos6.sh
+
+      - name: Smoke test on CentOS 6 userspace
+        if: matrix.target == 'linux-centos6'
+        shell: bash
+        run: |
+          docker run --rm \
+            --volume "${{ github.workspace }}:/workspace:ro" \
+            quay.io/pypa/manylinux2010_x86_64:latest \
+            /workspace/${{ matrix.artifact }} --version
+
       - name: Prepare tar.gz release asset
-        if: matrix.target != 'windows'
+        if: matrix.target != 'windows' && matrix.target != 'linux-centos6'
         shell: bash
         run: tar -czf "${{ matrix.archive_asset }}" -C "$(dirname "${{ matrix.artifact }}")" "$(basename "${{ matrix.artifact }}")"
 

@@ -1,0 +1,10 @@
+.git
+.github-cache
+.mypy_cache
+.nuitka-cache
+.pytest_cache
+.venv
+dist
+docs/_build
+output
+**/__pycache__
