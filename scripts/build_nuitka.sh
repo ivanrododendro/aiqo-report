@@ -53,6 +53,10 @@ version_file.write_text(version, encoding="utf-8")
 print(f"Wrote embedded version {version} to {version_file}")
 PY
 
+# LiteLLM 1.104.0 uses a structural pattern that causes Nuitka to abort while
+# scanning the package. Patch only the build environment before compilation.
+poetry run python scripts/patch_litellm_for_nuitka.py
+
 COMMON_ARGS=(
   "--standalone"
   "--include-package=aiqo_pg_ai_report"
