@@ -164,7 +164,8 @@ jobs:
       - name: Smoke test native binary
         if: matrix.target != 'linux-centos6'
         shell: bash
-        run: "./${{ matrix.artifact }}" --version
+        run: |
+          "./${{ matrix.artifact }}" --version
 
       - name: Set up Docker Buildx
         if: matrix.target == 'linux-centos6'
