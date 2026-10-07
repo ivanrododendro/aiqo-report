@@ -13,6 +13,9 @@ RUN curl -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh \
 
 RUN "$PYTHON_BIN" -m pip install --no-cache-dir "poetry==1.7.1"
 
+# Nuitka requires the static libpython provided separately by the manylinux image.
+RUN cd /opt/_internal && tar xf static-libs-for-embedding-only.tar.xz
+
 FROM tooling AS build
 
 WORKDIR /build
