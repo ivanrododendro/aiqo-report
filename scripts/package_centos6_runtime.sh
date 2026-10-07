@@ -9,7 +9,7 @@ PACKAGE_DIR="$TARGET_DIST_DIR/$PACKAGE_NAME"
 APP_DIR="$PACKAGE_DIR/app"
 RUNTIME_DIR="$PACKAGE_DIR/runtime"
 
-STANDALONE_DIR="$(find "$TARGET_DIST_DIR" -maxdepth 2 -type f -name "$EXECUTABLE_NAME" -printf '%h\n' | head -n 1)"
+STANDALONE_DIR="$(find "$TARGET_DIST_DIR" -maxdepth 2 -type f -name "$EXECUTABLE_NAME" -printf '%h\n' -quit)"
 if [[ -z "$STANDALONE_DIR" ]]; then
   echo "Cannot find Nuitka standalone executable $EXECUTABLE_NAME in $TARGET_DIST_DIR." >&2
   exit 1
@@ -17,6 +17,7 @@ fi
 
 rm -rf "$PACKAGE_DIR"
 mkdir -p "$APP_DIR" "$RUNTIME_DIR"
+echo "Copying Nuitka standalone directory: $STANDALONE_DIR"
 cp -a "$STANDALONE_DIR/." "$APP_DIR/"
 
 copy_dependency() {
@@ -44,7 +45,7 @@ done
 
 # NSS modules are loaded dynamically and therefore do not appear in ldd output.
 for nss_name in libnss_files.so.2 libnss_dns.so.2 libnss_compat.so.2; do
-  nss_library="$(ldconfig -p | awk -v name="$nss_name" '$1 == name { print $NF; exit }')"
+  nss_library="$(ldconfig -p | awk -v name="$nss_name" '$1 == name && !found { print $NF; found = 1 }')"
   [[ -n "$nss_library" && -e "$nss_library" ]] && copy_dependency "$nss_library"
 done
 
