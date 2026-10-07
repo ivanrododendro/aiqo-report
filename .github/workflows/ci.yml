@@ -81,14 +81,19 @@ jobs:
             docs/target_query_report_421865.zip
 
   release-binaries:
-    name: Release ${{ matrix.label }}
+    name: Binary ${{ matrix.label }}
     needs:
       - test
       - release-sample-report
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: >-
+      ${{ always() && needs.test.result == 'success' &&
+          (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'release' && github.event.action == 'published' &&
+            needs['release-sample-report'].result == 'success')) }}
     permissions:
       contents: write
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -156,6 +161,11 @@ jobs:
         if: matrix.target != 'linux-centos6'
         run: bash scripts/build_nuitka.sh ${{ matrix.target }}
 
+      - name: Smoke test native binary
+        if: matrix.target != 'linux-centos6'
+        shell: bash
+        run: "./${{ matrix.artifact }}" --version
+
       - name: Set up Docker Buildx
         if: matrix.target == 'linux-centos6'
         uses: docker/setup-buildx-action@v3
@@ -196,7 +206,16 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path '${{ matrix.artifact }}' -DestinationPath '${{ matrix.archive_asset }}' -Force
 
+      - name: Upload verification artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pg_aiqo_report-${{ matrix.target }}
+          path: ${{ matrix.archive_asset }}
+          if-no-files-found: error
+
       - name: Upload release asset
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
