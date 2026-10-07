@@ -18,5 +18,8 @@ FROM tooling AS build
 WORKDIR /build
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --with dev --no-root --no-interaction
+COPY scripts/patch_litellm_for_nuitka.py /tmp/patch_litellm_for_nuitka.py
+RUN "$PYTHON_BIN" /tmp/patch_litellm_for_nuitka.py \
+    && "$PYTHON_BIN" /tmp/patch_litellm_for_nuitka.py --check
 
 WORKDIR /workspace
