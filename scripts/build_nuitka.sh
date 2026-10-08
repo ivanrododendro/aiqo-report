@@ -53,12 +53,12 @@ version_file.write_text(version, encoding="utf-8")
 print(f"Wrote embedded version {version} to {version_file}")
 PY
 
-# LiteLLM 1.104.0 uses a structural pattern that causes Nuitka to abort while
-# scanning the package. Keep a patched copy in the writable build workspace so
-# prebuilt toolchain images do not need writable site-packages directories.
-LITELLM_PATCHED_SOURCE_DIR="${PROJECT_ROOT}/.nuitka-build/litellm-patched"
-poetry run python scripts/patch_litellm_for_nuitka.py "${LITELLM_PATCHED_SOURCE_DIR}"
-export PYTHONPATH="${LITELLM_PATCHED_SOURCE_DIR}:${PYTHONPATH}"
+# Patch the exact installed package Nuitka scans. The CentOS image is patched
+# during its root-owned build stage; its runtime container uses an unprivileged user.
+if [[ "$TARGET_OS" != "linux-centos6" ]]; then
+  poetry run python scripts/patch_litellm_for_nuitka.py
+fi
+poetry run python scripts/patch_litellm_for_nuitka.py --check
 
 COMMON_ARGS=(
   "--standalone"

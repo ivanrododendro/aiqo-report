@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PACKAGE_DIR=${1:?Package directory is required}
-LOADER="$PACKAGE_DIR/runtime/ld-linux-x86-64.so.2"
+LOADER="$PACKAGE_DIR/app/ld-linux-x86-64.so.2"
 EXECUTABLE="$PACKAGE_DIR/app/pg_aiqo_report.bin"
 
 for required_path in "$PACKAGE_DIR/pg_aiqo_report" "$LOADER" "$EXECUTABLE" "$PACKAGE_DIR/runtime/libc.so.6"; do
