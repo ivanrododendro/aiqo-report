@@ -4,7 +4,7 @@ set -euo pipefail
 
 TARGET_DIST_DIR=${1:?Target distribution directory is required}
 EXECUTABLE_NAME=${2:?Executable name is required}
-PACKAGE_NAME="pg_aiqo_report-centos6"
+PACKAGE_NAME="pg_aiqo_report-centos6.bundle"
 PACKAGE_DIR="$TARGET_DIST_DIR/$PACKAGE_NAME"
 APP_DIR="$PACKAGE_DIR/app"
 RUNTIME_DIR="$PACKAGE_DIR/runtime"
@@ -94,6 +94,42 @@ GLIBC_LICENSE="$(find /usr/share/licenses -path '*glibc*' -name 'COPYING.LIB' -p
 rpm -q glibc > "$PACKAGE_DIR/GLIBC_VERSION.txt"
 
 bash scripts/verify_centos6_bundle.sh "$PACKAGE_DIR"
-tar -czf "$TARGET_DIST_DIR/pg_aiqo_report-linux-centos6-x86_64.tar.gz" -C "$TARGET_DIST_DIR" "$PACKAGE_NAME"
+# The app needs the bundled glibc loader on CentOS 6. Keep the verified
+# standalone bundle inside a single self-extracting executable.
+PAYLOAD="$TARGET_DIST_DIR/.pg_aiqo_report-centos6-payload.tar.gz"
+ONEFILE="$TARGET_DIST_DIR/pg_aiqo_report-centos6"
+ARCHIVE="$TARGET_DIST_DIR/pg_aiqo_report-linux-centos6-x86_64.tar.gz"
+tar -czf "$PAYLOAD" -C "$TARGET_DIST_DIR" "$PACKAGE_NAME"
 
-echo "Created $TARGET_DIST_DIR/pg_aiqo_report-linux-centos6-x86_64.tar.gz"
+cat > "$ONEFILE" <<'ONEFILE_LAUNCHER'
+#!/bin/sh
+set -eu
+
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/pg_aiqo_report.XXXXXXXX")
+child=
+cleanup() { rm -rf "$work_dir"; }
+forward_signal() {
+  if [ -n "$child" ]; then
+    kill -s "$1" "$child" 2>/dev/null || :
+  fi
+}
+trap cleanup EXIT
+trap 'forward_signal HUP' HUP
+trap 'forward_signal INT' INT
+trap 'forward_signal TERM' TERM
+
+tail -n +__PAYLOAD_LINE__ "$0" | tar -xz -C "$work_dir"
+"$work_dir/pg_aiqo_report-centos6.bundle/pg_aiqo_report" "$@" &
+child=$!
+wait "$child"
+ONEFILE_LAUNCHER
+
+payload_line=$(( $(wc -l < "$ONEFILE") + 1 ))
+sed -i "s/__PAYLOAD_LINE__/$payload_line/" "$ONEFILE"
+cat "$PAYLOAD" >> "$ONEFILE"
+chmod 0755 "$ONEFILE"
+tar -czf "$ARCHIVE" -C "$TARGET_DIST_DIR" "$(basename "$ONEFILE")"
+rm -f "$PAYLOAD"
+rm -rf "$PACKAGE_DIR"
+
+echo "Created $ONEFILE and $ARCHIVE"
