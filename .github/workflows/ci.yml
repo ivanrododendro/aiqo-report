@@ -81,15 +81,11 @@ jobs:
             docs/target_query_report_421865.zip
 
   release-binaries:
-    name: Binary ${{ matrix.label }}
+    name: Release ${{ matrix.label }}
     needs:
       - test
       - release-sample-report
-    if: >-
-      ${{ always() && needs.test.result == 'success' &&
-          (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' ||
-           (github.event_name == 'release' && github.event.action == 'published' &&
-            needs['release-sample-report'].result == 'success')) }}
+    if: github.event_name == 'release' && github.event.action == 'published'
     permissions:
       contents: write
     strategy:
@@ -103,7 +99,7 @@ jobs:
             label: Linux Binary
           - os: ubuntu-latest
             target: linux-centos6
-            artifact: dist/linux-centos6/pg_aiqo_report-centos6/pg_aiqo_report
+            artifact: dist/linux-centos6/pg_aiqo_report-centos6
             archive_asset: dist/linux-centos6/pg_aiqo_report-linux-centos6-x86_64.tar.gz
             label: Linux CentOS 6 Binary
           - os: macos-latest
@@ -206,14 +202,6 @@ jobs:
         if: matrix.target == 'windows'
         shell: pwsh
         run: Compress-Archive -Path '${{ matrix.artifact }}' -DestinationPath '${{ matrix.archive_asset }}' -Force
-
-      - name: Upload verification artifact
-        if: github.event_name != 'release'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pg_aiqo_report-${{ matrix.target }}
-          path: ${{ matrix.archive_asset }}
-          if-no-files-found: error
 
       - name: Upload release asset
         if: github.event_name == 'release'
