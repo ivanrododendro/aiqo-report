@@ -97,8 +97,7 @@ bash scripts/verify_centos6_bundle.sh "$PACKAGE_DIR"
 # The app needs the bundled glibc loader on CentOS 6. Keep the verified
 # standalone bundle inside a single self-extracting executable.
 PAYLOAD="$TARGET_DIST_DIR/.pg_aiqo_report-centos6-payload.tar.gz"
-ONEFILE="$TARGET_DIST_DIR/pg_aiqo_report-centos6"
-ARCHIVE="$TARGET_DIST_DIR/pg_aiqo_report-linux-centos6-x86_64.tar.gz"
+ONEFILE="$TARGET_DIST_DIR/pg_aiqo_report"
 tar -czf "$PAYLOAD" -C "$TARGET_DIST_DIR" "$PACKAGE_NAME"
 
 cat > "$ONEFILE" <<'ONEFILE_LAUNCHER'
@@ -129,8 +128,7 @@ payload_line=$(( $(wc -l < "$ONEFILE") + 1 ))
 sed -i "s/__PAYLOAD_LINE__/$payload_line/" "$ONEFILE"
 cat "$PAYLOAD" >> "$ONEFILE"
 chmod 0755 "$ONEFILE"
-tar -czf "$ARCHIVE" -C "$TARGET_DIST_DIR" "$(basename "$ONEFILE")"
 rm -f "$PAYLOAD"
 rm -rf "$PACKAGE_DIR"
 
-echo "Created $ONEFILE and $ARCHIVE"
+echo "Created $ONEFILE"
