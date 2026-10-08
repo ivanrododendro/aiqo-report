@@ -289,12 +289,12 @@ poetry install
 
 ## Native Binaries
 
-Standalone binaries are produced with the same base name on every platform:
+Each release provides one ZIP archive per platform. The executable inside the archive has the same base name:
 
-- Linux: `dist/linux/pg_aiqo_report`
-- CentOS 6 (x86-64): `dist/linux-centos6/pg_aiqo_report-linux-centos6-x86_64.tar.gz`
-- macOS (Apple Silicon): `dist/macos-silicon/pg_aiqo_report`
-- Windows: `dist/windows/pg_aiqo_report.exe`
+- Linux: `pg_aiqo_report-linux.zip` → `pg_aiqo_report`
+- CentOS 6 (x86-64): `pg_aiqo_report-linux-centos6-x86_64.zip` → `pg_aiqo_report`
+- macOS (Apple Silicon): `pg_aiqo_report-macos-silicon.zip` → `pg_aiqo_report`
+- Windows: `pg_aiqo_report-windows.zip` → `pg_aiqo_report.exe` (the required Windows extension)
 
 Build them with:
 
@@ -308,8 +308,7 @@ glibc 2.17 runtime and uses Nuitka standalone mode instead of onefile mode:
 
 ```bash
 bash scripts/build_nuitka_centos6.sh
-tar -xzf dist/linux-centos6/pg_aiqo_report-linux-centos6-x86_64.tar.gz
-./dist/linux-centos6/pg_aiqo_report-centos6/pg_aiqo_report --version
+./dist/linux-centos6/pg_aiqo_report --version
 ```
 
 Docker is required for this legacy build. The build image is pinned to a current manylinux2014
@@ -321,7 +320,7 @@ release intended for production must also be tested on a real CentOS 6 VM with i
 kernel, because current Rust-based Python extensions officially target newer kernels.
 
 GitHub Actions builds this target only when a release is published, in the same release
-matrix used for Linux, macOS, and Windows. After the smoke test, the generated tarball is
+matrix used for Linux, macOS, and Windows. After the smoke test, the generated ZIP archive is
 attached directly to the release with the other platform archives.
 
 The GitHub Actions release workflow persists Nuitka caches between runs by restoring `${GITHUB_WORKSPACE}/.github-cache/nuitka/<target>` through `actions/cache`. When `ccache` is available, the build script points Nuitka to that cached compiler store automatically.
