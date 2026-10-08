@@ -122,6 +122,7 @@ tail -n +__PAYLOAD_LINE__ "$0" | tar -xz -C "$work_dir"
 "$work_dir/pg_aiqo_report-centos6.bundle/pg_aiqo_report" "$@" &
 child=$!
 wait "$child"
+exit $?
 ONEFILE_LAUNCHER
 
 payload_line=$(( $(wc -l < "$ONEFILE") + 1 ))
