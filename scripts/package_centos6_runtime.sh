@@ -64,7 +64,9 @@ if [[ -z "$LOADER_PATH" ]]; then
   echo "Cannot find the glibc dynamic loader." >&2
   exit 1
 fi
-cp -L "$LOADER_PATH" "$RUNTIME_DIR/ld-linux-x86-64.so.2"
+# Nuitka resolves its standalone files relative to the invoked ELF loader.
+# Keep that loader beside the application binary and extension modules.
+cp -L "$LOADER_PATH" "$APP_DIR/ld-linux-x86-64.so.2"
 
 cat > "$PACKAGE_DIR/pg_aiqo_report" <<'LAUNCHER'
 #!/bin/sh
@@ -73,7 +75,7 @@ set -eu
 APP_HOME=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 LIBRARY_PATH="$APP_HOME/runtime:$APP_HOME/app"
 
-exec "$APP_HOME/runtime/ld-linux-x86-64.so.2" \
+exec "$APP_HOME/app/ld-linux-x86-64.so.2" \
   --library-path "$LIBRARY_PATH" \
   "$APP_HOME/app/pg_aiqo_report.bin" "$@"
 LAUNCHER
