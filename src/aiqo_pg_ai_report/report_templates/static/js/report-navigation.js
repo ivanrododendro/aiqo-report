@@ -10,9 +10,9 @@
       this.reportData = reportData;
     }
 
-    navigateToDay(day) {
+    navigateToDay(day, initialQueryIndex = 0) {
       if (window.AIQO && AIQO.Sidebar && typeof AIQO.Sidebar.navigateToDay === 'function') {
-        AIQO.Sidebar.navigateToDay(day);
+        AIQO.Sidebar.navigateToDay(day, initialQueryIndex);
         return true;
       }
       return false;
@@ -49,25 +49,13 @@
     }
 
     navigateToQuery(queryCode, day) {
-      this.navigateToDay(day);
-      setTimeout(() => {
-        const reports = (this.reportData.reports.by_day[day] || []);
-        const idx = reports.findIndex((r) => r.code === queryCode);
-        if (idx >= 0) {
-          const safeDay = ReportUtils.dateToSafeId(day);
-          const panel   = document.getElementById('day-panel-' + safeDay);
-          if (panel) AIQO.Components.Tabs._activateQueryByIndex(panel, idx);
-        }
-      }, 350);
+      const reports = this.reportData.reports.by_day[day] || [];
+      const index = reports.findIndex((report) => report.code === queryCode);
+      return this.navigateToDay(day, index >= 0 ? index : 0);
     }
 
     navigateToQueryInstance(day, index) {
-      this.navigateToDay(day);
-      setTimeout(() => {
-        const safeDay = ReportUtils.dateToSafeId(day);
-        const panel   = document.getElementById('day-panel-' + safeDay);
-        if (panel) AIQO.Components.Tabs._activateQueryByIndex(panel, index);
-      }, 350);
+      return this.navigateToDay(day, index);
     }
 
     findEarliestDayForQuery(queryCode) {
