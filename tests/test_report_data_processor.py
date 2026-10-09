@@ -393,5 +393,5 @@ def test_prepare_report_context_adds_query_date_range_and_count():
         general_hints_synthesis=None,
     )
 
-    assert context["metadata"]["query_date_range"] == "2025-11-25 23:55:00 → 2025-11-26 10:05:00"
+    assert context["metadata"]["query_date_range"] == "2025-11-25 → 2025-11-26"
     assert context["metadata"]["query_count"] == 2
