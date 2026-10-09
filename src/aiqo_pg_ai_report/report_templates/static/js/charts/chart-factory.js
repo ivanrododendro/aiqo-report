@@ -293,7 +293,9 @@
     };
 
     return {
-      labels: executions.map((e) => e.timestamp.split(' ')[0]),
+      // Keep local wall-clock time, stripping PostgreSQL timezone abbreviations
+      // that the chart date adapter cannot parse (for example CES/CEST).
+      labels: executions.map((e) => e.timestamp.replace(' ', 'T').replace(/^(\d{4}-\d{2}-\d{2}T[\d:.]+).*$/, '$1')),
       durations: executions.map((e) => (e.duration !== null ? e.duration / 3600000 : null)),
       costs: executions.map((e) => ReportUtils.parseCostValue(e.cost)),
       rows: executions.map((e) => ReportUtils.parseRowsValue(e.rows)),
@@ -516,7 +518,7 @@
           type: 'time',
           time: {
             unit: 'day',
-            tooltipFormat: 'yyyy-LL-dd',
+            tooltipFormat: 'yyyy-LL-dd HH:mm:ss',
             displayFormats: { day: 'yyyy-LL-dd' }
           },
           title: { display: true, text: 'Timestamp' },
