@@ -45,7 +45,7 @@
     return this.charts.dailyCumulatedTime;
   }
 
-  renderQueryExecutionChart(canvasId, queryCode, allExecutions, selectedDay) {
+  renderQueryExecutionChart(canvasId, queryCode, allExecutions, selectedDay, selectedIndex) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) {
       console.warn(`Query chart canvas not found: ${canvasId}`);
@@ -58,6 +58,7 @@
       queryCode,
       allExecutions,
       selectedDay,
+      selectedIndex,
       this.queryDatasetVisibilityState,
       (visibilityState) => {
         this.queryDatasetVisibilityState = Object.assign({}, visibilityState);
