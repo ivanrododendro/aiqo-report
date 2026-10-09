@@ -31,6 +31,14 @@
 
     {% if metadata.execution_options %}
     <div class="aiqo-sidebar-exec-options">
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">Date range</span>
+            <span class="aiqo-exec-value">{{ metadata.query_date_range }}</span>
+        </div>
+        <div class="aiqo-sidebar-exec-option">
+            <span class="aiqo-exec-label">Queries</span>
+            <span class="aiqo-exec-value">{{ metadata.query_count }}</span>
+        </div>
         {% for label, value in metadata.execution_options %}
         <div class="aiqo-sidebar-exec-option">
             <span class="aiqo-exec-label">{{ label }}</span>
