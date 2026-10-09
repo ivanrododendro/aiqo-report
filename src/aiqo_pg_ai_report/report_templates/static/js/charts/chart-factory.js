@@ -320,10 +320,10 @@
   }
 
   _createQueryChartData(processedData, visibilityState, selectedPointIndex) {
-    const selectedPointStyle = (radius) => ({
+    const selectedPointStyle = (radius, color) => ({
       pointRadius: (context) => context.dataIndex === selectedPointIndex ? radius + 4 : radius,
-      pointBackgroundColor: (context) => context.dataIndex === selectedPointIndex ? '#2563eb' : undefined,
-      pointBorderColor: (context) => context.dataIndex === selectedPointIndex ? '#ffffff' : undefined,
+      pointBackgroundColor: (context) => context.dataIndex === selectedPointIndex ? '#2563eb' : color,
+      pointBorderColor: (context) => context.dataIndex === selectedPointIndex ? '#ffffff' : color,
       pointBorderWidth: (context) => context.dataIndex === selectedPointIndex ? 3 : 1,
     });
     const datasets = [
@@ -338,7 +338,7 @@
         fill: false,
         tension: 0.1,
         spanGaps: true,
-        ...selectedPointStyle(3),
+        ...selectedPointStyle(3, '#000000'),
         yAxisID: 'y',
       },
       {
