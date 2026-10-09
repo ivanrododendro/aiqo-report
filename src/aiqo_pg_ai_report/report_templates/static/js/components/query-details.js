@@ -1129,7 +1129,7 @@
     return list;
   }
 
-  function renderQueryChart(appId, day, report) {
+  function renderQueryChart(appId, day, index, report) {
     const chartId = `execTimeChart-${appId}`;
     if (window.reportChartManager) {
       window.reportChartManager.destroyChart(chartId);
@@ -1140,7 +1140,8 @@
           chartId,
           report.code,
           allExecutions,
-          day
+          day,
+          index
         )
       : null;
     const canvas = document.getElementById(chartId);
@@ -1286,7 +1287,7 @@
       // Tear down any previous Pev2 instance so it re-renders fresh for this query
       teardownPev2(document.getElementById(appId));
       // Render chart eagerly so annotation handlers are wired; chart resizes on tab show
-      renderQueryChart(appId, day, report);
+      renderQueryChart(appId, day, index, report);
       // Activate last-used tab (falls back to 'plan' if not present on this query)
       activateDetailTab(appId, queryDetailTabState.activeTab);
     };

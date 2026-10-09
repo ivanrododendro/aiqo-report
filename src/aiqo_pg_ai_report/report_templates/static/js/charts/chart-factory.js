@@ -153,15 +153,18 @@
     return { min: dates[0], max: dates[dates.length - 1] };
   }
 
-  createQueryExecutionChart(ctx, canvasId, queryCode, allExecutions, selectedDay, visibilityState, onVisibilityChange) {
+  createQueryExecutionChart(ctx, canvasId, queryCode, allExecutions, selectedDay, selectedIndex, visibilityState, onVisibilityChange) {
     try {
       const validExecutions = AIQO.Core.DataValidator.validateExecutionData(allExecutions);
+      const selectedPointIndex = validExecutions.findIndex(
+        (execution) => execution.day === selectedDay && execution.targetIndex === selectedIndex
+      );
       const processedData = this._processExecutionData(validExecutions);
       const annotations = this.annotationService.buildQueryAnnotations(queryCode, processedData.labels, selectedDay);
       const xBounds = this._computeXBounds(processedData.labels, annotations);
       const chart = new Chart(ctx, {
         type: 'line',
-        data: this._createQueryChartData(processedData, visibilityState),
+        data: this._createQueryChartData(processedData, visibilityState, selectedPointIndex),
         options: this._createQueryChartOptions(selectedDay, annotations, onVisibilityChange, xBounds),
       });
       this._applyAxisState(chart);
@@ -316,7 +319,13 @@
     };
   }
 
-  _createQueryChartData(processedData, visibilityState) {
+  _createQueryChartData(processedData, visibilityState, selectedPointIndex) {
+    const selectedPointStyle = (radius, color) => ({
+      pointRadius: (context) => context.dataIndex === selectedPointIndex ? radius + 4 : radius,
+      pointBackgroundColor: (context) => context.dataIndex === selectedPointIndex ? '#2563eb' : color,
+      pointBorderColor: (context) => context.dataIndex === selectedPointIndex ? '#ffffff' : color,
+      pointBorderWidth: (context) => context.dataIndex === selectedPointIndex ? 3 : 1,
+    });
     const datasets = [
       {
         label: 'Execution Time (hours)',
@@ -329,7 +338,7 @@
         fill: false,
         tension: 0.1,
         spanGaps: true,
-        pointRadius: 3,
+        ...selectedPointStyle(3, '#000000'),
         yAxisID: 'y',
       },
       {

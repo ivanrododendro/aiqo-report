@@ -19,7 +19,7 @@
 
     // ── Public navigation API ───────────────────────────────────────────────
 
-    navigateToDay(day) {
+    navigateToDay(day, initialQueryIndex = 0) {
       if (!day) return;
 
       // Hide all day panels
@@ -56,9 +56,14 @@
         AIQO.Components.DayTimeline.initForDay(day);
       }
 
-      // Init query details (PEV2, charts) for the first visible query pane
-      if (AIQO.Components.QueryDetails) {
-        AIQO.Components.QueryDetails.initForQuery(safeDay, 0);
+      // Activate the requested query once, avoiding an intermediate render of the first query.
+      const queryIndex = Number.isInteger(initialQueryIndex) && initialQueryIndex >= 0
+        ? initialQueryIndex
+        : 0;
+      if (AIQO.Components.Tabs) {
+        AIQO.Components.Tabs._activateQueryByIndex(panel, queryIndex);
+      } else if (AIQO.Components.QueryDetails) {
+        AIQO.Components.QueryDetails.initForQuery(safeDay, queryIndex);
       }
 
       // Update day statistics chips

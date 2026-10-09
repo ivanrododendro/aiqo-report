@@ -169,6 +169,14 @@ class ReportDataProcessor:
 
         # Convert daily_query_stats to serializable format
         serializable_daily_stats = self._make_daily_stats_serializable(daily_query_stats)
+        query_dates = sorted(
+            str(report["query_timestamp"])[:10]
+            for reports in enhanced_reports_by_day.values()
+            for report in reports
+            if report.get("query_timestamp")
+        )
+        query_date_range = f"{query_dates[0]} → {query_dates[-1]}" if query_dates else "N/A"
+        query_count = sum(len(reports) for reports in enhanced_reports_by_day.values())
 
         context = {
             "metadata": {
@@ -178,6 +186,8 @@ class ReportDataProcessor:
                 "skip_ai_analysis": skip_ai_analysis,
                 "version": app_version,
                 "query_name_limit": self.query_name_limit,
+                "query_date_range": query_date_range,
+                "query_count": query_count,
                 "auto_explain_log_min_duration": self.extract_auto_explain_log_min_duration(server_config_context),
                 "execution_options": execution_options or [],
             },
