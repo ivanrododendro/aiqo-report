@@ -1096,17 +1096,9 @@
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
   }
 
-  function buildAllExecutionsForCode(currentReport, currentDay) {
+  function buildAllExecutionsForCode(currentReport) {
     const allDays = (window.reportData && reportData.charts && reportData.charts.all_dates) || [];
     const byDay = (window.reportData && reportData.reports && reportData.reports.by_day) || {};
-    const currentDayReports = Array.isArray(byDay[currentDay]) ? byDay[currentDay] : [];
-    const currentDayMatches = currentDayReports
-      .map((report, index) => ({ report, index }))
-      .filter(({ report }) => report && report.code === currentReport.code);
-    const currentOccurrenceIndex = Math.max(
-      currentDayMatches.findIndex(({ report }) => report === currentReport),
-      0
-    );
     const list = [];
 
     allDays.forEach((d) => {
@@ -1114,10 +1106,7 @@
       const matches = reps
         .map((report, index) => ({ report, index }))
         .filter(({ report }) => report && report.code === currentReport.code);
-      const matchedExecution = matches[currentOccurrenceIndex] || matches[0] || null;
-
-      if (matchedExecution) {
-        const { report, index } = matchedExecution;
+      matches.forEach(({ report, index }) => {
         list.push({
           day: d,
           targetIndex: index,
@@ -1130,21 +1119,13 @@
           total_io_bytes: report.total_io_bytes ?? null,
           wal: report.wal ?? null,
         });
-      } else {
-        list.push({
-          day: d,
-          targetIndex: null,
-          timestamp: d,
-          duration: null,
-          cost: null,
-          rows: null,
-          buffers: null,
-          buffers_bytes: null,
-          total_io_bytes: null,
-          wal: null,
-        });
+      });
+      if (!matches.length) {
+        list.push({ day: d, targetIndex: null, timestamp: d, duration: null });
       }
     });
+    // Keep point indices aligned with navigation and plan comparison targets.
+    list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     return list;
   }
 
@@ -1153,7 +1134,7 @@
     if (window.reportChartManager) {
       window.reportChartManager.destroyChart(chartId);
     }
-    const allExecutions = buildAllExecutionsForCode(report, day);
+    const allExecutions = buildAllExecutionsForCode(report);
     const chart = window.reportChartManager
       ? window.reportChartManager.renderQueryExecutionChart(
           chartId,
