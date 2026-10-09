@@ -349,3 +349,49 @@ Settings:
     assert comparison["tree"]["current_label"] == "Hash Join"
     assert comparison["tree"]["semantic_annotation"] == "changed, was Nested Loop"
     assert comparison["tree"]["changes"] == ["Node type changed from Nested Loop to Hash Join."]
+
+
+def test_prepare_report_context_adds_query_date_range_and_count():
+    processor = ReportDataProcessor()
+    reports = [
+        {
+            "code": "Q_EARLY",
+            "title": "Early query",
+            "query_timestamp": "2025-11-25 23:55:00",
+            "duration": 1_000,
+            "ai_hints": "",
+            "buffers": None,
+            "wal": None,
+        },
+        {
+            "code": "Q_LATE",
+            "title": "Late query",
+            "query_timestamp": "2025-11-26 10:05:00",
+            "duration": 2_000,
+            "ai_hints": "",
+            "buffers": None,
+            "wal": None,
+        },
+    ]
+    for report in reports:
+        processor.update_statistics(report)
+
+    context = processor.prepare_report_context(
+        title="Test report",
+        model=None,
+        app_version="1.0.0",
+        query_stats=processor.get_query_stats_list(),
+        reports_by_day=processor.reports_by_day,
+        daily_query_stats=processor.daily_query_stats,
+        query_optimizations={},
+        server_optimizations={},
+        event_optimizations={},
+        ddl_context=None,
+        server_config_context=None,
+        project_context=None,
+        skip_ai_analysis=True,
+        general_hints_synthesis=None,
+    )
+
+    assert context["metadata"]["query_date_range"] == "2025-11-25 23:55:00 → 2025-11-26 10:05:00"
+    assert context["metadata"]["query_count"] == 2
